@@ -1,0 +1,84 @@
+[package]
+name = "little-squeaky-machine"
+version = "0.1.0"
+authors = ["Daniel van Gils <daniel@kamerblauwlicht.nl>"]
+edition = "2021"
+resolver = "2"
+rust-version = "1.71"
+
+
+[package.metadata.espflash]
+partition_table = "partitions.csv"
+
+
+[profile.release]
+opt-level = 2
+lto = "off"
+
+[profile.dev]
+debug = true  # Symbols are nice and they don't increase the size on Flash
+opt-level = 3
+
+[dependencies]
+esp32-hal = { version = "0.18.0", features = [
+    "embassy",
+    "embassy-executor-thread",
+    "embassy-executor-interrupt",
+    "embassy-time-timg0",
+    "async",
+] }
+esp-println = { version = "0.12.0", features = ["esp32", "uart", "log"] }
+esp-backtrace = { version = "0.14.2", features = [
+    "esp32",
+    "panic-handler",
+    "println",
+] }
+little_weirdo = { path = "../little-weirdo" }
+debouncr = "0.2.2"
+static_cell = { version = "2.0.0", features = ["nightly"] }
+esp-wifi = { version = "0.11.0", features = [
+    "esp32",
+    "wifi",
+   "embassy-net",
+] }
+critical-section = "1.1.2"
+embassy-executor = { version = "0.6.3", features = ["nightly"] }
+embassy-sync = "0.6.1"
+embassy-time = { version = "0.3.0" }
+esp-hal-common = "0.15.0"
+embedded-svc = { version = "0.28.0", default-features = false, features = [] }
+embedded-io = "0.6.1"
+
+#embedded-io-async = "0.6.0"
+
+embassy-net-driver = "0.2.0"
+smoltcp = { version = "0.11.0", default-features = false, features = [
+    "proto-ipv4",
+    "socket-tcp",
+    "proto-dhcpv4",
+    "socket-dhcpv4",
+] }
+heapless = { version = "0.8.0", default-features = false }
+
+esp-storage = { version = "0.4.0", default-features = false, features = [
+    "storage",
+    "esp32",
+] }
+embedded-storage = "0.3.0"
+embassy-net = { version = "0.4.0", features = [
+    "udp",
+    "dhcpv4",
+    "dhcpv4-hostname",
+] }
+ssd1306 = "0.9.0"
+embedded-graphics = "0.8.1"
+
+[features]
+default = ["esp32-hal/xtal-40mhz"]
+
+[profile.dev.package.esp-wifi]
+opt-level = 3
+
+
+[[example]]
+name = "synth_benchmark"

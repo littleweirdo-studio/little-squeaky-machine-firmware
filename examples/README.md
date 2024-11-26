@@ -1,0 +1,1 @@
+$ convert picofont_4x6.png --depth 8 gray:picofont_4x6.raw
