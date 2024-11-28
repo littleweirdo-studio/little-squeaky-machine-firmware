@@ -6,8 +6,11 @@ ESP_LOG="info"
 
 [build]
 rustflags = [
+  "-C", "link-arg=-Tlinkall.x",
+
   "-C", "link-arg=-nostartfiles",
 ]
+
 
 target = "xtensa-esp32-none-elf"
 
