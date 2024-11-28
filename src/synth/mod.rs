@@ -103,7 +103,9 @@ pub async fn synth_task(
                         MidiMessage::NoteOn(channel, note) => {
                             synth.note_on(0x00, note.key, note.value)
                         }
-                        MidiMessage::NoteOff(channel, note) => synth.note_off(0x00, note.key),
+                        MidiMessage::NoteOff(channel, note) => {
+                            synth.note_off(0x00, note.key)
+                        } ,
                         _ => {}
                     },
                     Err(_) => {}
