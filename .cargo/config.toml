@@ -1,16 +1,15 @@
 [target.xtensa-esp32-none-elf]
-runner = "espflash flash --partition-table=partitions.csv --monitor"
+runner = "espflash flash --monitor"
 
 [env]
-ESP_LOGLEVEL="INFO"
+ESP_LOG="info"
 
 [build]
 rustflags = [
   "-C", "link-arg=-nostartfiles",
-  "-C", "link-arg=-Wl,-Tlinkall.x",
-  "-C", "link-arg=-Trom_functions.x",
 ]
+
 target = "xtensa-esp32-none-elf"
 
 [unstable]
-build-std = ["core"]
+build-std = ["alloc", "core"]

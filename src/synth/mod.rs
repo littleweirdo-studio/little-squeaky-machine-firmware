@@ -90,7 +90,7 @@ pub async fn synth_task(
         mono: true,
     };
 
-    let mut synth: synth::Synth = synth::Synth::new(22050, patch);
+    let mut synth: synth::Synth = synth::Synth::new(22500, patch);
     let mut filler = [0u8; 50];
     loop {
         let avail = transfer.available();
