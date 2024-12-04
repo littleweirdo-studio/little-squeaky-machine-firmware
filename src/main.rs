@@ -2,16 +2,11 @@
 #![no_main]
 
 use embassy_executor::Spawner;
-use embassy_sync::{
-    blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel as Chn, signal::Signal,
-};
 use embassy_time::{Duration, Timer};
 use esp_backtrace as _;
 use esp_hal::{
-    analog::dac::Dac,
-    delay::Delay,
     dma::{Dma, DmaPriority},
-    dma_buffers, dma_circular_buffers,
+    dma_circular_buffers,
     i2s::master::{DataFormat, I2s, Standard},
     peripherals::{self, Peripherals},
     prelude::*,
@@ -19,9 +14,17 @@ use esp_hal::{
     timer::timg::TimerGroup,
 };
 
+use little_weirdo::synth;
+use little_weirdo::synth::patch::Patch;
+
 #[embassy_executor::task]
 pub async fn synth_task() {
-    let (_, rx_descriptors, tx_buffer, tx_descriptors) = dma_circular_buffers!(0, 128);
+    const SAMPLE_RATE: u32 = 22050;
+    const BUFFER_SIZE: usize = 4 * 110;
+       
+    let mut synth: synth::Synth = synth::Synth::new(SAMPLE_RATE as u16, Patch::default());
+
+    let (_, rx_descriptors, tx_buffer, tx_descriptors) = dma_circular_buffers!(0, BUFFER_SIZE * 2);
 
     unsafe {
         let peripherals: Peripherals = Peripherals::steal();
@@ -32,7 +35,7 @@ pub async fn synth_task() {
             peripherals.I2S0,
             Standard::Philips,
             DataFormat::Data16Channel16,
-            22050.Hz(),
+            SAMPLE_RATE.Hz(),
             dma_channel.configure(false, DmaPriority::Priority0),
             rx_descriptors,
             tx_descriptors,
@@ -45,10 +48,28 @@ pub async fn synth_task() {
             .with_dout(peripherals.GPIO15)
             .build();
 
+        //wait 1 seconds
+        Timer::after(Duration::from_secs(1)).await;
+        // play one note
+        synth.note_on(0, 60, 100);
+       
+        /// Double buffering (110 samples ~  5ms latency), not realtime, need revisioning. 
         let mut transfer = i2s_tx.write_dma_circular(tx_buffer).unwrap();
+        let mut buffer = [0u8; BUFFER_SIZE];
         loop {
-            Timer::after(Duration::from_millis(100)).await;
-            esp_println::println!("{:?}", transfer.available());
+            let space_available_in_buffer= transfer.available().unwrap();
+            if space_available_in_buffer > 0 {
+                let avail = usize::min(BUFFER_SIZE, space_available_in_buffer);
+                for i in 0..(avail / 4) {
+                    let output: i16 = synth.clock_and_output();
+                    let bytes = output.to_be_bytes();
+                    buffer[i * 4] = bytes[1];
+                    buffer[i * 4 + 1] = bytes[0];
+                    buffer[i * 4 + 2] = bytes[1];
+                    buffer[i * 4 + 3] = bytes[0];
+                }
+                transfer.push(&buffer[0..avail]).unwrap();
+            };
         }
     }
 }
