@@ -46,7 +46,7 @@ pub async fn synth_task() {
     );
 
     let mut synth: synth::Synth =
-        synth::Synth::new(SAMPLE_RATE as u16, Patches::get_patch(Patches::WeirdScience));
+        synth::Synth::new(SAMPLE_RATE as u16, Patches::get_patch(Patches::EletricPiano));
     let (_, rx_descriptors, tx_buffer, tx_descriptors) = dma_circular_buffers!(0, BUFFER_SIZE);
 
     unsafe {
@@ -85,6 +85,20 @@ pub async fn synth_task() {
                     }
                     MidiMessage::NoteOff(channel, note) => {
                         synth.note_off(0x00, note.key)
+                    }
+                    MidiMessage::ProgramChange(channel, program) => {
+                  
+                        match program {
+                            1 => {
+                                synth.filter.filter_on = true;
+                                synth.overdrive_active = true;
+                            }
+                            2 => {
+                                synth.filter.filter_on = false;
+                                synth.overdrive_active = false;
+                            }
+                            _ => {}
+                        }
                     }
                     _ => {}
                 },
@@ -155,6 +169,7 @@ async fn intro_text() {
         }
         if _touch_val_2 > 250 && active_change {
             active_change = false;
+            SHARED.signal(MidiMessage::ProgramChange(Channel::from(0), 2));
         }
     }
 }
