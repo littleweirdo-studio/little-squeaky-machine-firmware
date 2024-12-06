@@ -1,9 +1,17 @@
 #![no_std]
 #![no_main]
 
+use core::result;
+
 use embassy_executor::Spawner;
+use embassy_sync::{
+    blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex},
+    channel::Channel,
+    signal::{self, Signal},
+};
 use embassy_time::{Duration, Timer};
 use esp_backtrace as _;
+use esp_hal::touch::{Touch, TouchPad};
 use esp_hal::{
     dma::{Dma, DmaPriority},
     dma_circular_buffers,
@@ -11,20 +19,24 @@ use esp_hal::{
     peripherals::{self, Peripherals},
     prelude::*,
     rng::Rng,
-    timer::timg::TimerGroup,
+    timer::{timg::TimerGroup, AnyTimer},
 };
 
-use little_weirdo::synth;
 use little_weirdo::synth::patch::Patch;
+use little_weirdo::synth::{self, patches::Patches};
+
+static SHARED: Signal<CriticalSectionRawMutex, bool> = Signal::new();
 
 #[embassy_executor::task]
 pub async fn synth_task() {
     const SAMPLE_RATE: u32 = 22050;
-    const BUFFER_SIZE: usize = 4 * 110;
-       
-    let mut synth: synth::Synth = synth::Synth::new(SAMPLE_RATE as u16, Patch::default());
+    const BUFFER_SIZE: usize = 4 * 1100;
 
-    let (_, rx_descriptors, tx_buffer, tx_descriptors) = dma_circular_buffers!(0, BUFFER_SIZE * 2);
+    let mut synth: synth::Synth = synth::Synth::new(
+        SAMPLE_RATE as u16,
+        Patches::get_patch(Patches::EletricPiano),
+    );
+    let (_, rx_descriptors, tx_buffer, tx_descriptors) = dma_circular_buffers!(0, BUFFER_SIZE);
 
     unsafe {
         let peripherals: Peripherals = Peripherals::steal();
@@ -43,54 +55,85 @@ pub async fn synth_task() {
 
         let mut i2s_tx = i2s
             .i2s_tx
-            .with_bclk(peripherals.GPIO16)
-            .with_ws(peripherals.GPIO17)
-            .with_dout(peripherals.GPIO15)
+            .with_bclk(peripherals.GPIO27)
+            .with_ws(peripherals.GPIO33)
+            .with_dout(peripherals.GPIO32)
             .build();
 
-        //wait 1 seconds
-        Timer::after(Duration::from_secs(1)).await;
-        // play one note
-        synth.note_on(0, 60, 100);
-       
-        /// Double buffering (110 samples ~  5ms latency), not realtime, need revisioning. 
         let mut transfer = i2s_tx.write_dma_circular(tx_buffer).unwrap();
         let mut buffer = [0u8; BUFFER_SIZE];
         loop {
-            let space_available_in_buffer= transfer.available().unwrap();
-            if space_available_in_buffer > 0 {
-                let avail = usize::min(BUFFER_SIZE, space_available_in_buffer);
-                for i in 0..(avail / 4) {
-                    let output: i16 = synth.clock_and_output();
-                    let bytes = output.to_be_bytes();
-                    buffer[i * 4] = bytes[1];
-                    buffer[i * 4 + 1] = bytes[0];
-                    buffer[i * 4 + 2] = bytes[1];
-                    buffer[i * 4 + 3] = bytes[0];
+            Timer::after(Duration::from_nanos(1)).await;
+            let signal = SHARED.try_take();
+            match signal {
+                Some(activate) => {
+                    if activate {
+                        synth.note_on(0, 40, 100);
+                    } else {
+                        synth.note_off(0, 40);
+                    }
                 }
-                transfer.push(&buffer[0..avail]).unwrap();
-            };
+                None => {}
+            }
+            match transfer.available() {
+                Ok(num_bytes) => {
+                    let avail = usize::min(BUFFER_SIZE, num_bytes);
+                    for i in 0..(avail / 4) {
+                        let output: i16 = synth.clock_and_output();
+                        let bytes = output.to_be_bytes();
+                        buffer[i * 4] = bytes[1];
+                        buffer[i * 4 + 1] = bytes[0];
+                        buffer[i * 4 + 2] = bytes[1];
+                        buffer[i * 4 + 3] = bytes[0];
+                    }
+                    transfer.push(&buffer[0..avail]).unwrap();
+                }
+                Err(error) => {
+                    // Handle error (e.g., log it or take corrective action)
+                    esp_println::println!("Error: {:?}", error);
+                }
+            }
         }
     }
 }
 
 #[embassy_executor::task]
 async fn intro_text() {
-    esp_println::println!("-:=  Little Squeaky Machine V1.0  =:-");
+    esp_println::println!("-:=  Little Squeaky Machine V1.1  =:-");
     esp_println::println!("-:=     (Little Weirdo Engine)    =:-");
+
+    let mut active: bool = false;
+
+    unsafe {
+        let peripherals: Peripherals = Peripherals::steal();
+        let touch_pin0 = peripherals.GPIO13;
+        let touch = Touch::continuous_mode(peripherals.TOUCH, None);
+        let mut touchpad = TouchPad::new(touch_pin0, &touch);
+
+        loop {
+            Timer::after(Duration::from_millis(10)).await;
+            let touch_val = touchpad.read();
+            if touch_val < 100 && !active {
+                SHARED.signal(true);
+                active = true
+            }
+
+            if touch_val > 200 && active {
+                SHARED.signal(false);
+                active = false;
+            }
+        }
+    }
 }
 
 #[esp_hal_embassy::main]
 async fn main(spawner: Spawner) {
-    esp_println::println!("-:=                               =:-");
     let peripherals = esp_hal::init(esp_hal::Config::default());
-    let mut rng = Rng::new(peripherals.RNG);
-    esp_println::println!("-:= random :: {:?}", rng.random());
-    let timg0 = TimerGroup::new(peripherals.TIMG0);
-    esp_hal_embassy::init(timg0.timer0);
+    let timer_group_0 = TimerGroup::new(peripherals.TIMG0);
+    let timer: AnyTimer = timer_group_0.timer0.into();
+    //
+    esp_hal_embassy::init(timer);
+    //
     spawner.spawn(intro_text()).ok();
     spawner.spawn(synth_task()).ok();
-    loop {
-        Timer::after(Duration::from_millis(100)).await;
-    }
 }
