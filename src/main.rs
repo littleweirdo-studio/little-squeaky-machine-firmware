@@ -1,40 +1,47 @@
 #![no_std]
 #![no_main]
 
-use core::result;
+use core::ptr::addr_of_mut;
 
 use embassy_executor::Spawner;
 use embassy_sync::{
-    blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex},
-    channel::Channel,
-    signal::{self, Signal},
+    blocking_mutex::raw::CriticalSectionRawMutex,
+    signal::Signal,
 };
 use embassy_time::{Duration, Timer};
 use esp_backtrace as _;
+use esp_hal::cpu_control::{CpuControl, Stack};
 use esp_hal::touch::{Touch, TouchPad};
+use esp_hal::Cpu;
 use esp_hal::{
     dma::{Dma, DmaPriority},
     dma_circular_buffers,
     i2s::master::{DataFormat, I2s, Standard},
-    peripherals::{self, Peripherals},
+    peripherals::Peripherals,
     prelude::*,
-    rng::Rng,
     timer::{timg::TimerGroup, AnyTimer},
 };
 
-use little_weirdo::synth::patch::Patch;
+use esp_hal_embassy::Executor;
 use little_weirdo::synth::{self, patches::Patches};
-
 static SHARED: Signal<CriticalSectionRawMutex, bool> = Signal::new();
+
+static mut APP_CORE_STACK: Stack<32000> = Stack::new();
+use static_cell::StaticCell;
 
 #[embassy_executor::task]
 pub async fn synth_task() {
     const SAMPLE_RATE: u32 = 22050;
     const BUFFER_SIZE: usize = 4 * 1100;
 
+    esp_println::println!(
+        "Starting synth_task() on core {}",
+        Cpu::current() as usize
+    );
+
     let mut synth: synth::Synth = synth::Synth::new(
         SAMPLE_RATE as u16,
-        Patches::get_patch(Patches::EletricPiano),
+        Patches::get_patch(Patches::BassGuitar),
     );
     let (_, rx_descriptors, tx_buffer, tx_descriptors) = dma_circular_buffers!(0, BUFFER_SIZE);
 
@@ -99,13 +106,19 @@ pub async fn synth_task() {
 
 #[embassy_executor::task]
 async fn intro_text() {
-    esp_println::println!("-:=  Little Squeaky Machine V1.1  =:-");
-    esp_println::println!("-:=     (Little Weirdo Engine)    =:-");
 
+    esp_println::println!("-:=  LttL Squeaky Machine v1.1       =:-");
+    esp_println::println!("-:=  Powered by LttL Weirdo v0.1     =:-");
+    esp_println::println!(
+        "Starting intro_text() on core {}",
+        Cpu::current() as usize
+    );
     let mut active: bool = false;
 
     unsafe {
         let peripherals: Peripherals = Peripherals::steal();
+    
+
         let touch_pin0 = peripherals.GPIO13;
         let touch = Touch::continuous_mode(peripherals.TOUCH, None);
         let mut touchpad = TouchPad::new(touch_pin0, &touch);
@@ -130,10 +143,24 @@ async fn intro_text() {
 async fn main(spawner: Spawner) {
     let peripherals = esp_hal::init(esp_hal::Config::default());
     let timer_group_0 = TimerGroup::new(peripherals.TIMG0);
-    let timer: AnyTimer = timer_group_0.timer0.into();
+    let timer1: AnyTimer = timer_group_0.timer0.into();
+    let timer2: AnyTimer = timer_group_0.timer1.into();
     //
-    esp_hal_embassy::init(timer);
+    esp_hal_embassy::init([timer1, timer2]);
+    //
+    let mut cpu_control = CpuControl::new(peripherals.CPU_CTRL);
+    let _guard = cpu_control
+        .start_app_core(unsafe { &mut *addr_of_mut!(APP_CORE_STACK) }, move || {
+            static EXECUTOR: StaticCell<Executor> = StaticCell::new();
+            let executor = EXECUTOR.init(Executor::new());
+            executor.run(|spawner| {
+                spawner.spawn(synth_task()).ok();
+            });
+        })
+        .unwrap();
     //
     spawner.spawn(intro_text()).ok();
-    spawner.spawn(synth_task()).ok();
+    loop {
+        Timer::after(Duration::from_millis(1000)).await;
+    }
 }
