@@ -54,7 +54,7 @@ pub async fn synth_task() {
     esp_println::println!("-:= > Starting LttL Weirdɵ @ 16bits / {} Hz", SAMPLE_RATE);
 
     let mut synth: synth::Synth =
-        synth::Synth::new(SAMPLE_RATE as u16, Patches::get_patch(Patches::EletricPiano));
+        synth::Synth::new(SAMPLE_RATE as u16, Patches::get_patch(Patches::WeirdScience));
     let (_, rx_descriptors, tx_buffer, tx_descriptors) = dma_circular_buffers!(0, BUFFER_SIZE);
 
     unsafe {
