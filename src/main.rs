@@ -191,7 +191,7 @@ async fn main(spawner: Spawner) {
     let mut config = esp_hal::Config::default();
     config.cpu_clock = CpuClock::max();
     esp_println::println!(
-        "> Set ESP32 Speed to {:?} MHz\n",
+        "> Set CPU Speed to {:?} MHz\n",
         config.cpu_clock.frequency().to_MHz()
     );
     let peripherals = esp_hal::init(config);

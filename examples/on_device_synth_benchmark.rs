@@ -12,7 +12,7 @@ use esp_hal::{
 use little_weirdo::synth::{self, patches::Patches};
 
 const SAMPLE_RATE: u32 = 44100;
-const DELAY_US: u32 = 1000000 / SAMPLE_RATE;
+const DELAY_US: u32 = 10000000 / SAMPLE_RATE;
 #[esp_hal_embassy::main]
 async fn main(_spawner: Spawner) {
     // init CPU
