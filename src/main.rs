@@ -8,10 +8,12 @@ use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, signal::Signal}
 use embassy_time::{Duration, Timer};
 use esp_backtrace as _;
 use esp_hal::cpu_control::{CpuControl, Stack};
-use esp_hal::touch::{Touch, TouchPad};
+use esp_hal::otg_fs::Usb;
+//use esp_hal::touch::{Touch, TouchPad};
 use esp_hal::Cpu;
 use esp_hal::{
     dma::{Dma, DmaPriority},
+    otg_fs::{UsbBus},
     dma_circular_buffers,
     i2s::master::{DataFormat, I2s, Standard},
     peripherals::Peripherals,
@@ -19,12 +21,15 @@ use esp_hal::{
     timer::{timg::TimerGroup, AnyTimer},
 };
 
+use usb_device::{device::StringDescriptors, prelude::{UsbDeviceBuilder, UsbVidPid}};
+use usbd_midi::data::midi::message::Message;
+use usbd_midi::{data::{usb_midi::midi_packet_reader::MidiPacketBufferReader}, midi_device::MidiClass};
+static mut EP_MEMORY: [u32; 1024] = [0; 1024];
+
 use esp_hal_embassy::Executor;
 use little_weirdo::synth::{self, patches::Patches};
 
-mod midi;
-use midi::{Channel, KeyEvent, MidiMessage};
-static SHARED: Signal<CriticalSectionRawMutex, MidiMessage> = Signal::new();
+static SHARED: Signal<CriticalSectionRawMutex, usbd_midi::data::midi::message::Message> = Signal::new();
 
 static mut APP_CORE_STACK: Stack<32000> = Stack::new();
 use static_cell::StaticCell;
@@ -52,7 +57,7 @@ pub async fn synth_task() {
     unsafe {
         let peripherals: Peripherals = Peripherals::steal();
         let dma = Dma::new(peripherals.DMA);
-        let dma_channel = dma.i2s0channel;
+        let dma_channel = dma.channel0;
 
         let i2s = I2s::new(
             peripherals.I2S0,
@@ -66,9 +71,9 @@ pub async fn synth_task() {
 
         let mut i2s_tx = i2s
             .i2s_tx
-            .with_bclk(peripherals.GPIO27)
-            .with_ws(peripherals.GPIO33)
-            .with_dout(peripherals.GPIO32)
+            .with_bclk(peripherals.GPIO6)
+            .with_ws(peripherals.GPIO4)
+            .with_dout(peripherals.GPIO5)
             .build();
 
             esp_println::println!(
@@ -80,25 +85,14 @@ pub async fn synth_task() {
         loop {
             match  SHARED.try_take() {
                 Some(message) => match message {
-                    MidiMessage::NoteOn(channel, note) => {
-                        synth.note_on(0x00, note.key, note.value)
+                    Message::NoteOn(channel, note, velocity) => {
+                        synth.note_on(0x00, note.into(), velocity.into())
                     }
-                    MidiMessage::NoteOff(channel, note) => {
-                        synth.note_off(0x00, note.key)
+                    Message::NoteOff(channel, note, velocity) => {
+                        synth.note_off(0x00, note.into())
                     }
-                    MidiMessage::ProgramChange(channel, program) => {
-                  
-                        match program {
-                            1 => {
-                                synth.filter.filter_on = true;
-                                synth.overdrive_active = true;
-                            }
-                            2 => {
-                                synth.filter.filter_on = false;
-                                synth.overdrive_active = false;
-                            }
-                            _ => {}
-                        }
+                    Message::ControlChange(channel, function, value) => {
+                        synth.note_off(0x01,50)
                     }
                     _ => {}
                 },
@@ -136,6 +130,49 @@ async fn intro_text() {
         "-:= > Starting LttL Squeaky Machine on core {}",
         Cpu::current() as usize
     );
+    let usb;
+    unsafe {
+        let peripherals: Peripherals = Peripherals::steal();
+         usb = Usb::new(peripherals.USB0, peripherals.GPIO20, peripherals.GPIO19);
+    }
+    let usb_bus = UsbBus::new(usb, unsafe { &mut *addr_of_mut!(EP_MEMORY) });
+
+    let mut midi = MidiClass::new(&usb_bus, 1, 1).unwrap();
+
+    let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x16c0, 0x5e4))
+        .device_class(0)
+        .device_sub_class(0)
+        .strings(&[StringDescriptors::default()
+            .manufacturer("Little Squeaky Things")
+            .product("Little Squeaky Machine")
+            .serial_number("00110022")])
+        .unwrap()
+        .build();
+
+
+        loop {
+            if !usb_dev.poll(&mut [&mut midi]) {
+                continue;
+            }
+        
+            let mut buffer = [0; 64];
+        
+            if let Ok(size) = midi.read(&mut buffer) {
+                let buffer_reader = MidiPacketBufferReader::new(&buffer, size);
+                for packet in buffer_reader.into_iter() {
+                    if let Ok(packet) = packet {
+                        match packet.message {
+                            _ => { 
+                                esp_println::println!("messsage {:?}", packet.message); 
+                                SHARED.signal(packet.message);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+    /*
     let mut active_note: bool = false;
     let mut active_change: bool = false;
     let mut touchpad1;
@@ -172,6 +209,7 @@ async fn intro_text() {
             SHARED.signal(MidiMessage::ProgramChange(Channel::from(0), 2));
         }
     }
+     */
 }
 
 #[esp_hal_embassy::main]
