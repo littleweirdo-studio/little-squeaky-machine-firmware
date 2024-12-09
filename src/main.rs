@@ -4,6 +4,7 @@
 use core::ptr::addr_of_mut;
 
 use embassy_executor::Spawner;
+use embassy_sync::channel::Channel;
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, signal::Signal};
 use embassy_time::{Duration, Timer};
 use esp_backtrace as _;
@@ -13,23 +14,31 @@ use esp_hal::otg_fs::Usb;
 use esp_hal::Cpu;
 use esp_hal::{
     dma::{Dma, DmaPriority},
-    otg_fs::{UsbBus},
     dma_circular_buffers,
     i2s::master::{DataFormat, I2s, Standard},
+    otg_fs::UsbBus,
     peripherals::Peripherals,
     prelude::*,
     timer::{timg::TimerGroup, AnyTimer},
 };
 
-use usb_device::{device::StringDescriptors, prelude::{UsbDeviceBuilder, UsbVidPid}};
+use little_weirdo::synth::effects::overdrive::{KindOfOverdrive, Overdrive};
+use usb_device::{
+    device::StringDescriptors,
+    prelude::{UsbDeviceBuilder, UsbVidPid},
+};
+use usbd_midi::data::byte::u7::U7;
 use usbd_midi::data::midi::message::Message;
-use usbd_midi::{data::{usb_midi::midi_packet_reader::MidiPacketBufferReader}, midi_device::MidiClass};
+use usbd_midi::{
+    data::usb_midi::midi_packet_reader::MidiPacketBufferReader, midi_device::MidiClass,
+};
 static mut EP_MEMORY: [u32; 1024] = [0; 1024];
 
 use esp_hal_embassy::Executor;
 use little_weirdo::synth::{self, patches::Patches};
 
-static SHARED: Signal<CriticalSectionRawMutex, usbd_midi::data::midi::message::Message> = Signal::new();
+static SHARED: Channel<CriticalSectionRawMutex, usbd_midi::data::midi::message::Message, 20> =
+    Channel::new();
 
 static mut APP_CORE_STACK: Stack<32000> = Stack::new();
 use static_cell::StaticCell;
@@ -45,10 +54,7 @@ pub async fn synth_task() {
         Cpu::current() as usize
     );
 
-    esp_println::println!(
-        "-:= > Starting LttL Weirdɵ @ 16bits / {} Hz",
-        SAMPLE_RATE
-    );
+    esp_println::println!("-:= > Starting LttL Weirdɵ @ 16bits / {} Hz", SAMPLE_RATE);
 
     let mut synth: synth::Synth =
         synth::Synth::new(SAMPLE_RATE as u16, Patches::get_patch(Patches::EletricPiano));
@@ -76,27 +82,45 @@ pub async fn synth_task() {
             .with_dout(peripherals.GPIO5)
             .build();
 
-            esp_println::println!(
-                "-:= > Starting LttL Weirdɵ DMA transfer with a {} ms buffer",
-                 (AMOUNT_OF_SAMPLES_BUFFERING * 1000 / SAMPLE_RATE as usize * 1000) / 1000
-            );
+        esp_println::println!(
+            "-:= > Starting LttL Weirdɵ DMA transfer with a {} ms buffer",
+            (AMOUNT_OF_SAMPLES_BUFFERING * 1000 / SAMPLE_RATE as usize * 1000) / 1000
+        );
+
         let mut transfer = i2s_tx.write_dma_circular(tx_buffer).unwrap();
         let mut buffer = [0u8; BUFFER_SIZE];
         loop {
-            match  SHARED.try_take() {
-                Some(message) => match message {
+            match SHARED.try_receive() {
+                Ok(message) => match message {
                     Message::NoteOn(channel, note, velocity) => {
                         synth.note_on(0x00, note.into(), velocity.into())
                     }
                     Message::NoteOff(channel, note, velocity) => {
                         synth.note_off(0x00, note.into())
                     }
-                    Message::ControlChange(channel, function, value) => {
-                        synth.note_off(0x01,50)
+                    Message::ProgramChange(channel, program) => {
+                        let program_change:u8 = program.into();
+                        match program_change {
+                           0x00 => {
+                                synth.overdrive_active = true;
+                                synth.overdrive.kind = KindOfOverdrive::Softer;
+
+                               // synth.load_patch(Patches::get_patch(Patches::BassGuitar));
+                            }
+                            0x01 => {
+                                synth.overdrive_active = false;
+                      //          synth.load_patch(Patches::get_patch(Patches::EletricPiano));
+                            }
+                            0x03 => {
+                                synth.filter.filter_on = true;
+                             //   synth.load_patch(Patches::get_patch(Patches::WeirdScience));
+                            }
+                            _ => {}
+                        }
                     }
                     _ => {}
                 },
-                None => {},
+                _Error => {}
             };
             match transfer.available() {
                 Ok(num_bytes) => {
@@ -126,14 +150,11 @@ async fn intro_text() {
     esp_println::println!("-:=  LttL Squeaky Machine v1.1       =:-");
     esp_println::println!("-:=  Powered by LttL Weirdɵ v0.1     =:-");
     esp_println::println!("");
-    esp_println::println!(
-        "-:= > Starting LttL Squeaky Machine on core {}",
-        Cpu::current() as usize
-    );
+
     let usb;
     unsafe {
         let peripherals: Peripherals = Peripherals::steal();
-         usb = Usb::new(peripherals.USB0, peripherals.GPIO20, peripherals.GPIO19);
+        usb = Usb::new(peripherals.USB0, peripherals.GPIO20, peripherals.GPIO19);
     }
     let usb_bus = UsbBus::new(usb, unsafe { &mut *addr_of_mut!(EP_MEMORY) });
 
@@ -149,67 +170,66 @@ async fn intro_text() {
         .unwrap()
         .build();
 
+    loop {
+        if !usb_dev.poll(&mut [&mut midi]) {
+            continue;
+        }
 
-        loop {
-            if !usb_dev.poll(&mut [&mut midi]) {
-                continue;
-            }
-        
-            let mut buffer = [0; 64];
-        
-            if let Ok(size) = midi.read(&mut buffer) {
-                let buffer_reader = MidiPacketBufferReader::new(&buffer, size);
-                for packet in buffer_reader.into_iter() {
-                    if let Ok(packet) = packet {
-                        match packet.message {
-                            _ => { 
-                                esp_println::println!("messsage {:?}", packet.message); 
-                                SHARED.signal(packet.message);
-                            }
+        let mut buffer = [0; 64];
+
+        if let Ok(size) = midi.read(&mut buffer) {
+            let buffer_reader = MidiPacketBufferReader::new(&buffer, size);
+            for packet in buffer_reader.into_iter() {
+                if let Ok(packet) = packet {
+                    match packet.message {
+                        _ => {
+                            esp_println::println!("messsage {:?}", packet.message);
+                            SHARED.send(packet.message).await;
                         }
                     }
                 }
             }
         }
+    }
 
     /*
-    let mut active_note: bool = false;
-    let mut active_change: bool = false;
-    let mut touchpad1;
-   let mut touchpad2;
-    unsafe {
-        let peripherals: Peripherals = Peripherals::steal();
-        let touch_pin0 = peripherals.GPIO13;
-        let touch = Touch::continuous_mode(peripherals.TOUCH, None);
-        touchpad1 = TouchPad::new(touch_pin0, &touch);
-        let touch_pin2 = peripherals.GPIO12;
-       touchpad2 = TouchPad::new(touch_pin2, &touch);
-    }
-    let mut key = 24;
-    loop {
-        Timer::after(Duration::from_millis(5)).await;
-        let touch_val_1 = touchpad1.read();
-        if touch_val_1 < 150 && !active_note {
-            SHARED.signal(MidiMessage::NoteOn(Channel::from(0),  KeyEvent { key: key, value: 127 }));
-            active_note = true;
-        }
-        if touch_val_1 > 250 && active_note {
-            SHARED.signal(MidiMessage::NoteOff(Channel::from(0), KeyEvent { key: key, value: 0  }));
-            active_note = false;
-            key = key + 1;
-            if key > 37 { key = 24 };
-        }
-       let _touch_val_2 = touchpad2.read();
-        if _touch_val_2 < 150 && !active_change {
-          SHARED.signal(MidiMessage::ProgramChange(Channel::from(0), 1));
-          active_change = true;
-        }
-        if _touch_val_2 > 250 && active_change {
-            active_change = false;
-            SHARED.signal(MidiMessage::ProgramChange(Channel::from(0), 2));
-        }
-    }
-     */
+     let mut active_note: bool = false;
+     let mut active_change: bool = false;
+     let mut touchpad1;
+    let mut touchpad2;
+     unsafe {
+         let peripherals: Peripherals = Peripherals::steal();
+         let touch_pin0 = peripherals.GPIO13;
+         let touch = Touch::continuous_mode(peripherals.TOUCH, None);
+         touchpad1 = TouchPad::new(touch_pin0, &touch);
+         let touch_pin2 = peripherals.GPIO12;
+        touchpad2 = TouchPad::new(touch_pin2, &touch);
+     }
+     let mut key = 24;
+     loop {
+         Timer::after(Duration::from_millis(5)).await;
+         let touch_val_1 = touchpad1.read();
+         if touch_val_1 < 150 && !active_note {
+             SHARED.signal(MidiMessage::NoteOn(Channel::from(0),  KeyEvent { key: key, value: 127 }));
+             active_note = true;
+         }
+         if touch_val_1 > 250 && active_note {
+             SHARED.signal(MidiMessage::NoteOff(Channel::from(0), KeyEvent { key: key, value: 0  }));
+             active_note = false;
+             key = key + 1;
+             if key > 37 { key = 24 };
+         }
+        let _touch_val_2 = touchpad2.read();
+         if _touch_val_2 < 150 && !active_change {
+           SHARED.signal(MidiMessage::ProgramChange(Channel::from(0), 1));
+           active_change = true;
+         }
+         if _touch_val_2 > 250 && active_change {
+             active_change = false;
+             SHARED.signal(MidiMessage::ProgramChange(Channel::from(0), 2));
+         }
+     }
+      */
 }
 
 #[esp_hal_embassy::main]
