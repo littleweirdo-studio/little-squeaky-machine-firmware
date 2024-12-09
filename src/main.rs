@@ -2,15 +2,13 @@
 #![no_main]
 
 use core::ptr::addr_of_mut;
-
 use embassy_executor::Spawner;
 use embassy_sync::channel::Channel;
-use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, signal::Signal};
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex};
 use embassy_time::{Duration, Timer};
 use esp_backtrace as _;
 use esp_hal::cpu_control::{CpuControl, Stack};
 use esp_hal::otg_fs::Usb;
-//use esp_hal::touch::{Touch, TouchPad};
 use esp_hal::Cpu;
 use esp_hal::{
     dma::{Dma, DmaPriority},
@@ -22,24 +20,23 @@ use esp_hal::{
     timer::{timg::TimerGroup, AnyTimer},
 };
 
-use little_weirdo::synth::effects::overdrive::{KindOfOverdrive, Overdrive};
+use little_weirdo::synth::effects::overdrive::{KindOfOverdrive};
 use usb_device::{
     device::StringDescriptors,
     prelude::{UsbDeviceBuilder, UsbVidPid},
 };
-use usbd_midi::data::byte::u7::U7;
 use usbd_midi::data::midi::message::Message;
 use usbd_midi::{
     data::usb_midi::midi_packet_reader::MidiPacketBufferReader, midi_device::MidiClass,
 };
-static mut EP_MEMORY: [u32; 1024] = [0; 1024];
 
 use esp_hal_embassy::Executor;
 use little_weirdo::synth::{self, patches::Patches};
 
+//allocations
+static mut EP_MEMORY: [u32; 1024] = [0; 1024];
 static SHARED: Channel<CriticalSectionRawMutex, usbd_midi::data::midi::message::Message, 20> =
     Channel::new();
-
 static mut APP_CORE_STACK: Stack<32000> = Stack::new();
 use static_cell::StaticCell;
 
@@ -146,10 +143,8 @@ pub async fn synth_task() {
 }
 
 #[embassy_executor::task]
-async fn intro_text() {
-    esp_println::println!("-:=  LttL Squeaky Machine v1.1       =:-");
-    esp_println::println!("-:=  Powered by LttL Weirdɵ v0.1     =:-");
-    esp_println::println!("");
+async fn usb_midi_device_task() {
+  
 
     let usb;
     unsafe {
@@ -157,9 +152,7 @@ async fn intro_text() {
         usb = Usb::new(peripherals.USB0, peripherals.GPIO20, peripherals.GPIO19);
     }
     let usb_bus = UsbBus::new(usb, unsafe { &mut *addr_of_mut!(EP_MEMORY) });
-
     let mut midi = MidiClass::new(&usb_bus, 1, 1).unwrap();
-
     let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x16c0, 0x5e4))
         .device_class(0)
         .device_sub_class(0)
@@ -174,16 +167,14 @@ async fn intro_text() {
         if !usb_dev.poll(&mut [&mut midi]) {
             continue;
         }
-
         let mut buffer = [0; 64];
-
         if let Ok(size) = midi.read(&mut buffer) {
             let buffer_reader = MidiPacketBufferReader::new(&buffer, size);
             for packet in buffer_reader.into_iter() {
                 if let Ok(packet) = packet {
                     match packet.message {
                         _ => {
-                            esp_println::println!("messsage {:?}", packet.message);
+                         //   esp_println::println!("messsage {:?}", packet.message);
                             SHARED.send(packet.message).await;
                         }
                     }
@@ -191,53 +182,16 @@ async fn intro_text() {
             }
         }
     }
-
-    /*
-     let mut active_note: bool = false;
-     let mut active_change: bool = false;
-     let mut touchpad1;
-    let mut touchpad2;
-     unsafe {
-         let peripherals: Peripherals = Peripherals::steal();
-         let touch_pin0 = peripherals.GPIO13;
-         let touch = Touch::continuous_mode(peripherals.TOUCH, None);
-         touchpad1 = TouchPad::new(touch_pin0, &touch);
-         let touch_pin2 = peripherals.GPIO12;
-        touchpad2 = TouchPad::new(touch_pin2, &touch);
-     }
-     let mut key = 24;
-     loop {
-         Timer::after(Duration::from_millis(5)).await;
-         let touch_val_1 = touchpad1.read();
-         if touch_val_1 < 150 && !active_note {
-             SHARED.signal(MidiMessage::NoteOn(Channel::from(0),  KeyEvent { key: key, value: 127 }));
-             active_note = true;
-         }
-         if touch_val_1 > 250 && active_note {
-             SHARED.signal(MidiMessage::NoteOff(Channel::from(0), KeyEvent { key: key, value: 0  }));
-             active_note = false;
-             key = key + 1;
-             if key > 37 { key = 24 };
-         }
-        let _touch_val_2 = touchpad2.read();
-         if _touch_val_2 < 150 && !active_change {
-           SHARED.signal(MidiMessage::ProgramChange(Channel::from(0), 1));
-           active_change = true;
-         }
-         if _touch_val_2 > 250 && active_change {
-             active_change = false;
-             SHARED.signal(MidiMessage::ProgramChange(Channel::from(0), 2));
-         }
-     }
-      */
 }
 
 #[esp_hal_embassy::main]
 async fn main(spawner: Spawner) {
+    esp_println::println!("-:=  LttL Squeaky Machine v1.1       =:-");
+    esp_println::println!("-:=  Powered by LttL Weirdɵ v0.1     =:-");
     let mut config = esp_hal::Config::default();
     config.cpu_clock = CpuClock::max();
     esp_println::println!(
-        "> Set ESP32 Speed to {:?} MHz\n\n",
+        "> Set ESP32 Speed to {:?} MHz\n",
         config.cpu_clock.frequency().to_MHz()
     );
     let peripherals = esp_hal::init(config);
@@ -258,7 +212,7 @@ async fn main(spawner: Spawner) {
         })
         .unwrap();
     //
-    spawner.spawn(intro_text()).ok();
+    spawner.spawn(usb_midi_device_task()).ok();
     loop {
         Timer::after(Duration::from_millis(1000)).await;
     }
