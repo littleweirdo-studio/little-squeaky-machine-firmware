@@ -28,14 +28,19 @@ async fn main(_spawner: Spawner) {
     let mut synth: synth::Synth =
         synth::Synth::new(SAMPLE_RATE as u16, Patches::get_patch(Patches::BassGuitar));
     synth.filter.filter_on = true;
+    synth.load_patch(Patches::get_patch(Patches::GlidingBassGuitar));
 
     let mut sum = 0;
     let mut overrun = 0;
     let mut high = 0;
     let mut low: i64 = DELAY_US as i64;
     let mut moment: u32 = 0;
-
-
+    for _x in 0..5 {
+        let start_time = rtc.current_time().and_utc().timestamp_micros();
+        synth.load_patch(Patches::get_patch(Patches::GlidingBassGuitar));
+        let stop_time = rtc.current_time().and_utc().timestamp_micros();
+        esp_println::println!("> patch change in µs (max 22µs) {}", stop_time - start_time);
+    }
     for _x in 0..5 {
         synth.note_on(0, 60, 127);
         for n in 0..SAMPLE_RATE {

@@ -54,7 +54,7 @@ pub async fn synth_task() {
     esp_println::println!("-:= > Starting LttL Weirdɵ @ 16bits / {} Hz", SAMPLE_RATE);
 
     let mut synth: synth::Synth =
-        synth::Synth::new(SAMPLE_RATE as u16, Patches::get_patch(Patches::WeirdScience));
+        synth::Synth::new(SAMPLE_RATE as u16, Patches::get_patch(Patches::BassGuitar));
     let (_, rx_descriptors, tx_buffer, tx_descriptors) = dma_circular_buffers!(0, BUFFER_SIZE);
 
     unsafe {
@@ -99,18 +99,13 @@ pub async fn synth_task() {
                         let program_change:u8 = program.into();
                         match program_change {
                            0x00 => {
-                                synth.overdrive_active = true;
-                                synth.overdrive.kind = KindOfOverdrive::Softer;
-
-                               // synth.load_patch(Patches::get_patch(Patches::BassGuitar));
+                                synth.load_patch(Patches::get_patch(Patches::BassGuitar));
                             }
                             0x01 => {
-                                synth.overdrive_active = false;
-                      //          synth.load_patch(Patches::get_patch(Patches::EletricPiano));
+                                synth.load_patch(Patches::get_patch(Patches::ElectricPiano));
                             }
-                            0x03 => {
-                                synth.filter.filter_on = true;
-                             //   synth.load_patch(Patches::get_patch(Patches::WeirdScience));
+                            0x02 => {
+                                 synth.load_patch(Patches::get_patch(Patches::WeirdScience));
                             }
                             _ => {}
                         }
@@ -174,7 +169,7 @@ async fn usb_midi_device_task() {
                 if let Ok(packet) = packet {
                     match packet.message {
                         _ => {
-                         //   esp_println::println!("messsage {:?}", packet.message);
+                           esp_println::println!("messsage {:?}", packet.message);
                             SHARED.send(packet.message).await;
                         }
                     }
