@@ -27,9 +27,7 @@ async fn main(_spawner: Spawner) {
 
     let mut synth: synth::Synth =
         synth::Synth::new(SAMPLE_RATE as u16, Patches::get_patch(Patches::BassGuitar));
-    synth.filter.filter_on = true;
-    synth.load_patch(Patches::get_patch(Patches::GlidingBassGuitar));
-
+  
     let mut sum = 0;
     let mut overrun = 0;
     let mut high = 0;
@@ -42,7 +40,7 @@ async fn main(_spawner: Spawner) {
         esp_println::println!("> patch change in µs (max 22µs) {}", stop_time - start_time);
     }
     for _x in 0..5 {
-        synth.note_on(0, 60, 127);
+        synth.note_on(60, 127);
         for n in 0..SAMPLE_RATE {
             let start_time = rtc.current_time().and_utc().timestamp_micros();
             let _output: i16 = synth.clock_and_output();

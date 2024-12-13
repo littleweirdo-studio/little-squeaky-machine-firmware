@@ -25,6 +25,7 @@ use usb_device::{
     device::StringDescriptors,
     prelude::{UsbDeviceBuilder, UsbVidPid},
 };
+use usbd_midi::data::midi::message::control_function::ControlFunction;
 use usbd_midi::data::midi::message::Message;
 use usbd_midi::{
     data::usb_midi::midi_packet_reader::MidiPacketBufferReader, midi_device::MidiClass,
@@ -90,10 +91,10 @@ pub async fn synth_task() {
             match SHARED.try_receive() {
                 Ok(message) => match message {
                     Message::NoteOn(channel, note, velocity) => {
-                        synth.note_on(0x00, note.into(), velocity.into())
+                        synth.note_on(note.into(), velocity.into())
                     }
                     Message::NoteOff(channel, note, velocity) => {
-                        synth.note_off(0x00, note.into())
+                        synth.note_off(note.into())
                     }
                     Message::ProgramChange(channel, program) => {
                         let program_change:u8 = program.into();
@@ -169,7 +170,7 @@ async fn usb_midi_device_task() {
                 if let Ok(packet) = packet {
                     match packet.message {
                         _ => {
-                           esp_println::println!("messsage {:?}", packet.message);
+                           //esp_println::println!("messsage {:?}", packet.message);
                             SHARED.send(packet.message).await;
                         }
                     }
