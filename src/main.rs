@@ -38,7 +38,7 @@ use little_weirdo::synth::{self, patches::Patches};
 static mut EP_MEMORY: [u32; 1024] = [0; 1024];
 static SHARED: Channel<CriticalSectionRawMutex, usbd_midi::data::midi::message::Message, 20> =
     Channel::new();
-static mut APP_CORE_STACK: Stack<32000> = Stack::new();
+static mut APP_CORE_STACK: Stack<64000> = Stack::new();
 use static_cell::StaticCell;
 
 #[embassy_executor::task]
