@@ -136,7 +136,7 @@ pub async fn synth_task() {
                     for i in 0..(avail / 4) {
                         let output= synth.clock_and_output();
                         let left = output[0].to_be_bytes();
-                        let right = output[0].to_be_bytes();
+                        let right = output[1].to_be_bytes();
                         // left
                         buffer[i * 4] = left[1];
                         buffer[i * 4 + 1] = left[0];
