@@ -122,6 +122,9 @@ pub async fn synth_task() {
                         if control_change == ControlFunction::SOUND_CONTROLLER_1_70 {
                             synth.change_cutoff( new_value);
                         }
+                        if control_change == ControlFunction::SOUND_CONTROLLER_2_71 {
+                            synth.change_resonance( new_value);
+                        }
                     }
                     _ => {}
                 },
