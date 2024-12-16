@@ -35,7 +35,7 @@ async fn main(_spawner: Spawner) {
     let mut moment: u32 = 0;
     for _x in 0..5 {
         let start_time = rtc.current_time().and_utc().timestamp_micros();
-        synth.load_patch(Patches::get_patch(Patches::GlidingBassGuitar));
+        synth.load_patch(Patches::get_patch(Patches::WeirdScience));
         let stop_time = rtc.current_time().and_utc().timestamp_micros();
         esp_println::println!("> patch change in µs (max 22µs) {}", stop_time - start_time);
     }

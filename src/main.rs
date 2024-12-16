@@ -3,7 +3,7 @@
 
 use core::ptr::addr_of_mut;
 use embassy_executor::Spawner;
-use embassy_sync::channel::Channel;
+use embassy_sync::channel::{self, Channel};
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex};
 use embassy_time::{Duration, Timer};
 use esp_backtrace as _;
@@ -25,7 +25,7 @@ use usb_device::{
     device::StringDescriptors,
     prelude::{UsbDeviceBuilder, UsbVidPid},
 };
-use usbd_midi::data::midi::message::control_function::ControlFunction;
+use usbd_midi::data::midi::message::control_function::{self, ControlFunction};
 use usbd_midi::data::midi::message::Message;
 use usbd_midi::{
     data::usb_midi::midi_packet_reader::MidiPacketBufferReader, midi_device::MidiClass,
@@ -103,12 +103,24 @@ pub async fn synth_task() {
                                 synth.load_patch(Patches::get_patch(Patches::BassGuitar));
                             }
                             0x01 => {
-                                synth.load_patch(Patches::get_patch(Patches::ElectricPiano));
+                                synth.load_patch(Patches::get_patch(Patches::BassGuitarFourth));
                             }
                             0x02 => {
-                                 synth.load_patch(Patches::get_patch(Patches::WeirdScience));
+                                synth.load_patch(Patches::get_patch(Patches::BassGuitarMajor));
+                            }
+                            0x03 => {
+                                synth.load_patch(Patches::get_patch(Patches::WeirdScience));
                             }
                             _ => {}
+                        }
+                    }
+                    Message::ControlChange(channel,control_change , value) => {
+                        let new_value:u8 = value.into();
+                        if control_change == ControlFunction::CHANNEL_VOLUME_7 {
+                            synth.change_main_volume( new_value);
+                        }
+                        if control_change == ControlFunction::SOUND_CONTROLLER_1_70 {
+                            synth.change_cutoff( new_value);
                         }
                     }
                     _ => {}
