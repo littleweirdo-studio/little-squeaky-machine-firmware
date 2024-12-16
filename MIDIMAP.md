@@ -1,17 +1,30 @@
-# Notes
+# MIDI Implementation
 
-# Program change
+```
+ __   ____  ____  __      _  _  ____  __  ____  ____   __  
+(  ) (_  _)(_  _)(  )    / )( \(  __)(  )(  _ \(    \ /  \ 
+/ (_/\ )(    )(  / (_/\  \ /\ / ) _)  )(  )   / ) D ((  O )
+\____/(__)  (__) \____/  (_/\_)(____)(__)(__\_)(____/ \__/ 
+```
+
+MIDI implementation of LttL Weirdo of the LttL Squeaky Machine!
+
+## Notes
+
+Respond to the MIDI Note range C1 (`24`) till B7 (`107`)
+
+## Program change
 
 When sending a program change to LttL Weirdo, the corresponding Patch will be loaded and the sound will change instantly.
 
-| Program Number | Patch |
-| --- | --- |
-| 0x00 | Bass Guitar |
-| 0x01 | Bass Guitar Fourth |
-| 0x02 | Bass Guitar Major |
-| 0x03 | WeirdScience |
+| Program Number | Patch | Description |
+| --- | --- | --- |
+| 0x00 | Bass Guitar | 1 Osc - Bass - Filtered|
+| 0x01 | Bass Guitar Fourth | 2 Osc - Bass - Detuned (0-4) - Filtered |
+| 0x02 | Bass Guitar Major | 3 Osc - Bass - Detuned (0-4-7) - Filtered |
+| 0x03 | WeirdScience | 4 Osc - Square - Detuned (0-4-7-9) |
 
-# Control change
+## Control change
 
 When sending a control change, the corresponding parameters of LttL Weirdo will changed. 
 
