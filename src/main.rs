@@ -134,14 +134,15 @@ pub async fn synth_task() {
                 Ok(num_bytes) => {
                     let avail = usize::min(BUFFER_SIZE, num_bytes);
                     for i in 0..(avail / 4) {
-                        let output: i16 = synth.clock_and_output();
-                        let bytes = output.to_be_bytes();
+                        let output= synth.clock_and_output();
+                        let left = output[0].to_be_bytes();
+                        let right = output[0].to_be_bytes();
                         // left
-                        buffer[i * 4] = bytes[1];
-                        buffer[i * 4 + 1] = bytes[0];
+                        buffer[i * 4] = left[1];
+                        buffer[i * 4 + 1] = left[0];
                         //right
-                        buffer[i * 4 + 2] = bytes[1];
-                        buffer[i * 4 + 3] = bytes[0];
+                        buffer[i * 4 + 2] = right[1];
+                        buffer[i * 4 + 3] = right[0];
                     }
                     transfer.push(&buffer[0..avail]).unwrap();
                 }

@@ -43,7 +43,7 @@ async fn main(_spawner: Spawner) {
         synth.note_on(60, 127);
         for n in 0..SAMPLE_RATE {
             let start_time = rtc.current_time().and_utc().timestamp_micros();
-            let _output: i16 = synth.clock_and_output();
+            let _output = synth.clock_and_output();
             let stop_time = rtc.current_time().and_utc().timestamp_micros();
             let calculation_cost = stop_time - start_time;
             sum += calculation_cost;
