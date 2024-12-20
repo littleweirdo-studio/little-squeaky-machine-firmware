@@ -1,7 +1,10 @@
-partition_table="./partitions.csv"
+partition_table = "./partitions.csv"
 
 [connection]
-serial = "/dev/tty.wchusbserial58FA0795751"
+
+[[usb_device]]
+vid = "303a"
+pid = "1001"
 
 [flash]
 size = "16MB"

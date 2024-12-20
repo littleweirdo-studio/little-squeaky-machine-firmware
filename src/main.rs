@@ -1,6 +1,7 @@
 #![no_std]
 #![no_main]
 
+use core::alloc;
 use core::ptr::addr_of_mut;
 use embassy_executor::Spawner;
 use embassy_sync::channel::{self, Channel};
@@ -39,6 +40,7 @@ static mut EP_MEMORY: [u32; 1024] = [0; 1024];
 static SHARED: Channel<CriticalSectionRawMutex, usbd_midi::data::midi::message::Message, 20> =
     Channel::new();
 static mut APP_CORE_STACK: Stack<64000> = Stack::new();
+
 use static_cell::StaticCell;
 
 #[embassy_executor::task]
@@ -198,6 +200,7 @@ async fn usb_midi_device_task() {
 
 #[esp_hal_embassy::main]
 async fn main(spawner: Spawner) {
+
     esp_println::println!("-:=  LttL Squeaky Machine v1.1       =:-");
     esp_println::println!("-:=  Powered by LttL Weirdɵ v0.1     =:-");
     let mut config = esp_hal::Config::default();
