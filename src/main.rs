@@ -1,7 +1,23 @@
 #![no_std]
 #![no_main]
+#![feature(impl_trait_in_assoc_type)]
 
-use core::alloc;
+extern crate alloc;
+use embedded_graphics::prelude::Point;
+use embedded_graphics::text::{Alignment, Text};
+use esp_alloc as _;
+use alloc::format;
+use embedded_graphics::mono_font::ascii::FONT_10X20;
+use embedded_graphics::mono_font::MonoTextStyle;
+use embedded_graphics::pixelcolor::BinaryColor;
+use esp_hal::analog::adc::{Adc, AdcCalBasic, AdcConfig, Attenuation};
+use esp_hal::gpio::GpioPin;
+use esp_hal::peripherals::ADC1;
+use ssd1306::mode::DisplayConfig;
+use ssd1306::prelude::DisplayRotation;
+use ssd1306::size::DisplaySize128x64;
+use ssd1306::{I2CDisplayInterface, Ssd1306};
+use usbd_midi::data::byte::u7::U7;
 use core::ptr::addr_of_mut;
 use embassy_executor::Spawner;
 use embassy_sync::channel::{self, Channel};
@@ -9,8 +25,9 @@ use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex};
 use embassy_time::{Duration, Timer};
 use esp_backtrace as _;
 use esp_hal::cpu_control::{CpuControl, Stack};
+use esp_hal::i2c::master::{Config, I2c};
 use esp_hal::otg_fs::Usb;
-use esp_hal::Cpu;
+use esp_hal::{psram, Cpu};
 use esp_hal::{
     dma::{Dma, DmaPriority},
     dma_circular_buffers,
@@ -34,14 +51,23 @@ use usbd_midi::{
 
 use esp_hal_embassy::Executor;
 use little_weirdo::synth::{self, patches::Patches};
+use embedded_graphics::{
+    mono_font::{
+        ascii::{FONT_6X10, FONT_9X18_BOLD, FONT_5X8},
+        MonoTextStyleBuilder,
+    },
+    prelude::*,
+};
+
 
 //allocations
 static mut EP_MEMORY: [u32; 1024] = [0; 1024];
-static SHARED: Channel<CriticalSectionRawMutex, usbd_midi::data::midi::message::Message, 20> =
+static SHARED: Channel<CriticalSectionRawMutex, usbd_midi::data::midi::message::Message, 50> =
     Channel::new();
 static mut APP_CORE_STACK: Stack<64000> = Stack::new();
 
 use static_cell::StaticCell;
+
 
 #[embassy_executor::task]
 pub async fn synth_task() {
@@ -157,6 +183,83 @@ pub async fn synth_task() {
 }
 
 #[embassy_executor::task]
+async fn oled_task() {
+    let mut adc1;
+    let mut pot_in0;
+    let mut i2c;
+    unsafe {
+        let peripherals: Peripherals = Peripherals::steal();
+        let mut config = Config::default();
+       i2c = I2c::new(
+             peripherals.I2C0,
+             config,
+        ).with_sda(peripherals.GPIO17)
+         .with_scl(peripherals.GPIO18);
+
+         let analog_pin = peripherals.GPIO8;
+         let mut adc_config = AdcConfig::default();
+         
+     
+        pot_in0 = adc_config.enable_pin_with_cal::<GpioPin<8>,  AdcCalBasic<ADC1>>(analog_pin, Attenuation::Attenuation11dB);
+         
+         adc1 = Adc::new(peripherals.ADC1, adc_config);   
+ 
+    }
+
+    let character_style = MonoTextStyle::new(&FONT_10X20, BinaryColor::On);
+ 
+    let interface = I2CDisplayInterface::new(i2c);
+    let mut display = Ssd1306::new(interface, DisplaySize128x64, DisplayRotation::Rotate180)
+        .into_buffered_graphics_mode();
+    display.init();
+    display.clear_buffer();
+    let pin_value:u16 = adc1.read_blocking(&mut pot_in0);
+    let text = format!("value {:?}", pin_value);
+    Text::with_alignment(
+        "LttL Weirdo",
+        Point::new(0, 20),
+        character_style,
+        Alignment::Left,
+    )
+    .draw(&mut display).unwrap();
+    display.flush();
+
+  
+    loop {
+        display.clear_buffer();
+        let pin_value:u16 = adc1.read_blocking(&mut pot_in0);
+        let text = format!("value {:?}", pin_value);
+        let test = U7::try_from((pin_value/40) as u8);
+        match test {
+            Ok(value) => {
+                SHARED.send(Message::ControlChange(usbd_midi::data::midi::channel::Channel::Channel1, ControlFunction::SOUND_CONTROLLER_1_70, value)).await;
+            },
+            Err(_) => {},
+        }
+
+        Text::with_alignment(
+            "LttL Weirdo",
+            Point::new(0, 20),
+            character_style,
+            Alignment::Left,
+        )
+        .draw(&mut display).unwrap();
+         Text::with_alignment(
+            text.as_str(),
+            Point::new(0, 40),
+            character_style,
+            Alignment::Left,
+        )
+        .draw(&mut display).unwrap();
+        display.flush();
+        Timer::after(Duration::from_millis(100)).await;
+  
+    }
+   
+}
+
+
+#[embassy_executor::task]
 async fn usb_midi_device_task() {
   
 
@@ -164,6 +267,7 @@ async fn usb_midi_device_task() {
     unsafe {
         let peripherals: Peripherals = Peripherals::steal();
         usb = Usb::new(peripherals.USB0, peripherals.GPIO20, peripherals.GPIO19);
+   
     }
     let usb_bus = UsbBus::new(usb, unsafe { &mut *addr_of_mut!(EP_MEMORY) });
     let mut midi = MidiClass::new(&usb_bus, 1, 1).unwrap();
@@ -177,12 +281,19 @@ async fn usb_midi_device_task() {
         .unwrap()
         .build();
 
+       
+    
+     
+    
+        
+  
     loop {
+    
         if !usb_dev.poll(&mut [&mut midi]) {
             continue;
-        }
-        let mut buffer = [0; 64];
-        if let Ok(size) = midi.read(&mut buffer) {
+        } 
+            let mut buffer = [0; 64];
+            if let Ok(size) = midi.read(&mut buffer) {
             let buffer_reader = MidiPacketBufferReader::new(&buffer, size);
             for packet in buffer_reader.into_iter() {
                 if let Ok(packet) = packet {
@@ -194,13 +305,18 @@ async fn usb_midi_device_task() {
                     }
                 }
             }
-        }
+            Timer::after(Duration::from_micros(10)).await;
+    }
+        
+     
     }
 }
 
+
+
 #[esp_hal_embassy::main]
 async fn main(spawner: Spawner) {
-
+    esp_println::logger::init_logger_from_env();
     esp_println::println!("-:=  LttL Squeaky Machine v1.1       =:-");
     esp_println::println!("-:=  Powered by LttL Weirdɵ v0.1     =:-");
     let mut config = esp_hal::Config::default();
@@ -210,11 +326,17 @@ async fn main(spawner: Spawner) {
         config.cpu_clock.frequency().to_MHz()
     );
     let peripherals = esp_hal::init(config);
-
+    esp_alloc::psram_allocator!(peripherals.PSRAM, psram);
+   
     let timer_group_0 = TimerGroup::new(peripherals.TIMG0);
+    let timer_group_1 = TimerGroup::new(peripherals.TIMG1);
+    
     let timer1: AnyTimer = timer_group_0.timer0.into();
     let timer2: AnyTimer = timer_group_0.timer1.into();
-    esp_hal_embassy::init([timer1, timer2]);
+    let timer3: AnyTimer = timer_group_1.timer0.into();
+    
+    esp_hal_embassy::init([timer1, timer2, timer3]);
+    //
     //
     let mut cpu_control = CpuControl::new(peripherals.CPU_CTRL);
     let _guard = cpu_control
@@ -227,8 +349,11 @@ async fn main(spawner: Spawner) {
         })
         .unwrap();
     //
-    spawner.spawn(usb_midi_device_task()).ok();
-    loop {
-        Timer::after(Duration::from_millis(1000)).await;
+    spawner.must_spawn(usb_midi_device_task());
+    spawner.must_spawn(oled_task());
+    
+   loop {
+    Timer::after(Duration::from_millis(1000)).await;
     }
+   
 }
