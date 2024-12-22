@@ -42,6 +42,7 @@ ssd1306 = { git = "https://github.com/rust-embedded-community/ssd1306.git", rev 
 fugit = "0.3.7"
 embassy-futures = "0.1.1"
 embassy-usb = "0.3.0"
+tinybmp = "0.6.0"
 
 [profile.dev]
 opt-level = "s"

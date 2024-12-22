@@ -4,7 +4,10 @@
 
 extern crate alloc;
 use alloc::format;
+use embedded_graphics::image::{Image, ImageRaw};
 use esp_println::println;
+use ssd1306::command::AddrMode;
+use ssd1306::mode::BasicMode;
 use core::ptr::addr_of_mut;
 use embassy_executor::Spawner;
 use embassy_futures::join::join;
@@ -44,6 +47,7 @@ use usbd_midi::data::byte::u7::U7;
 use usbd_midi::data::midi::message::control_function::ControlFunction;
 use usbd_midi::data::midi::message::Message;
 use usbd_midi::data::usb_midi::midi_packet_reader::MidiPacketBufferReader;
+use tinybmp::Bmp;
 
 use embedded_graphics::{
     mono_font::MonoTextStyleBuilder,
@@ -176,7 +180,8 @@ async fn oled_task() {
     let i2c;
     unsafe {
         let peripherals: Peripherals = Peripherals::steal();
-        let config = Config::default();
+        let mut config = Config::default();
+        config.frequency =  100u32.kHz();
         i2c = I2c::new(peripherals.I2C0, config)
             .with_sda(peripherals.GPIO17)
             .with_scl(peripherals.GPIO18)
@@ -192,25 +197,28 @@ async fn oled_task() {
 
         adc1 = Adc::new(peripherals.ADC1, adc_config);
     }
-    let character_style = MonoTextStyleBuilder::new().font(&FONT_10X20).background_color(BinaryColor::On).text_color(BinaryColor::Off).build();
-
-
+   
     let interface = I2CDisplayInterface::new(i2c);
     let mut display = Ssd1306Async::new(interface, DisplaySize128x64, DisplayRotation::Rotate180)
         .into_buffered_graphics_mode();
-    let _ = display.clear_buffer();
-    Text::with_alignment(
-        "LttL Weirdo V1.0",
-        Point::new(0, 20),
+    let _ = display.init_with_addr_mode(AddrMode::Page).await;
+    display.clear_buffer();
+    display.flush().await;
+    let character_style = MonoTextStyleBuilder::new().font(&FONT_10X20).background_color(BinaryColor::On).text_color(BinaryColor::Off).build();
+
+    //Image::new(&image_raw, Point::new(20, 20)).draw(&mut display).unwrap();
+    Text::with_baseline(
+        "LttL",
+        Point::new(50, 50),
         character_style,
-        Alignment::Left,
+       embedded_graphics::text::Baseline::Top,
     )
     .draw(&mut display)
     .unwrap();
     let _ = display.flush().await;
     Timer::after(Duration::from_millis(1000)).await;
+  
     loop {
-        display.clear_buffer();
         let pin_value: u16 = adc1.read_blocking(&mut pot_in0);
         let text = format!("value {:?}", pin_value);
         let test = U7::try_from((pin_value / 40) as u8);
@@ -226,18 +234,18 @@ async fn oled_task() {
             }
             Err(_) => {}
         }
-
+        display.clear_buffer();
         Text::with_alignment(
             "LttL Weirdo",
-            Point::new(0, 20),
+            Point::new(0, 24),
             character_style,
             Alignment::Left,
         )
         .draw(&mut display)
         .unwrap();
         Text::with_alignment(
-            text.as_str(),
-            Point::new(0, 40),
+            "test",
+            Point::new(0, 48),
             character_style,
             Alignment::Left,
         )
@@ -319,8 +327,9 @@ async fn main(spawner: Spawner) {
     let mut midi = MidiClass::new(&mut builder, 1, 1, 64);
     let mut usb = builder.build();
     let usb_fut = usb.run();
-
+   // println!("wait for synth");
     Timer::after(Duration::from_millis(1000)).await;
+   // println!("start oled");
     let proces_midi = async {
         loop {
             midi.wait_connection().await;
@@ -329,6 +338,7 @@ async fn main(spawner: Spawner) {
     };
     let _ = spawner.spawn(oled_task());
     Timer::after(Duration::from_millis(1000)).await;
+   // println!("midi");
     join(usb_fut, proces_midi).await;
 
     //

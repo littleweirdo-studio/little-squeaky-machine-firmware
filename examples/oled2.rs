@@ -52,12 +52,13 @@ use esp_hal::{
     prelude::*,
     timer::{timg::TimerGroup, AnyTimer},
 };
+use embedded_graphics::{image::Image, prelude::*};
 use esp_println::println;
 use ssd1306::mode::DisplayConfig;
 use ssd1306::prelude::DisplayRotation;
 use ssd1306::size::DisplaySize128x64;
 use ssd1306::{I2CDisplayInterface, Ssd1306};
-
+use tinybmp::Bmp;
 
 #[esp_hal_embassy::main]
 async fn main(_spawner: Spawner) {
@@ -82,11 +83,14 @@ async fn main(_spawner: Spawner) {
  
   
     let interface = I2CDisplayInterface::new(i2c);
-    let mut display = Ssd1306::new(interface, DisplaySize128x64, DisplayRotation::Rotate180)
+    let mut display = Ssd1306::new(interface, DisplaySize128x64, DisplayRotation::Rotate0)
         .into_buffered_graphics_mode();
     display.init();
     display.clear_buffer();
     display.flush();
+    let bmp_data = include_bytes!("result.bmp");
+    let bmp = Bmp::from_slice(bmp_data).unwrap();
+
 
     let character_style1 = MonoTextStyleBuilder::new().font(&FONT_10X20).background_color(BinaryColor::Off).text_color(BinaryColor::On).build();
 
@@ -99,40 +103,38 @@ async fn main(_spawner: Spawner) {
     let mut pot_in0 = adc_config.enable_pin_with_cal::<GpioPin<8>,  AdcCalBasic<ADC1>>(analog_pin, Attenuation::Attenuation11dB);
     
     let mut adc1 = Adc::new(peripherals.ADC1, adc_config);   
+    Image::new(&bmp, Point::new(20, 20)).draw(&mut display).unwrap();
+    display.flush();
     loop {
         display.clear_buffer();
+        let _ = Image::new(&bmp, Point::new(0, 0)).draw(&mut display);
         let pin_value:u16 = adc1.read_blocking(&mut pot_in0) / 1000;
-        let mut str: [&str;3] = ["";3];
+        let mut str: [&str;2] = ["";2];
         match pin_value {
             0 => {
                 str[0] = "> menu 0";
                 str[1] = "  menu 1";
-                str[2] = "  menu 2";
-
+     
             },
             1 => {
                 str[0] = "> menu 1";
                 str[1] = "  menu 2";
-                str[2] = "  menu 3";
-
+     
             },
             2 => {
                 str[0] = "> menu 2";
                 str[1] = "  menu 3";
-                str[2] = "  menu 4";
-
+      
             },
             3 => {
                 str[0] = "> menu 3";
                 str[1] = "  menu 4";
-                str[2] = "";
-
+       
             },
             4 => {
                 str[0] = "> menu 4";
                 str[1] = "";
-                str[2] = "";
-
+          
             },
             _ => {
                 str[0] = "  menu x"
@@ -143,7 +145,7 @@ async fn main(_spawner: Spawner) {
             if count == 0 {
                 Text::with_alignment(
                     text,
-                    Point::new(20, 18 + count * 20),
+                    Point::new(36, 24),
                     character_style2,
                     Alignment::Left,
                 )
@@ -151,7 +153,7 @@ async fn main(_spawner: Spawner) {
             } else {
                 Text::with_alignment(
                     text,
-                    Point::new(20, 18 + count * 20),
+                    Point::new(36, 50),
                     character_style1,
                     Alignment::Left,
                 )
@@ -161,7 +163,7 @@ async fn main(_spawner: Spawner) {
             count = count + 1;
         }
         display.flush();
-          
+        
     }    
    
 }
