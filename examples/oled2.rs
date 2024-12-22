@@ -1,6 +1,6 @@
 #![no_std]
 #![no_main]
-
+#![feature(impl_trait_in_assoc_type)]
 
 use alloc::format;
 use embassy_executor::Spawner;
@@ -79,7 +79,7 @@ async fn main(_spawner: Spawner) {
          config,
     ).with_sda(peripherals.GPIO17)
      .with_scl(peripherals.GPIO18);
-
+ 
   
     let interface = I2CDisplayInterface::new(i2c);
     let mut display = Ssd1306::new(interface, DisplaySize128x64, DisplayRotation::Rotate180)
@@ -88,8 +88,10 @@ async fn main(_spawner: Spawner) {
     display.clear_buffer();
     display.flush();
 
-         let character_style = MonoTextStyle::new(&FONT_10X20, BinaryColor::On);
-    
+    let character_style1 = MonoTextStyleBuilder::new().font(&FONT_10X20).background_color(BinaryColor::Off).text_color(BinaryColor::On).build();
+
+         let character_style2 = MonoTextStyleBuilder::new().font(&FONT_10X20).background_color(BinaryColor::On).text_color(BinaryColor::Off).build();
+
         let analog_pin = peripherals.GPIO8;
     let mut adc_config = AdcConfig::default();
     
@@ -98,30 +100,70 @@ async fn main(_spawner: Spawner) {
     
     let mut adc1 = Adc::new(peripherals.ADC1, adc_config);   
     loop {
-        Timer::after(Duration::from_millis(100)).await;
         display.clear_buffer();
-        let pin_value:u16 = adc1.read_blocking(&mut pot_in0);
-        let text = format!("value {:?}", pin_value);
-        Text::with_alignment(
-            "LttL Weirdo",
-            Point::new(0, 20),
-            character_style,
-            Alignment::Left,
-        )
-        .draw(&mut display).unwrap();
-        Text::with_alignment(
-            text.as_str(),
-            Point::new(0, 40),
-            character_style,
-            Alignment::Left,
-        )
-        .draw(&mut display).unwrap();
-        display.flush();
+        let pin_value:u16 = adc1.read_blocking(&mut pot_in0) / 1000;
+        let mut str: [&str;3] = ["";3];
+        match pin_value {
+            0 => {
+                str[0] = "> menu 0";
+                str[1] = "  menu 1";
+                str[2] = "  menu 2";
 
+            },
+            1 => {
+                str[0] = "> menu 1";
+                str[1] = "  menu 2";
+                str[2] = "  menu 3";
+
+            },
+            2 => {
+                str[0] = "> menu 2";
+                str[1] = "  menu 3";
+                str[2] = "  menu 4";
+
+            },
+            3 => {
+                str[0] = "> menu 3";
+                str[1] = "  menu 4";
+                str[2] = "";
+
+            },
+            4 => {
+                str[0] = "> menu 4";
+                str[1] = "";
+                str[2] = "";
+
+            },
+            _ => {
+                str[0] = "  menu x"
+            },
+        }
+        let mut count = 0;
+        for text in str {
+            if count == 0 {
+                Text::with_alignment(
+                    text,
+                    Point::new(20, 18 + count * 20),
+                    character_style2,
+                    Alignment::Left,
+                )
+                .draw(&mut display).unwrap();
+            } else {
+                Text::with_alignment(
+                    text,
+                    Point::new(20, 18 + count * 20),
+                    character_style1,
+                    Alignment::Left,
+                )
+                .draw(&mut display).unwrap();
+           // }
+            }
+            count = count + 1;
+        }
+        display.flush();
+          
     }    
    
 }
-
-
 
 

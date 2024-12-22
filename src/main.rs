@@ -68,8 +68,8 @@ static mut APP_CORE_STACK: Stack<64000> = Stack::new();
 
 use static_cell::StaticCell;
 
-#[embassy_executor::task]
-pub async fn synth_task() {
+
+pub fn synth_task() {
     const SAMPLE_RATE: u32 = 44100;
     const AMOUNT_OF_SAMPLES_BUFFERING: usize = 1100;
     const BUFFER_SIZE: usize = 4 * AMOUNT_OF_SAMPLES_BUFFERING;
@@ -155,6 +155,7 @@ pub async fn synth_task() {
                 },
                 _Error => {}
             };
+           
             match transfer.available() {
                 Ok(num_bytes) => {
                     let avail = usize::min(BUFFER_SIZE, num_bytes);
@@ -169,7 +170,7 @@ pub async fn synth_task() {
                         buffer[i * 4 + 2] = right[1];
                         buffer[i * 4 + 3] = right[0];
                     }
-                    transfer.push(&buffer[0..avail]).unwrap();
+                    transfer.push(&buffer[0..avail]);
                 }
                 Err(error) => {
                     esp_println::println!("Error: {:?}", error);
@@ -261,10 +262,6 @@ async fn oled_task() {
 }
 #[embassy_executor::task]
 async fn usb_midi_device_task() {
-    usb_midi_device_task_inner().await;
-}
-
-async fn usb_midi_device_task_inner() {
     let usb;
     unsafe {
         let peripherals: Peripherals = Peripherals::steal();
@@ -291,7 +288,7 @@ async fn usb_midi_device_task_inner() {
                     if let Ok(packet) = packet {
                         match packet.message {
                             _ => {
-                                //esp_println::println!("messsage {:?}", packet.message);
+                                esp_println::println!("messsage {:?}", packet.message);
                                 SHARED.send(packet.message).await;
                             }
                         }
@@ -329,17 +326,13 @@ async fn main(spawner: Spawner) {
     let mut cpu_control = CpuControl::new(peripherals.CPU_CTRL);
     let _guard = cpu_control
         .start_app_core(unsafe { &mut *addr_of_mut!(APP_CORE_STACK) }, move || {
-            static EXECUTOR: StaticCell<Executor> = StaticCell::new();
-            let executor = EXECUTOR.init(Executor::new());
-            executor.run(|spawner| {
-                spawner.spawn(synth_task()).ok();
-            });
+            synth_task();
         })
         .unwrap();
     //
     spawner.must_spawn(usb_midi_device_task());
     spawner.must_spawn(oled_task());
     loop {
-        yield_now().await;
+        Timer::after(Duration::from_secs(5)).await;
     }
 }
