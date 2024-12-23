@@ -18,8 +18,7 @@ use usbd_midi::data::midi::message::Message;
 use little_weirdo::synth::{self, patches::Patches};
 use crate::MIDI_MESSAGE_CHANNEL;
 
-#[embassy_executor::task]
-pub async fn synth_loop() {
+pub fn synth_loop() {
     const SAMPLE_RATE: u32 = 44100;
     const AMOUNT_OF_SAMPLES_BUFFERING: usize = 1100;
     const BUFFER_SIZE: usize = 4 * AMOUNT_OF_SAMPLES_BUFFERING;
