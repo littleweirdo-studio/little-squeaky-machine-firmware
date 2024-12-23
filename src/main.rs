@@ -1,21 +1,28 @@
 #![no_std]
 #![no_main]
 #![feature(impl_trait_in_assoc_type)]
-
-extern crate alloc;
-use oled_tasks::oled_task;
-use synth_tasks::synth_loop;
-use core::ptr::addr_of_mut;
+//
+mod synth_tasks;
+mod oled_tasks;
+mod midi_tasks;
+use crate::oled_tasks::oled_task;
+use crate::synth_tasks::synth_loop;
+use crate::midi_tasks::midi_read;
+//
 use embassy_executor::Spawner;
 use embassy_futures::join::join;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::Channel;
 use embassy_time::{Duration, Timer};
 use embassy_usb::class::midi::MidiClass;
-use embassy_usb::driver::EndpointError;
 use embassy_usb::Builder;
+//
+extern crate alloc;
+use core::ptr::addr_of_mut;
 use esp_alloc as _;
+use static_cell::StaticCell;
 use esp_backtrace as _;
+//
 use esp_hal::cpu_control::{CpuControl, Stack};
 use esp_hal::otg_fs::asynch::Driver;
 use esp_hal::otg_fs::Usb;
@@ -25,19 +32,14 @@ use esp_hal::{
 };
 use esp_hal::psram;
 use esp_hal_embassy::Executor;
-use usbd_midi::data::usb_midi::midi_packet_reader::MidiPacketBufferReader;
+//
 
-use static_cell::StaticCell;
-//allocations
-
-static SHARED: Channel<CriticalSectionRawMutex, usbd_midi::data::midi::message::Message, 25> =
+// channel for sharing midi message between tasks and processes running on different cores. 
+static MIDI_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, usbd_midi::data::midi::message::Message, 30> =
     Channel::new();
+
+// create stack for second core (running the Synth tasks, 128KB, should be enough)
 static mut APP_CORE_STACK: Stack<128_000> = Stack::new();
-
-mod synth_tasks;
-mod oled_tasks;
-
-
 
 #[esp_hal_embassy::main]
 async fn main(spawner: Spawner) {
@@ -51,8 +53,11 @@ async fn main(spawner: Spawner) {
         config.cpu_clock.frequency().to_MHz()
     );
     let peripherals = esp_hal::init(config);
+
+    // create Heap memory using the psram. 
     esp_alloc::psram_allocator!(peripherals.PSRAM, psram);
 
+    // TODO: do we need 4 timers?
     let timer_group_0 = TimerGroup::new(peripherals.TIMG0);
     let timer_group_1 = TimerGroup::new(peripherals.TIMG1);
 
@@ -74,22 +79,16 @@ async fn main(spawner: Spawner) {
         })
         .unwrap();
 
-    //
-
+    // Create MIDI USB device
     let usb = Usb::new(peripherals.USB0, peripherals.GPIO20, peripherals.GPIO19);
     let mut ep_out_buffer = [0u8; 1024];
     let config = esp_hal::otg_fs::asynch::Config::default();
-
     let driver = Driver::new(usb, &mut ep_out_buffer, config);
-
-    // Create embassy-usb Config
+    // Setup the configuration for the USB device
     let mut config = embassy_usb::Config::new(0x303A, 0x3001);
     config.manufacturer = Some("Hi Squeaky Things");
     config.product = Some("Lttl Squeak Machine");
     config.serial_number = Some("00110022");
-
-    // Required for windows compatibility.
-    // https://developer.nordicsemi.com/nRF_Connect_SDK/doc/1.9.1/kconfig/CONFIG_CDC_ACM_IAD.html#help
     config.device_class = 0x00;
     config.device_sub_class = 0x00;
     config.device_protocol = 0x00;
@@ -103,54 +102,26 @@ async fn main(spawner: Spawner) {
         config,
         &mut config_descriptor,
         &mut bos_descriptor,
-        &mut [], // no msos descriptors
+        &mut [], 
         &mut control_buf,
     );
 
-    let mut midi = MidiClass::new(&mut builder, 1, 1, 64);
-    let mut usb = builder.build();
-    let usb_fut = usb.run();
-   // println!("wait for synth");
+    // initlize the actual MIDI class
+    let mut midi_class = MidiClass::new(&mut builder, 1, 1, 64);
+    let mut usb_device = builder.build();
+    let usb_future = usb_device.run();
     Timer::after(Duration::from_millis(1000)).await;
-   // println!("start oled");
     let proces_midi = async {
         loop {
-            midi.wait_connection().await;
-            let _ = midi_read(&mut midi).await;
+            midi_class.wait_connection().await;
+            let _ = midi_read(&mut midi_class).await;
         }
     };
+    // spawn the tasks
     let _ = spawner.spawn(oled_task());
     Timer::after(Duration::from_millis(1000)).await;
-   // println!("midi");
-    join(usb_fut, proces_midi).await;
-
-    //
+    // spawn the USB device task (MIDI)
+    join(usb_future, proces_midi).await;
 }
 
-async fn midi_read<'d>(class: &mut MidiClass<'d, Driver<'d>>) -> Result<(), Disconnected> {
-    let mut buf = [0; 64];
-    loop {
-        let n = class.read_packet(&mut buf).await?;
-        let buffer_reader = MidiPacketBufferReader::new(&buf, n);
-        for packet in buffer_reader.into_iter() {
-            if let Ok(packet) = packet {
-                match packet.message {
-                    _ => {
-                        SHARED.send(packet.message).await;
-                    }
-                }
-            }
-        }
-    }
-}
 
-struct Disconnected {}
-
-impl From<EndpointError> for Disconnected {
-    fn from(val: EndpointError) -> Self {
-        match val {
-            EndpointError::BufferOverflow => panic!("Buffer overflow"),
-            EndpointError::Disabled => Disconnected {},
-        }
-    }
-}

@@ -16,7 +16,7 @@ use usbd_midi::data::midi::message::control_function::ControlFunction;
 use usbd_midi::data::midi::message::Message;
 
 use little_weirdo::synth::{self, patches::Patches};
-use crate::SHARED;
+use crate::MIDI_MESSAGE_CHANNEL;
 
 #[embassy_executor::task]
 pub async fn synth_loop() {
@@ -65,7 +65,7 @@ pub async fn synth_loop() {
         let mut transfer = i2s_tx.write_dma_circular(tx_buffer).unwrap();
         let mut buffer = [0u8; BUFFER_SIZE];
         loop {
-            match SHARED.try_receive() {
+            match MIDI_MESSAGE_CHANNEL.try_receive() {
                 Ok(message) => match message {
                     Message::NoteOn(_channel, note, velocity) => {
                         synth.note_on(note.into(), velocity.into())

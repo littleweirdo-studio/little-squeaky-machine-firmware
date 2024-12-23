@@ -27,7 +27,7 @@ use embedded_graphics::{
     prelude::*,
 };
 
-use crate::SHARED;
+use crate::MIDI_MESSAGE_CHANNEL;
 
 
 #[embassy_executor::task]
@@ -83,7 +83,7 @@ pub async fn oled_task() {
         let test = U7::try_from((pin_value / 40) as u8);
         match test {
             Ok(value) => {
-                SHARED
+                MIDI_MESSAGE_CHANNEL
                     .send(Message::ControlChange(
                         usbd_midi::data::midi::channel::Channel::Channel1,
                         ControlFunction::SOUND_CONTROLLER_1_70,
