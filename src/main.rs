@@ -20,7 +20,6 @@ use embassy_usb::Builder;
 extern crate alloc;
 use core::ptr::addr_of_mut;
 use esp_alloc as _;
-use static_cell::StaticCell;
 use esp_backtrace as _;
 //
 use esp_hal::cpu_control::{CpuControl, Stack};
@@ -31,7 +30,6 @@ use esp_hal::{
     timer::{timg::TimerGroup, AnyTimer},
 };
 use esp_hal::psram;
-use esp_hal_embassy::Executor;
 //
 
 // channel for sharing midi message between tasks and processes running on different cores. 
