@@ -1,7 +1,10 @@
 extern crate alloc;
+use alloc::format;
+use embedded_graphics::image::{Image, ImageRaw};
+use embedded_graphics::mono_font::iso_8859_9::FONT_7X14;
 use ssd1306::command::AddrMode;
 use embassy_time::{Duration, Timer};
-use embedded_graphics::mono_font::ascii::FONT_10X20;
+use embedded_graphics::mono_font::ascii::{FONT_10X20, FONT_7X14_BOLD};
 use embedded_graphics::pixelcolor::BinaryColor;
 use embedded_graphics::prelude::Point;
 use embedded_graphics::text::{Alignment, Text};
@@ -17,7 +20,8 @@ use esp_hal::{
 };
 use ssd1306::prelude::DisplayRotation;
 use ssd1306::size::DisplaySize128x64;
-use ssd1306::{I2CDisplayInterface,  Ssd1306Async};
+use ssd1306::{I2CDisplayInterface, Ssd1306, Ssd1306Async};
+use tinybmp::Bmp;
 use usbd_midi::data::byte::u7::U7;
 use usbd_midi::data::midi::message::control_function::ControlFunction;
 use usbd_midi::data::midi::message::Message;
@@ -26,8 +30,17 @@ use embedded_graphics::{
     mono_font::MonoTextStyleBuilder,
     prelude::*,
 };
-
+use ssd1306::mode::DisplayConfig;
 use crate::MIDI_MESSAGE_CHANNEL;
+
+#[rustfmt::skip]
+const DATA: &[u8] = &[
+    0b11101111, 0b0101_0000,
+    0b10001000, 0b0101_0000,
+    0b11101011, 0b0101_0000,
+    0b10001001, 0b0101_0000,
+    0b11101111, 0b0101_0000,
+];
 
 
 #[embassy_executor::task]
@@ -42,8 +55,7 @@ pub async fn oled_task() {
         
         i2c = I2c::new(peripherals.I2C0, config)
             .with_sda(peripherals.GPIO17)
-            .with_scl(peripherals.GPIO18)
-            .into_async();
+            .with_scl(peripherals.GPIO18);
 
         let analog_pin = peripherals.GPIO8;
         let mut adc_config = AdcConfig::default();
@@ -57,29 +69,29 @@ pub async fn oled_task() {
     }
    
     let interface = I2CDisplayInterface::new(i2c);
-    let mut display = Ssd1306Async::new(interface, DisplaySize128x64, DisplayRotation::Rotate180)
+    let mut display = Ssd1306::new(interface, DisplaySize128x64, DisplayRotation::Rotate180)
         .into_buffered_graphics_mode();
-    display.init_with_addr_mode(AddrMode::Page).await.unwrap();
+    display.init();
     display.clear_buffer();
-    display.clear(BinaryColor::Off).unwrap();
-    display.flush().await.unwrap();
-    let character_style = MonoTextStyleBuilder::new().font(&FONT_10X20).background_color(BinaryColor::On).text_color(BinaryColor::Off).build();
+    display.flush().unwrap();
 
-    //Image::new(&image_raw, Point::new(20, 20)).draw(&mut display).unwrap();
-    Text::with_baseline(
+    let character_style = MonoTextStyleBuilder::new().font(&FONT_7X14_BOLD).background_color(BinaryColor::On).text_color(BinaryColor::Off).build();
+    let image_raw = ImageRaw::<BinaryColor>::new(DATA,12);
+    Image::new(&image_raw, Point::new(0, 0)).draw(&mut display).unwrap();
+    Text::with_alignment(
         "LttL",
-        Point::new(50, 50),
+        Point::new(0, 24),
         character_style,
-       embedded_graphics::text::Baseline::Top,
+        Alignment::Left,
     )
     .draw(&mut display)
     .unwrap();
-    let _ = display.flush().await;
+    let _ = display.flush();
     Timer::after(Duration::from_millis(1000)).await;
   
     loop {
         let pin_value: u16 = adc1.read_blocking(&mut pot_in0);
-        //let text = format!("value {:?}", pin_value);
+        let text = format!("value {:?}", pin_value);
         let test = U7::try_from((pin_value / 40) as u8);
         match test {
             Ok(value) => {
@@ -94,6 +106,7 @@ pub async fn oled_task() {
             Err(_) => {}
         }
         display.clear_buffer();
+        Image::new(&image_raw, Point::new(0, 0)).draw(&mut display).unwrap();
         Text::with_alignment(
             "LttL Weirdo",
             Point::new(0, 24),
@@ -103,14 +116,14 @@ pub async fn oled_task() {
         .draw(&mut display)
         .unwrap();
         Text::with_alignment(
-            "test",
+            &text,
             Point::new(0, 48),
             character_style,
             Alignment::Left,
         )
         .draw(&mut display)
         .unwrap();
-        let _ = display.flush().await;
+        let _ = display.flush();
         Timer::after(Duration::from_millis(100)).await;
     }
 }
