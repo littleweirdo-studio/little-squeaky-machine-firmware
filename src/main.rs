@@ -2,12 +2,12 @@
 #![no_main]
 #![feature(impl_trait_in_assoc_type)]
 //
-mod synth_tasks;
-mod oled_tasks;
-mod midi_tasks;
-use crate::oled_tasks::oled_task;
-use crate::synth_tasks::synth_loop;
-use crate::midi_tasks::midi_read;
+mod synth;
+mod oled;
+mod midi;
+use crate::oled::oled_task;
+use crate::synth::synth_loop;
+use crate::midi::midi_read;
 //
 use embassy_executor::Spawner;
 use embassy_futures::join::join;
