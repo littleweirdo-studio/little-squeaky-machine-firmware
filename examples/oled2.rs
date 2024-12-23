@@ -60,6 +60,7 @@ use ssd1306::size::DisplaySize128x64;
 use ssd1306::{I2CDisplayInterface, Ssd1306};
 use tinybmp::Bmp;
 
+
 #[esp_hal_embassy::main]
 async fn main(_spawner: Spawner) {
     // init CPU
