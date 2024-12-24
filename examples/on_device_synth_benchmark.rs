@@ -9,6 +9,7 @@ use esp_hal::{
     prelude::*,
     timer::{timg::TimerGroup, AnyTimer},
 };
+use little_weirdo::synth::data::wavetables::SOUND_BANK_0;
 use little_weirdo::synth::{self, patches::Patches};
 
 const SAMPLE_RATE: u32 = 44100;
@@ -26,7 +27,7 @@ async fn main(_spawner: Spawner) {
     esp_hal_embassy::init([timer1, timer2]);
 
     let mut synth: synth::Synth =
-        synth::Synth::new(SAMPLE_RATE as u16, Patches::get_patch(Patches::BassGuitar));
+        synth::Synth::new(SAMPLE_RATE as u16, Patches::get_patch(Patches::BassGuitar), &SOUND_BANK_0);
   
     let mut sum = 0;
     let mut overrun = 0;

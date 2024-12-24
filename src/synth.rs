@@ -15,7 +15,7 @@ use esp_hal::Cpu;
 use usbd_midi::data::midi::message::control_function::ControlFunction;
 use usbd_midi::data::midi::message::Message;
 
-use little_weirdo::synth::{self, patches::Patches};
+use little_weirdo::synth::{self, data::wavetables::SOUND_BANK_0, patches::Patches};
 use crate::MIDI_MESSAGE_CHANNEL;
 
 pub fn synth_loop() {
@@ -31,7 +31,7 @@ pub fn synth_loop() {
     esp_println::println!("-:= > Starting LttL Weirdɵ @ 16bits / {} Hz", SAMPLE_RATE);
 
     let mut synth: synth::Synth =
-        synth::Synth::new(SAMPLE_RATE as u16, Patches::get_patch(Patches::BassGuitarMajor));
+        synth::Synth::new(SAMPLE_RATE as u16, Patches::get_patch(Patches::BassGuitarMajor), &SOUND_BANK_0);
     let (_, rx_descriptors, tx_buffer, tx_descriptors) = dma_circular_buffers!(0, BUFFER_SIZE);
 
     unsafe {
