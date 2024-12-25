@@ -11,7 +11,7 @@ use esp_hal::{
 };
 use little_weirdo::synth;
 use little_weirdo_soundbanks::patches::Patches;
-use little_weirdo_soundbanks::SOUND_BANK_0;
+use little_weirdo_soundbanks::soundbanks::SOUND_BANK_PURE_ELEKTRO;
 
 const SAMPLE_RATE: u32 = 44100;
 const DELAY_US: u32 = 10000000 / SAMPLE_RATE;
@@ -28,7 +28,7 @@ async fn main(_spawner: Spawner) {
     esp_hal_embassy::init([timer1, timer2]);
 
     let mut synth: synth::Synth =
-        synth::Synth::new(SAMPLE_RATE as u16, Patches::get_patch(Patches::BassGuitar), &SOUND_BANK_0);
+        synth::Synth::new(SAMPLE_RATE as u16, Patches::get_patch(Patches::BassGuitar), &SOUND_BANK_PURE_ELEKTRO);
   
     let mut sum = 0;
     let mut overrun = 0;
