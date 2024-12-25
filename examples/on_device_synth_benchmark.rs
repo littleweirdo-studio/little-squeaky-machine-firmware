@@ -9,8 +9,9 @@ use esp_hal::{
     prelude::*,
     timer::{timg::TimerGroup, AnyTimer},
 };
-use little_weirdo::synth::data::wavetables::SOUND_BANK_0;
-use little_weirdo::synth::{self, patches::Patches};
+use little_weirdo::synth;
+use little_weirdo_soundbanks::patches::Patches;
+use little_weirdo_soundbanks::SOUND_BANK_0;
 
 const SAMPLE_RATE: u32 = 44100;
 const DELAY_US: u32 = 10000000 / SAMPLE_RATE;
