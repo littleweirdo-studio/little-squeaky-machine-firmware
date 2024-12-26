@@ -12,7 +12,7 @@ use esp_hal::{
     prelude::*,
 };
 use esp_hal::Cpu;
-use little_weirdo_soundbanks::{patches::Patches, soundbanks::SOUND_BANK_PURE_ELEKTRO};
+use little_weirdo_soundbanks::soundbanks::SOUND_BANK_PURE_ELEKTRO;
 use usbd_midi::data::midi::message::control_function::ControlFunction;
 use usbd_midi::data::midi::message::Message;
 
@@ -32,7 +32,7 @@ pub fn synth_loop() {
     esp_println::println!("-:= > Starting LttL Weirdɵ @ 16bits / {} Hz", SAMPLE_RATE);
 
     let mut synth: synth::Synth =
-        synth::Synth::new(SAMPLE_RATE as u16, Patches::get_patch(Patches::BassGuitar), &SOUND_BANK_PURE_ELEKTRO);
+        synth::Synth::new(SAMPLE_RATE as u16, &SOUND_BANK_PURE_ELEKTRO.patches[0], &SOUND_BANK_PURE_ELEKTRO);
     let (_, rx_descriptors, tx_buffer, tx_descriptors) = dma_circular_buffers!(0, BUFFER_SIZE);
 
     unsafe {
@@ -75,16 +75,16 @@ pub fn synth_loop() {
                         let program_change: u8 = program.into();
                         match program_change {
                             0x00 => {
-                                synth.load_patch(Patches::get_patch(Patches::BassGuitar));
+                                synth.load_patch(&SOUND_BANK_PURE_ELEKTRO.patches[0]);
                             }
                             0x01 => {
-                                synth.load_patch(Patches::get_patch(Patches::BassGuitarFourth));
+                                synth.load_patch(&SOUND_BANK_PURE_ELEKTRO.patches[1]);
                             }
                             0x02 => {
-                                synth.load_patch(Patches::get_patch(Patches::BassGuitarMajor));
+                                synth.load_patch(&SOUND_BANK_PURE_ELEKTRO.patches[2]);
                             }
                             0x03 => {
-                                synth.load_patch(Patches::get_patch(Patches::WeirdScience));
+                                synth.load_patch(&SOUND_BANK_PURE_ELEKTRO.patches[3]);
                             }
                             _ => {}
                         }

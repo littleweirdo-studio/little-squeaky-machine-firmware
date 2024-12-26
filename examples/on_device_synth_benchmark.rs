@@ -10,7 +10,6 @@ use esp_hal::{
     timer::{timg::TimerGroup, AnyTimer},
 };
 use little_weirdo::synth;
-use little_weirdo_soundbanks::patches::Patches;
 use little_weirdo_soundbanks::soundbanks::SOUND_BANK_PURE_ELEKTRO;
 
 const SAMPLE_RATE: u32 = 44100;
@@ -28,7 +27,7 @@ async fn main(_spawner: Spawner) {
     esp_hal_embassy::init([timer1, timer2]);
 
     let mut synth: synth::Synth =
-        synth::Synth::new(SAMPLE_RATE as u16, Patches::get_patch(Patches::BassGuitar), &SOUND_BANK_PURE_ELEKTRO);
+        synth::Synth::new(SAMPLE_RATE as u16, &SOUND_BANK_PURE_ELEKTRO.patches[0], &SOUND_BANK_PURE_ELEKTRO);
   
     let mut sum = 0;
     let mut overrun = 0;
@@ -37,7 +36,7 @@ async fn main(_spawner: Spawner) {
     let mut moment: u32 = 0;
     for _x in 0..5 {
         let start_time = rtc.current_time().and_utc().timestamp_micros();
-        synth.load_patch(Patches::get_patch(Patches::WeirdScience));
+        synth.load_patch(&SOUND_BANK_PURE_ELEKTRO.patches[1]);
         let stop_time = rtc.current_time().and_utc().timestamp_micros();
         esp_println::println!("> patch change in µs (max 22µs) {}", stop_time - start_time);
     }
