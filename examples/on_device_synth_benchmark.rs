@@ -12,7 +12,7 @@ use esp_hal::{
 use little_weirdo::synth;
 use little_weirdo_soundbanks::soundbanks::SOUND_BANK_PURE_ELEKTRO;
 
-const SAMPLE_RATE: u32 = 44100;
+const SAMPLE_RATE: u32 = 48000;
 const DELAY_US: u32 = 10000000 / SAMPLE_RATE;
 #[esp_hal_embassy::main]
 async fn main(_spawner: Spawner) {
@@ -21,11 +21,7 @@ async fn main(_spawner: Spawner) {
     config.cpu_clock = CpuClock::max();
     let peripherals = esp_hal::init(config);
     let rtc = Rtc::new(peripherals.LPWR);
-    let timer_group_0 = TimerGroup::new(peripherals.TIMG0);
-    let timer1: AnyTimer = timer_group_0.timer0.into();
-    let timer2: AnyTimer = timer_group_0.timer1.into();
-    esp_hal_embassy::init([timer1, timer2]);
-
+ 
     let mut synth: synth::Synth =
         synth::Synth::new(SAMPLE_RATE as u16, &SOUND_BANK_PURE_ELEKTRO.patches[0], &SOUND_BANK_PURE_ELEKTRO);
   
@@ -36,12 +32,12 @@ async fn main(_spawner: Spawner) {
     let mut moment: u32 = 0;
     for _x in 0..5 {
         let start_time = rtc.current_time().and_utc().timestamp_micros();
-        synth.load_patch(&SOUND_BANK_PURE_ELEKTRO.patches[1]);
+        synth.load_patch(&SOUND_BANK_PURE_ELEKTRO.patches[0]);
         let stop_time = rtc.current_time().and_utc().timestamp_micros();
-        esp_println::println!("> patch change in µs (max 22µs) {}", stop_time - start_time);
+        esp_println::println!("> patch change in µs (max 20µs) {}", stop_time - start_time);
     }
     for _x in 0..5 {
-        synth.note_on(60, 127);
+        synth.note_on(60, 100);
         for n in 0..SAMPLE_RATE {
             let start_time = rtc.current_time().and_utc().timestamp_micros();
             let _output = synth.clock_and_output();
@@ -60,7 +56,7 @@ async fn main(_spawner: Spawner) {
                 };
             }
         }
-        esp_println::println!("----- 1 sec cycle @ 44100Hz (max 22µs ) -----");
+        esp_println::println!("----- 1 sec cycle @ 44800Hz (max 20µs ) -----");
         esp_println::println!("> average - total compute time spend  {}", sum);
         esp_println::println!("> clock :: average {}µs", sum / SAMPLE_RATE as i64);
         esp_println::println!("> deadline passed {}x,", overrun);
