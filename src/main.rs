@@ -36,7 +36,7 @@ use esp_hal::psram;
 static MIDI_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, usbd_midi::data::midi::message::Message, 30> =
     Channel::new();
 
-// create stack for second core (running the Synth tasks, 160KB, should be enough)
+// create stack for second core (running the Synth tasks, 160KB stack reserved)
 static mut APP_CORE_STACK: Stack<160_000> = Stack::new();
 
 #[esp_hal_embassy::main]
@@ -104,7 +104,7 @@ async fn main(spawner: Spawner) {
     let mut usb_device = builder.build();
     let usb_future = usb_device.run();
     Timer::after(Duration::from_millis(1000)).await;
-    let proces_midi = async {
+    let process_midi = async {
         loop {
             midi_class.wait_connection().await;
             let _ = midi_read(&mut midi_class).await;
@@ -114,7 +114,7 @@ async fn main(spawner: Spawner) {
     let _ = spawner.spawn(oled_task());
     Timer::after(Duration::from_millis(1000)).await;
     // spawn the USB device task (MIDI)
-    join(usb_future, proces_midi).await;
+    join(usb_future, process_midi).await;
 }
 
 
