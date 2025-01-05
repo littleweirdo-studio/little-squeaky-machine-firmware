@@ -32,7 +32,7 @@ pub fn synth_loop() {
     esp_println::println!("-:= > Starting LttL Weirdɵ @ 16bits / {} Hz", SAMPLE_RATE);
 
     let mut synth: synth::Synth =
-        synth::Synth::new(SAMPLE_RATE as u16, &SOUND_BANK_WILD_FRUIT.patches[1], &SOUND_BANK_WILD_FRUIT);
+        synth::Synth::new(SAMPLE_RATE as u16, &SOUND_BANK_PURE_ELEKTRO.patches[1], &SOUND_BANK_PURE_ELEKTRO);
     let (_, rx_descriptors, tx_buffer, tx_descriptors) = dma_circular_buffers!(0, BUFFER_SIZE);
 
     unsafe {

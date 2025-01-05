@@ -36,8 +36,8 @@ use esp_hal::psram;
 static MIDI_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, usbd_midi::data::midi::message::Message, 30> =
     Channel::new();
 
-// create stack for second core (running the Synth tasks, 128KB, should be enough)
-static mut APP_CORE_STACK: Stack<128_000> = Stack::new();
+// create stack for second core (running the Synth tasks, 160KB, should be enough)
+static mut APP_CORE_STACK: Stack<160_000> = Stack::new();
 
 #[esp_hal_embassy::main]
 async fn main(spawner: Spawner) {
