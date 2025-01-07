@@ -12,7 +12,7 @@ use esp_hal::{
 use little_weirdo::synth;
 use little_weirdo_soundbanks::soundbanks::SOUND_BANK_PURE_ELEKTRO;
 
-const SAMPLE_RATE: u32 = 48000;
+const SAMPLE_RATE: u32 = 44100;
 const DELAY_US: u32 = 10000000 / SAMPLE_RATE;
 #[esp_hal_embassy::main]
 async fn main(_spawner: Spawner) {
@@ -23,7 +23,7 @@ async fn main(_spawner: Spawner) {
     let rtc = Rtc::new(peripherals.LPWR);
  
     let mut synth: synth::Synth =
-        synth::Synth::new(SAMPLE_RATE as u16, &SOUND_BANK_PURE_ELEKTRO.patches[0], &SOUND_BANK_PURE_ELEKTRO);
+        synth::Synth::new(SAMPLE_RATE as u16, &SOUND_BANK_PURE_ELEKTRO.patches[1], &SOUND_BANK_PURE_ELEKTRO);
   
     let mut sum = 0;
     let mut overrun = 0;
@@ -32,7 +32,7 @@ async fn main(_spawner: Spawner) {
     let mut moment: u32 = 0;
     for _x in 0..5 {
         let start_time = rtc.current_time().and_utc().timestamp_micros();
-        synth.load_patch(&SOUND_BANK_PURE_ELEKTRO.patches[0]);
+        synth.load_patch(&SOUND_BANK_PURE_ELEKTRO.patches[1]);
         let stop_time = rtc.current_time().and_utc().timestamp_micros();
         esp_println::println!("> patch change in µs (max 20µs) {}", stop_time - start_time);
     }
@@ -56,7 +56,7 @@ async fn main(_spawner: Spawner) {
                 };
             }
         }
-        esp_println::println!("----- 1 sec cycle @ 44800Hz (max 20µs ) -----");
+        esp_println::println!("----- 1 sec cycle @ 444100Hz (max 22µs ) -----");
         esp_println::println!("> average - total compute time spend  {}", sum);
         esp_println::println!("> clock :: average {}µs", sum / SAMPLE_RATE as i64);
         esp_println::println!("> deadline passed {}x,", overrun);

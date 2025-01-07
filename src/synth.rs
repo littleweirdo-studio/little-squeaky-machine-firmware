@@ -20,7 +20,7 @@ use little_weirdo::synth::{self};
 use crate::MIDI_MESSAGE_CHANNEL;
 
 pub fn synth_loop() {
-    const SAMPLE_RATE: u32 = 48000;
+    const SAMPLE_RATE: u32 = 44100;
     const AMOUNT_OF_SAMPLES_BUFFERING: usize = 1100;
     const BUFFER_SIZE: usize = 4 * AMOUNT_OF_SAMPLES_BUFFERING;
 
@@ -32,7 +32,7 @@ pub fn synth_loop() {
     esp_println::println!("-:= > Starting LttL Weirdɵ @ 16bits / {} Hz", SAMPLE_RATE);
 
     let mut synth: synth::Synth =
-        synth::Synth::new(SAMPLE_RATE as u16, &SOUND_BANK_PURPLE_WAVES.patches[0], &SOUND_BANK_PURPLE_WAVES);
+        synth::Synth::new(SAMPLE_RATE as u16, &SOUND_BANK_WILD_FRUIT.patches[1], &SOUND_BANK_WILD_FRUIT.wavetables);
     let (_, rx_descriptors, tx_buffer, tx_descriptors) = dma_circular_buffers!(0, BUFFER_SIZE);
 
     unsafe {
