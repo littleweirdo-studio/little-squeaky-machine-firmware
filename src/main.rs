@@ -55,6 +55,9 @@ async fn main(spawner: Spawner) {
     // create Heap memory using the psram. 
     esp_alloc::psram_allocator!(peripherals.PSRAM, psram);
 
+    //    esp_alloc::heap_allocator!(20000);
+
+
     // TODO: do we need 4 timers?
     let timer_group_0 = TimerGroup::new(peripherals.TIMG0);
     let timer_group_1 = TimerGroup::new(peripherals.TIMG1);

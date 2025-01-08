@@ -1,4 +1,7 @@
 partition_table = "./partitions.csv"
 
+[connection]
+
+
 [flash]
 size = "16MB"
