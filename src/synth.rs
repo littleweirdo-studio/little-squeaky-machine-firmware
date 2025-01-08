@@ -1,6 +1,7 @@
 
 
 extern crate alloc;
+use alloc::{boxed::Box, rc::Rc};
 use esp_println::println;
 use esp_alloc as _;
 use esp_backtrace as _;
@@ -12,11 +13,10 @@ use esp_hal::{
     prelude::*,
 };
 use esp_hal::Cpu;
-use little_weirdo_soundbanks::soundbanks::{SOUND_BANK_PURE_ELEKTRO, SOUND_BANK_PURPLE_WAVES, SOUND_BANK_WILD_FRUIT};
 use usbd_midi::data::midi::message::control_function::ControlFunction;
 use usbd_midi::data::midi::message::Message;
 
-use little_weirdo::synth::{self};
+use little_weirdo::synth::{self, data::wavetables::{BoxedWavetable, BoxedWavetables}, effects::{filter::{FilterConfig, KindOfFilter}, overdrive::{KindOfOverdrive, OverdriveConfiguration}}, envelope::EnvelopConfiguration, mixer::MixerConfiguration, patch::{Patch, SynthConfiguration, SynthMode}, router::{RoutingConfiguration, VoiceToEnvelopRoute, VoiceToLFORoute}, wavetable_oscillator::{WaveTableLoFreqOscillatorConfig, WaveTableOscillatorConfig}};
 use crate::MIDI_MESSAGE_CHANNEL;
 
 pub fn synth_loop() {
@@ -30,9 +30,206 @@ pub fn synth_loop() {
     );
 
     esp_println::println!("-:= > Starting LttL Weirdɵ @ 16bits / {} Hz", SAMPLE_RATE);
+   
+   
+    let mut fix = BoxedWavetables::new();
+    fix.add(BoxedWavetable::new(include_bytes!("wav0.lwt")));
+    fix.add(BoxedWavetable::new(include_bytes!("wav1.lwt")));
+    let wt = Rc::new(fix);
 
+
+
+   let patch = Patch 
+   {
+    synth_config: SynthConfiguration {
+        mode: SynthMode::Mono,
+    },
+    voices: [
+        WaveTableOscillatorConfig {
+            soundbank_index: 0,
+            glide: false,
+            glide_rate: 200,
+            detune: 0,
+            freq: 440,
+            freq_detune: 0,
+        },
+        WaveTableOscillatorConfig {
+            soundbank_index: 9,
+            glide: false,
+            glide_rate: 0,
+            detune: 0,
+            freq: 440,
+            freq_detune: 1,
+        },
+        WaveTableOscillatorConfig {
+            soundbank_index: 1,
+            glide: false,
+            glide_rate: 200,
+            detune: 0,
+            freq: 440,
+            freq_detune: 2,
+        },
+        WaveTableOscillatorConfig {
+            soundbank_index: 9,
+            glide: false,
+            glide_rate: 0,
+            detune: 0,
+            freq: 440,
+            freq_detune: 3,
+        },
+        WaveTableOscillatorConfig {
+            soundbank_index: 1,
+            glide: true,
+            glide_rate: 200,
+            detune: 0,
+            freq: 440,
+            freq_detune: 0,
+        },
+        WaveTableOscillatorConfig {
+            soundbank_index: 9,
+            glide: false,
+            glide_rate: 0,
+            detune: 0,
+            freq: 440,
+            freq_detune: 1,
+        },
+        WaveTableOscillatorConfig {
+            soundbank_index: 1,
+            glide: false,
+            glide_rate: 200,
+            detune: 0,
+            freq: 440,
+            freq_detune: 2,
+        },
+        WaveTableOscillatorConfig {
+            soundbank_index: 9,
+            glide: false,
+            glide_rate: 0,
+            detune: 0,
+            freq: 440,
+            freq_detune: 3,
+        },
+    ],
+    envelops: [
+        EnvelopConfiguration {
+            attack_time: 10,
+            decay_time: 100,
+            release_time: 300,
+            sustain_level: 90,
+        },
+        EnvelopConfiguration {
+            attack_time: 200,
+            decay_time: 10,
+            release_time: 100,
+            sustain_level: 90,
+        },
+        EnvelopConfiguration {
+            attack_time: 10,
+            decay_time: 100,
+            release_time: 300,
+            sustain_level: 90,
+        },
+        EnvelopConfiguration {
+            attack_time: 200,
+            decay_time: 10,
+            release_time: 100,
+            sustain_level: 90,
+        },
+        EnvelopConfiguration {
+            attack_time: 10,
+            decay_time: 100,
+            release_time: 300,
+            sustain_level: 90,
+        },
+        EnvelopConfiguration {
+            attack_time: 200,
+            decay_time: 10,
+            release_time: 100,
+            sustain_level: 90,
+        },
+        EnvelopConfiguration {
+            attack_time: 10,
+            decay_time: 100,
+            release_time: 300,
+            sustain_level: 90,
+        },
+        EnvelopConfiguration {
+            attack_time: 200,
+            decay_time: 10,
+            release_time: 100,
+            sustain_level: 90,
+        },
+    ],
+    lfos: [
+        WaveTableLoFreqOscillatorConfig {
+            soundbank_index: 2,
+            time: 200,
+        },
+        WaveTableLoFreqOscillatorConfig {
+            soundbank_index: 2,
+            time: 200,
+        },
+        WaveTableLoFreqOscillatorConfig {
+            soundbank_index: 2,
+            time: 200,
+        },
+        WaveTableLoFreqOscillatorConfig {
+            soundbank_index: 2,
+            time: 200,
+        },
+    ],
+    routering_config: RoutingConfiguration {
+        voices_to_envelop: [
+            VoiceToEnvelopRoute { env: 0 },
+            VoiceToEnvelopRoute { env: 1 },
+            VoiceToEnvelopRoute { env: 2 },
+            VoiceToEnvelopRoute { env: 3 },
+            VoiceToEnvelopRoute { env: 4 },
+            VoiceToEnvelopRoute { env: 5 },
+            VoiceToEnvelopRoute { env: 6 },
+            VoiceToEnvelopRoute { env: 7 },
+        ],
+        voice_to_lfo: [
+            VoiceToLFORoute {
+                enable: false,
+                voices: [1,255],
+            },
+            VoiceToLFORoute {
+                enable: false,
+                voices: [1,255],
+            },
+            VoiceToLFORoute {
+                enable: false,
+                voices: [1,255],
+            },
+            VoiceToLFORoute {
+                enable: false,
+                voices: [1,255],
+            },
+        ],
+        lfo_to_filter: false,
+    },
+    filter_config: FilterConfig {
+        cutoff_frequency: 1_000,
+        resonance: 6_000,
+        enabled: false,
+        kind_of_filter: KindOfFilter::High,
+    },
+    mixer_config: MixerConfiguration {
+        gain_voices: [40, 0, 0, 0, 0, 0, 0, 0],
+        gain_main: 50,
+    },
+    overdrive_config: OverdriveConfiguration {
+        threshold: 1000,
+        kind: KindOfOverdrive::Softer,
+        enabled: false,
+    },
+    };
+
+  
+   
     let mut synth: synth::Synth =
-        synth::Synth::new(SAMPLE_RATE as u16, &SOUND_BANK_WILD_FRUIT.patches[1], &SOUND_BANK_WILD_FRUIT.wavetables);
+        synth::Synth::new(SAMPLE_RATE as u16, &patch, Rc::clone(&wt));
     let (_, rx_descriptors, tx_buffer, tx_descriptors) = dma_circular_buffers!(0, BUFFER_SIZE);
 
     unsafe {
@@ -75,16 +272,16 @@ pub fn synth_loop() {
                         let program_change: u8 = program.into();
                         match program_change {
                             0x00 => {
-                                synth.load_patch(&SOUND_BANK_PURE_ELEKTRO.patches[0]);
+                                //synth.load_patch(&SOUND_BANK_PURE_ELEKTRO.patches[0]);
                             }
                             0x01 => {
-                                synth.load_patch(&SOUND_BANK_PURE_ELEKTRO.patches[1]);
+                                //synth.load_patch(&SOUND_BANK_PURE_ELEKTRO.patches[1]);
                             }
                             0x02 => {
-                                synth.load_patch(&SOUND_BANK_PURE_ELEKTRO.patches[2]);
+                                //synth.load_patch(&SOUND_BANK_PURE_ELEKTRO.patches[2]);
                             }
                             0x03 => {
-                                synth.load_patch(&SOUND_BANK_PURE_ELEKTRO.patches[3]);
+                                //synth.load_patch(&SOUND_BANK_PURE_ELEKTRO.patches[3]);
                             }
                             _ => {}
                         }
