@@ -77,12 +77,18 @@ async fn main(_spawner: Spawner) {
     let mut storage = FlashStorage::new();
     println!("Flash size = {} MB", storage.capacity() / 1_000_000 );
 
-   storage.write(0x00220000, include_bytes!("../src/wav0.lwt"));
-   
+    storage.write(0x00220000, include_bytes!("../src/wav0.lwt"));
+    storage.write(0x00220000 +  1 * 1200, include_bytes!("../src/wav1.lwt"));
+    storage.write(0x00220000 +  2 * 1200, include_bytes!("../src/wav2.lwt"));
+    storage.write(0x00220000 +  3 * 1200, include_bytes!("../src/wav3.lwt"));
+    storage.write(0x00220000 +  4 * 1200, include_bytes!("../src/wav4.lwt"));
+    storage.write(0x00220000 +  5 * 1200, include_bytes!("../src/wav5.lwt"));
+    storage.write(0x00220000 +  6 * 1200, include_bytes!("../src/wav6.lwt"));
+    storage.write(0x00220000 +  7 * 1200, include_bytes!("../src/wav7.lwt"));
+    storage.write(0x00220000 +  8 * 1200, include_bytes!("../src/wav8.lwt"));
+    storage.write(0x00220000 +  9 * 1200, include_bytes!("../src/wav9.lwt"));
+    storage.write(0x00220000 +  10 * 1200, include_bytes!("../src/sample.raw"));
 
-   let mut buffer = [0u8;1200];
-   storage.read(0x00220000, &mut buffer);
-   println!("{:?}", buffer)
 }
 
 
