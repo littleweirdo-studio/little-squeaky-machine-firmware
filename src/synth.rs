@@ -60,8 +60,25 @@ pub fn synth_loop() {
     }
     let wt = Rc::new(wt_on_heap);
 
+    let mut sample_read_buffer = [0u8; 1000];
 
-    let  sample_on_heap = Rc::new(BoxedSample::new(include_bytes!("sample.raw")));
+
+    let mut sample:Vec<u8> = Vec::with_capacity(328 * 1_000);
+    for wt in 0..328 {
+        let offset = 0x00220000 + 10 * 1200 + wt * 1000;
+        let result = storage.read(offset, &mut sample_read_buffer);
+        match result {
+            Ok(_) => {},
+            Err(error) => esp_println::println!("Error {:?}", error),
+        }
+        let mut buffer = sample_read_buffer.to_vec();
+        sample.append(&mut buffer);
+    }
+
+    let boxed = BoxedSample::new(sample);
+    
+
+    let  sample_on_heap = Rc::new(boxed);
 
     esp_println::println!("-:= > Heap used {} KB", esp_alloc::HEAP.used()/1000);
   
@@ -252,6 +269,7 @@ pub fn synth_loop() {
     };
   
     let mut synth: synth::Synth = synth::Synth::new(SAMPLE_RATE as u16, &patch, Rc::clone(&wt), Rc::clone(&sample_on_heap));
+    
     let (_, rx_descriptors, tx_buffer, tx_descriptors) = dma_circular_buffers!(0, BUFFER_SIZE);
 
     unsafe {

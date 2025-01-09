@@ -39,7 +39,7 @@ static MIDI_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, usbd_midi::data::m
     Channel::new();
 
 // create stack for second core (running the Synth tasks, 160KB stack reserved)
-static mut APP_CORE_STACK: Stack<200_000> = Stack::new();
+static mut APP_CORE_STACK: Stack<220_000> = Stack::new();
 
 #[esp_hal_embassy::main]
 async fn main(spawner: Spawner) {
