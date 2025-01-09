@@ -16,8 +16,10 @@ use embassy_sync::channel::Channel;
 use embassy_time::{Duration, Timer};
 use embassy_usb::class::midi::MidiClass;
 use embassy_usb::Builder;
+use esp_hal::peripherals::PSRAM;
 //
 extern crate alloc;
+use core::mem::MaybeUninit;
 use core::ptr::addr_of_mut;
 use esp_alloc as _;
 use esp_backtrace as _;
@@ -37,7 +39,7 @@ static MIDI_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, usbd_midi::data::m
     Channel::new();
 
 // create stack for second core (running the Synth tasks, 160KB stack reserved)
-static mut APP_CORE_STACK: Stack<160_000> = Stack::new();
+static mut APP_CORE_STACK: Stack<200_000> = Stack::new();
 
 #[esp_hal_embassy::main]
 async fn main(spawner: Spawner) {
@@ -51,13 +53,9 @@ async fn main(spawner: Spawner) {
         config.cpu_clock.frequency().to_MHz()
     );
     let peripherals = esp_hal::init(config);
-
-    // create Heap memory using the psram. 
     esp_alloc::psram_allocator!(peripherals.PSRAM, psram);
-
-    //    esp_alloc::heap_allocator!(20000);
-
-
+    esp_println::println!("-:= > Heap free {} KB", esp_alloc::HEAP.free() / 1_000);
+    
     // TODO: do we need 4 timers?
     let timer_group_0 = TimerGroup::new(peripherals.TIMG0);
     let timer_group_1 = TimerGroup::new(peripherals.TIMG1);

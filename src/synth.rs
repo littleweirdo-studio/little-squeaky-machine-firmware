@@ -1,4 +1,8 @@
 extern crate alloc;
+
+
+
+use alloc::vec::Vec;
 use alloc::{boxed::Box, rc::Rc};
 use esp_alloc as _;
 use esp_backtrace as _;
@@ -11,6 +15,7 @@ use esp_hal::{
     prelude::*,
 };
 use esp_println::println;
+use little_weirdo::synth::data::wavetables::Wavetables;
 use usbd_midi::data::midi::message::control_function::ControlFunction;
 use usbd_midi::data::midi::message::Message;
 
@@ -44,24 +49,24 @@ pub fn synth_loop() {
     let mut wt_on_heap = BoxedWavetables::new();
     wt_on_heap.add(BoxedWavetable::new(include_bytes!("wav0.lwt")));
     wt_on_heap.add(BoxedWavetable::new(include_bytes!("wav1.lwt")));
+    wt_on_heap.add(BoxedWavetable::new(include_bytes!("wav2.lwt")));
     wt_on_heap.add(BoxedWavetable::new(include_bytes!("wav3.lwt")));
     wt_on_heap.add(BoxedWavetable::new(include_bytes!("wav4.lwt")));
     wt_on_heap.add(BoxedWavetable::new(include_bytes!("wav5.lwt")));
     wt_on_heap.add(BoxedWavetable::new(include_bytes!("wav6.lwt")));
     wt_on_heap.add(BoxedWavetable::new(include_bytes!("wav7.lwt")));
-    wt_on_heap.add(BoxedWavetable::new(include_bytes!("wav8.lwt")));
-    wt_on_heap.add(BoxedWavetable::new(include_bytes!("wav9.lwt")));
-    
+    wt_on_heap.add(BoxedWavetable::new(include_bytes!("wav8.lwt"))); 
+    wt_on_heap.add(BoxedWavetable::new(include_bytes!("wav9.lwt"))); 
     let wt = Rc::new(wt_on_heap);
-    esp_println::println!("-:= > Heap used {} Bytes", esp_alloc::HEAP.used());
-
+    esp_println::println!("-:= > Heap used {} KB", esp_alloc::HEAP.used()/1000);
+  
     let patch = Patch {
         synth_config: SynthConfiguration {
-            mode: SynthMode::Mono,
+            mode: SynthMode::OctoPoly,
         },
         voices: [
             WaveTableOscillatorConfig {
-                soundbank_index: 0,
+                soundbank_index: 6,
                 glide: false,
                 glide_rate: 200,
                 detune: 0,
@@ -69,31 +74,31 @@ pub fn synth_loop() {
                 freq_detune: 0,
             },
             WaveTableOscillatorConfig {
-                soundbank_index: 9,
+                soundbank_index: 6,
                 glide: false,
                 glide_rate: 0,
                 detune: 0,
                 freq: 440,
-                freq_detune: 1,
+                freq_detune: 0,
             },
             WaveTableOscillatorConfig {
-                soundbank_index: 1,
+                soundbank_index: 6,
                 glide: false,
                 glide_rate: 200,
                 detune: 0,
                 freq: 440,
-                freq_detune: 2,
+                freq_detune: 0,
             },
             WaveTableOscillatorConfig {
-                soundbank_index: 9,
+                soundbank_index: 6,
                 glide: false,
                 glide_rate: 0,
                 detune: 0,
                 freq: 440,
-                freq_detune: 3,
+                freq_detune: 0,
             },
             WaveTableOscillatorConfig {
-                soundbank_index: 1,
+                soundbank_index: 6,
                 glide: true,
                 glide_rate: 200,
                 detune: 0,
@@ -101,95 +106,95 @@ pub fn synth_loop() {
                 freq_detune: 0,
             },
             WaveTableOscillatorConfig {
-                soundbank_index: 9,
+                soundbank_index: 6,
                 glide: false,
                 glide_rate: 0,
                 detune: 0,
                 freq: 440,
-                freq_detune: 1,
+                freq_detune: 0,
             },
             WaveTableOscillatorConfig {
-                soundbank_index: 1,
+                soundbank_index: 6,
                 glide: false,
                 glide_rate: 200,
                 detune: 0,
                 freq: 440,
-                freq_detune: 2,
+                freq_detune: 0,
             },
             WaveTableOscillatorConfig {
-                soundbank_index: 9,
+                soundbank_index: 6,
                 glide: false,
                 glide_rate: 0,
                 detune: 0,
                 freq: 440,
-                freq_detune: 3,
+                freq_detune: 0,
             },
         ],
         envelops: [
             EnvelopConfiguration {
-                attack_time: 10,
+                attack_time: 50,
                 decay_time: 100,
                 release_time: 300,
                 sustain_level: 90,
             },
             EnvelopConfiguration {
-                attack_time: 200,
-                decay_time: 10,
-                release_time: 100,
-                sustain_level: 90,
-            },
-            EnvelopConfiguration {
-                attack_time: 10,
+                attack_time: 50,
                 decay_time: 100,
                 release_time: 300,
                 sustain_level: 90,
             },
             EnvelopConfiguration {
-                attack_time: 200,
-                decay_time: 10,
-                release_time: 100,
-                sustain_level: 90,
-            },
-            EnvelopConfiguration {
-                attack_time: 10,
+                attack_time: 50,
                 decay_time: 100,
                 release_time: 300,
                 sustain_level: 90,
             },
             EnvelopConfiguration {
-                attack_time: 200,
-                decay_time: 10,
-                release_time: 100,
-                sustain_level: 90,
-            },
-            EnvelopConfiguration {
-                attack_time: 10,
+                attack_time: 50,
                 decay_time: 100,
                 release_time: 300,
                 sustain_level: 90,
             },
             EnvelopConfiguration {
-                attack_time: 200,
-                decay_time: 10,
-                release_time: 100,
+                attack_time: 50,
+                decay_time: 100,
+                release_time: 300,
+                sustain_level: 90,
+            },
+            EnvelopConfiguration {
+                attack_time: 50,
+                decay_time: 100,
+                release_time: 300,
+                sustain_level: 90,
+            },
+            EnvelopConfiguration {
+                attack_time: 50,
+                decay_time: 100,
+                release_time: 300,
+                sustain_level: 90,
+            },
+            EnvelopConfiguration {
+                attack_time: 50,
+                decay_time: 100,
+                release_time: 300,
                 sustain_level: 90,
             },
         ],
         lfos: [
             WaveTableLoFreqOscillatorConfig {
-                soundbank_index: 2,
+                soundbank_index: 6,
                 time: 200,
             },
             WaveTableLoFreqOscillatorConfig {
-                soundbank_index: 2,
+                soundbank_index: 6,
                 time: 200,
             },
             WaveTableLoFreqOscillatorConfig {
-                soundbank_index: 2,
+                soundbank_index: 6,
                 time: 200,
             },
             WaveTableLoFreqOscillatorConfig {
-                soundbank_index: 2,
+                soundbank_index: 6,
                 time: 200,
             },
         ],
@@ -231,8 +236,8 @@ pub fn synth_loop() {
             kind_of_filter: KindOfFilter::High,
         },
         mixer_config: MixerConfiguration {
-            gain_voices: [40, 0, 0, 0, 0, 0, 0, 0],
-            gain_main: 50,
+            gain_voices: [10, 10, 10, 10, 10, 10, 10, 10],
+            gain_main: 20,
         },
         overdrive_config: OverdriveConfiguration {
             threshold: 1000,
@@ -240,7 +245,7 @@ pub fn synth_loop() {
             enabled: false,
         },
     };
-
+  
     let mut synth: synth::Synth = synth::Synth::new(SAMPLE_RATE as u16, &patch, Rc::clone(&wt));
     let (_, rx_descriptors, tx_buffer, tx_descriptors) = dma_circular_buffers!(0, BUFFER_SIZE);
 
@@ -254,7 +259,7 @@ pub fn synth_loop() {
             Standard::Philips,
             DataFormat::Data16Channel16,
             SAMPLE_RATE.Hz(),
-            dma_channel.configure(false, DmaPriority::Priority0),
+            dma_channel.configure(true, DmaPriority::Priority9),
             rx_descriptors,
             tx_descriptors,
         );

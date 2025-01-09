@@ -5,6 +5,7 @@ authors = ["Daniël van Gils"]
 edition = "2021"
 license = ""
 
+
 [dependencies]
 
 esp-backtrace = { version = "0.14.2", features = [
@@ -14,7 +15,7 @@ esp-backtrace = { version = "0.14.2", features = [
     "println",
 ] }
 
-esp-hal = { version = "0.22.0", features = ["esp32s3", "quad-psram"] }
+esp-hal = { version = "0.22.0", features = ["esp32s3", "octal-psram"] }
 
 esp-hal-embassy = { version = "0.5.0", features = ["esp32s3"] }
 
@@ -45,9 +46,13 @@ fugit = "0.3.7"
 embassy-futures = "0.1.1"
 embassy-usb = "0.3.0"
 tinybmp = "0.6.0"
+esp-storage ={ version="0.4.0", features = ["esp32s3"]}
+embedded-storage = "0.3.1"
+esp-partition-table = "0.1.2"
 
 [profile.dev]
 opt-level = "s"
+
 
 [profile.release]
 codegen-units = 1        # LLVM can perform better optimizations using a single thread
@@ -57,3 +62,4 @@ incremental = false
 lto = 'fat'
 opt-level = 's'
 overflow-checks = false
+
