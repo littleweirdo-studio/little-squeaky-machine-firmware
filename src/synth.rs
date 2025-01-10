@@ -287,7 +287,8 @@ pub fn synth_loop() {
             tx_descriptors,
         );
 
-        let mut i2s_tx = i2s
+       
+        let mut i2s_tx = i2s.with_mclk(peripherals.GPIO16)
             .i2s_tx
             .with_bclk(peripherals.GPIO6)
             .with_ws(peripherals.GPIO4)
