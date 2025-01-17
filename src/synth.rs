@@ -251,7 +251,7 @@ pub fn synth_loop() {
                     voices: [1, 255],
                 },
             ],
-            lfo_to_filter: true,
+            lfo_to_filter: false,
         },
         filter_config: FilterConfig {
             cutoff_frequency: 1_000,
@@ -260,7 +260,7 @@ pub fn synth_loop() {
             kind_of_filter: KindOfFilter::Low,
         },
         mixer_config: MixerConfiguration {
-            gain_voices: [0, 0, 0, 0, 0, 0, 0, 0],
+            gain_voices: [20, 0, 0, 0, 0, 0, 0, 0],
             gain_main: 20,
         },
         overdrive_config: OverdriveConfiguration {
