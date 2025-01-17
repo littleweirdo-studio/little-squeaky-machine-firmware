@@ -4,9 +4,11 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use alloc::{boxed::Box, rc::Rc};
+use driver_sgtl5000::SGTL5000;
 use embedded_storage::Storage;
 use esp_alloc as _;
 use esp_backtrace as _;
+use esp_hal::i2c::master::{Config, I2c};
 use esp_hal::Cpu;
 use esp_hal::{
     dma::{Dma, DmaPriority},
@@ -277,7 +279,7 @@ pub fn synth_loop() {
         let dma = Dma::new(peripherals.DMA);
         let dma_channel = dma.channel0;
 
-        let i2s = I2s::new(
+        let mut i2s = I2s::new(
             peripherals.I2S0,
             Standard::Philips,
             DataFormat::Data16Channel16,
@@ -288,12 +290,46 @@ pub fn synth_loop() {
         );
 
        
-        let mut i2s_tx = i2s.with_mclk(peripherals.GPIO16)
+   
+        i2s = i2s.with_mclk(peripherals.GPIO4);
+        let mut i2s_tx = i2s
             .i2s_tx
-            .with_bclk(peripherals.GPIO6)
-            .with_ws(peripherals.GPIO4)
-            .with_dout(peripherals.GPIO5)
+            .with_bclk(peripherals.GPIO5)
+            .with_ws(peripherals.GPIO6)
+            .with_dout(peripherals.GPIO7)
             .build();
+
+            let mut config = Config::default();
+            config.frequency =  400u32.kHz();
+
+            let mut config = Config::default();
+            let mut i2c = I2c::new(peripherals.I2C0, config)
+                .with_sda(peripherals.GPIO41)
+                .with_scl(peripherals.GPIO42);
+        
+        
+
+            let mut sgtl500 = SGTL5000::new(i2c);
+    
+    println!("Check if the SGTL5000 is ready and respond to commands\n");
+    println!(
+        "--> SGTL5000 :: Chip Ready {:?}",
+        sgtl500.ready().unwrap()
+    );
+
+    println!("Initialize the SGTL5000\n");
+    println!(
+        "--> SGTL5000 :: Chip Revision {:#x}",
+        sgtl500.get_chip_revision().unwrap()
+    );
+    println!("--> SGTL5000 :: Codec setup {:?}", sgtl500.init());
+
+
+    println!(
+        "--> SGTL5000 ::Volume to 40 {:?}",
+        sgtl500.headphone_volume(70)
+    );
+
 
         esp_println::println!(
             "-:= > Starting LttL Weirdɵ DMA transfer with a {} ms buffer",

@@ -49,6 +49,7 @@ tinybmp = "0.6.0"
 esp-storage ={ version="0.4.0", features = ["esp32s3"]}
 embedded-storage = "0.3.1"
 esp-partition-table = "0.1.2"
+driver-sgtl5000 = { path = "../driver-sgtl5000"}
 
 [profile.dev]
 opt-level = "s"
