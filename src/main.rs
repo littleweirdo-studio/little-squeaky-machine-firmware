@@ -113,7 +113,8 @@ async fn main(spawner: Spawner) {
         }
     };
     // spawn the tasks
-  //  let _ = spawner.spawn(oled_task());
+    Timer::after(Duration::from_millis(2000)).await;
+    let _ = spawner.spawn(oled_task());
     Timer::after(Duration::from_millis(1000)).await;
     // spawn the USB device task (MIDI)
     join(usb_future, process_midi).await;

@@ -54,8 +54,8 @@ pub async fn oled_task() {
         config.frequency =  400u32.kHz();
         
         i2c = I2c::new(peripherals.I2C0, config)
-            .with_sda(peripherals.GPIO17)
-            .with_scl(peripherals.GPIO18);
+        .with_sda(peripherals.GPIO41)
+        .with_scl(peripherals.GPIO42);
 
         let analog_pin = peripherals.GPIO8;
         let mut adc_config = AdcConfig::default();

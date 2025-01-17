@@ -79,9 +79,8 @@ async fn main(_spawner: Spawner) {
     let mut i2c = I2c::new(
          peripherals.I2C0,
          config,
-    ).with_sda(peripherals.GPIO17)
-     .with_scl(peripherals.GPIO18);
- 
+    )        .with_sda(peripherals.GPIO41)
+                .with_scl(peripherals.GPIO42);
   
     let interface = I2CDisplayInterface::new(i2c);
     let mut display = Ssd1306::new(interface, DisplaySize128x64, DisplayRotation::Rotate0)
