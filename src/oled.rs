@@ -1,10 +1,9 @@
 extern crate alloc;
 use alloc::format;
 use embedded_graphics::image::{Image, ImageRaw};
-use embedded_graphics::mono_font::iso_8859_9::FONT_7X14;
-use ssd1306::command::AddrMode;
+use fugit::RateExtU32;
 use embassy_time::{Duration, Timer};
-use embedded_graphics::mono_font::ascii::{FONT_10X20, FONT_7X14_BOLD};
+use embedded_graphics::mono_font::ascii::{FONT_7X14_BOLD};
 use embedded_graphics::pixelcolor::BinaryColor;
 use embedded_graphics::prelude::Point;
 use embedded_graphics::text::{Alignment, Text};
@@ -13,18 +12,12 @@ use esp_backtrace as _;
 use esp_hal::analog::adc::{Adc, AdcCalBasic, AdcConfig, Attenuation};
 use esp_hal::gpio::GpioPin;
 use esp_hal::i2c::master::{Config, I2c};
-use esp_hal::peripherals::ADC1;
-use esp_hal::{
-    peripherals::Peripherals,
-    prelude::*,
-};
+use esp_hal::peripherals::{Peripherals, ADC1};
 use ssd1306::prelude::DisplayRotation;
 use ssd1306::size::DisplaySize128x64;
-use ssd1306::{I2CDisplayInterface, Ssd1306, Ssd1306Async};
-use tinybmp::Bmp;
-use usbd_midi::data::byte::u7::U7;
-use usbd_midi::data::midi::message::control_function::ControlFunction;
-use usbd_midi::data::midi::message::Message;
+use ssd1306::{I2CDisplayInterface, Ssd1306};
+use usbd_midi::message::control_function::ControlFunction;
+use usbd_midi::message::{Message, U7};
 
 use embedded_graphics::{
     mono_font::MonoTextStyleBuilder,
@@ -53,7 +46,7 @@ pub async fn oled_task() {
         let mut config = Config::default();
         config.frequency =  400u32.kHz();
         
-        i2c = I2c::new(peripherals.I2C0, config)
+        i2c = I2c::new(peripherals.I2C0, config).unwrap()
         .with_sda(peripherals.GPIO41)
         .with_scl(peripherals.GPIO42);
 
@@ -62,7 +55,7 @@ pub async fn oled_task() {
 
         pot_in0 = adc_config.enable_pin_with_cal::<GpioPin<8>, AdcCalBasic<ADC1>>(
             analog_pin,
-            Attenuation::Attenuation11dB,
+            Attenuation::_11dB,
         );
 
         adc1 = Adc::new(peripherals.ADC1, adc_config);
@@ -97,7 +90,7 @@ pub async fn oled_task() {
             Ok(value) => {
                 MIDI_MESSAGE_CHANNEL
                     .send(Message::ControlChange(
-                        usbd_midi::data::midi::channel::Channel::Channel1,
+                        usbd_midi::message::Channel::Channel1,
                         ControlFunction::SOUND_CONTROLLER_1_70,
                         value,
                     ))

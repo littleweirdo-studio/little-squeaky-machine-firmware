@@ -28,14 +28,13 @@ use esp_hal::cpu_control::{CpuControl, Stack};
 use esp_hal::otg_fs::asynch::Driver;
 use esp_hal::otg_fs::Usb;
 use esp_hal::{
-    prelude::*,
     timer::{timg::TimerGroup, AnyTimer},
 };
 use esp_hal::psram;
 //
 
 // channel for sharing midi message between tasks and processes running on different cores. 
-static MIDI_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, usbd_midi::data::midi::message::Message, 30> =
+static MIDI_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, usbd_midi::message::Message, 30> =
     Channel::new();
 
 // create stack for second core (running the Synth tasks, 160KB stack reserved)
@@ -46,11 +45,10 @@ async fn main(spawner: Spawner) {
     esp_println::logger::init_logger_from_env();
     esp_println::println!("-:=  LttL Squeaky Machine v1.1       =:-");
     esp_println::println!("-:=  Powered by LttL Weirdɵ v0.1     =:-");
-    let mut config = esp_hal::Config::default();
-    config.cpu_clock = CpuClock::max();
+    let config = esp_hal::Config::default().with_cpu_clock(esp_hal::clock::CpuClock::_240MHz);
     esp_println::println!(
         "> Set CPU Speed to {:?} MHz\n",
-        config.cpu_clock.frequency().to_MHz()
+        config.cpu_clock
     );
     let peripherals = esp_hal::init(config);
     esp_alloc::psram_allocator!(peripherals.PSRAM, psram);

@@ -1,27 +1,23 @@
 extern crate alloc;
 
 
-
+use fugit::RateExtU32;
 use alloc::vec::Vec;
-use alloc::{boxed::Box, rc::Rc};
+use alloc::{rc::Rc};
 use driver_sgtl5000::SGTL5000;
-use embedded_storage::Storage;
 use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::i2c::master::{Config, I2c};
 use esp_hal::Cpu;
 use esp_hal::{
-    dma::{Dma, DmaPriority},
-    dma_circular_buffers,
+   dma_circular_buffers,
     i2s::master::{DataFormat, I2s, Standard},
-    peripherals::Peripherals,
-    prelude::*,
+    peripherals::Peripherals
 };
 use esp_println::println;
-use little_weirdo::synth::data::wavetables::Wavetables;
 use little_weirdo::synth::sampler::BoxedSample;
-use usbd_midi::data::midi::message::control_function::ControlFunction;
-use usbd_midi::data::midi::message::Message;
+use usbd_midi::message::control_function::ControlFunction;
+use usbd_midi::message::Message;
 use esp_storage::FlashStorage;
 use embedded_storage::{ReadStorage};
 
@@ -276,15 +272,14 @@ pub fn synth_loop() {
 
     unsafe {
         let peripherals: Peripherals = Peripherals::steal();
-        let dma = Dma::new(peripherals.DMA);
-        let dma_channel = dma.channel0;
+        let dma_channel = peripherals.DMA_CH0;
 
         let mut i2s = I2s::new(
             peripherals.I2S0,
             Standard::Philips,
             DataFormat::Data16Channel16,
             SAMPLE_RATE.Hz(),
-            dma_channel.configure(true, DmaPriority::Priority9),
+            dma_channel,
             rx_descriptors,
             tx_descriptors,
         );
@@ -303,7 +298,8 @@ pub fn synth_loop() {
             config.frequency =  400u32.kHz();
 
             let mut config = Config::default();
-            let mut i2c = I2c::new(peripherals.I2C0, config)
+            
+            let mut i2c = I2c::new(peripherals.I2C0, config).unwrap()
                 .with_sda(peripherals.GPIO41)
                 .with_scl(peripherals.GPIO42);
         
@@ -330,6 +326,8 @@ pub fn synth_loop() {
         sgtl500.headphone_volume(70)
     );
 
+    sgtl500.enable_audio_processing();
+    sgtl500.enable_bass_enhance();
 
         esp_println::println!(
             "-:= > Starting LttL Weirdɵ DMA transfer with a {} ms buffer",
