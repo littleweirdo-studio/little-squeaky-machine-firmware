@@ -2,13 +2,11 @@
 #![no_main]
 #![feature(impl_trait_in_assoc_type)]
 use alloc::rc::Rc;
+use alloc::vec::Vec;
 use embassy_executor::Spawner;
 use esp_backtrace as _;
 use esp_hal::psram;
 use esp_hal::rtc_cntl::Rtc;
-use esp_hal::{
-    prelude::*,
-};
 use esp_println::println;
 use little_weirdo::synth;
 use little_weirdo::synth::data::wavetables::{BoxedWavetable, BoxedWavetables};
@@ -16,6 +14,7 @@ use little_weirdo::synth::patch::Patch;
 extern crate alloc;
 use esp_alloc as _;
 use esp_backtrace as _;
+use little_weirdo::synth::sampler::BoxedSample;
 
 use core::include_bytes;
 use little_weirdo::synth::effects::filter::FilterConfig;
@@ -37,8 +36,7 @@ const DELAY_US: u32 = 1_000_000 / SAMPLE_RATE;
 #[esp_hal_embassy::main]
 async fn main(_spawner: Spawner) {
     // init CPU
-    let mut config = esp_hal::Config::default();
-    config.cpu_clock = CpuClock::from(CpuClock::Clock240MHz);
+    let mut config = esp_hal::Config::default().with_cpu_clock(esp_hal::clock::CpuClock::_240MHz);
     let peripherals = esp_hal::init(config);
     let rtc = Rtc::new(peripherals.LPWR);
     esp_alloc::psram_allocator!(peripherals.PSRAM, psram);
@@ -245,7 +243,9 @@ async fn main(_spawner: Spawner) {
         },
     };
 
-    let mut synth: synth::Synth = synth::Synth::new(SAMPLE_RATE as u16, &patch, Rc::clone(&wt));
+    let sample_on_heap = BoxedSample::new(include_bytes!("../src/sample.raw").to_vec());
+
+    let mut synth: synth::Synth = synth::Synth::new(SAMPLE_RATE as u16, &patch, Rc::clone(&wt), Rc::new(sample_on_heap));
     println!("> Heap used after allocation of wavetables/synth = {:?} bytes", esp_alloc::HEAP.used());
 
 

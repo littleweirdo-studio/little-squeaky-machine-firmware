@@ -327,7 +327,7 @@ pub fn synth_loop() {
     );
 
     sgtl500.enable_audio_processing();
-    sgtl500.enable_bass_enhance();
+    //sgtl500.enable_bass_enhance();
 
         esp_println::println!(
             "-:= > Starting LttL Weirdɵ DMA transfer with a {} ms buffer",
