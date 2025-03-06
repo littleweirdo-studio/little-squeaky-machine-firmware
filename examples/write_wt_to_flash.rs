@@ -52,7 +52,6 @@ use esp_hal::peripheral::Peripheral;
 use esp_hal::peripherals::ADC1;
 use esp_hal::rtc_cntl::Rtc;
 use esp_hal::{
-    prelude::*,
     timer::{timg::TimerGroup, AnyTimer},
 };
 use embedded_graphics::{image::Image, prelude::*};
@@ -65,7 +64,6 @@ use embedded_storage::{ReadStorage, Storage};
 async fn main(_spawner: Spawner) {
     // init CPU
     let mut config = esp_hal::Config::default();
-    config.cpu_clock = CpuClock::max();
     let peripherals = esp_hal::init(config);
     let rtc = Rtc::new(peripherals.LPWR);
     let timer_group_0 = TimerGroup::new(peripherals.TIMG0);

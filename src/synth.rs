@@ -1,6 +1,7 @@
 extern crate alloc;
 
 
+use esp_hal::gpio::NoPin;
 use fugit::RateExtU32;
 use alloc::vec::Vec;
 use alloc::{rc::Rc};
@@ -86,7 +87,7 @@ pub fn synth_loop() {
         },
         voices: [
             WaveTableOscillatorConfig {
-                soundbank_index: 1,
+                soundbank_index: 7,
                 glide: false,
                 glide_rate: 200,
                 detune: 0,
@@ -94,12 +95,12 @@ pub fn synth_loop() {
                 freq_detune: 0,
             },
             WaveTableOscillatorConfig {
-                soundbank_index: 1,
+                soundbank_index: 7,
                 glide: false,
                 glide_rate: 0,
                 detune: 0,
                 freq: 440,
-                freq_detune: 1,
+                freq_detune: 0,
             },
             WaveTableOscillatorConfig {
                 soundbank_index: 1,
@@ -154,14 +155,14 @@ pub fn synth_loop() {
             EnvelopConfiguration {
                 attack_time: 10,
                 decay_time: 100,
-                release_time: 100,
+                release_time: 10,
                 sustain_level: 80,
             },
             EnvelopConfiguration {
-                attack_time: 50,
+                attack_time: 10,
                 decay_time: 100,
-                release_time: 300,
-                sustain_level: 90,
+                release_time: 10,
+                sustain_level: 80,
             },
             EnvelopConfiguration {
                 attack_time: 50,
@@ -256,13 +257,13 @@ pub fn synth_loop() {
             kind_of_filter: KindOfFilter::Low,
         },
         mixer_config: MixerConfiguration {
-            gain_voices: [20, 0, 0, 0, 0, 0, 0, 0],
+            gain_voices: [30, 30, 0, 0, 0, 0, 0, 0],
             gain_main: 20,
         },
         overdrive_config: OverdriveConfiguration {
             threshold: 1000,
             kind: KindOfOverdrive::Softer,
-            enabled: false,
+            enabled: true,
         },
     };
   
@@ -286,22 +287,20 @@ pub fn synth_loop() {
 
        
    
-        i2s = i2s.with_mclk(peripherals.GPIO4);
+        i2s = i2s.with_mclk(peripherals.GPIO38);
         let mut i2s_tx = i2s
             .i2s_tx
-            .with_bclk(peripherals.GPIO5)
-            .with_ws(peripherals.GPIO6)
-            .with_dout(peripherals.GPIO7)
+            .with_bclk(peripherals.GPIO40)
+            .with_ws(peripherals.GPIO39)
+            .with_dout(peripherals.GPIO42)
             .build();
 
-            let mut config = Config::default();
-            config.frequency =  400u32.kHz();
 
             let mut config = Config::default();
             
             let mut i2c = I2c::new(peripherals.I2C0, config).unwrap()
-                .with_sda(peripherals.GPIO41)
-                .with_scl(peripherals.GPIO42);
+                .with_sda(peripherals.GPIO47)
+                .with_scl(peripherals.GPIO48);
         
         
 
@@ -322,7 +321,7 @@ pub fn synth_loop() {
 
 
     println!(
-        "--> SGTL5000 ::Volume to 40 {:?}",
+        "--> SGTL5000 ::Volume to 70 {:?}",
         sgtl500.headphone_volume(70)
     );
 
@@ -337,7 +336,9 @@ pub fn synth_loop() {
         let mut transfer = i2s_tx.write_dma_circular(tx_buffer).unwrap();
         let mut buffer = [0u8; BUFFER_SIZE];
         loop {
-            match MIDI_MESSAGE_CHANNEL.try_receive() {
+            
+            match 
+            MIDI_MESSAGE_CHANNEL.try_receive() {
                 Ok(message) => match message {
                     Message::NoteOn(_channel, note, velocity) => {
                         synth.note_on(note.into(), velocity.into())
@@ -367,7 +368,7 @@ pub fn synth_loop() {
                             synth.change_main_volume(new_value);
                         }
                         if control_change == ControlFunction::SOUND_CONTROLLER_1_70 {
-                            synth.change_cutoff(new_value);
+                         //   synth.change_main_volume(new_value);
                         }
                         if control_change == ControlFunction::SOUND_CONTROLLER_2_71 {
                             synth.change_resonance(new_value);

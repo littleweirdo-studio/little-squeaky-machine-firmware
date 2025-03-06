@@ -7,7 +7,6 @@ license = ""
 
 
 [dependencies]
-
 esp-backtrace = { version = "0.15.0", features = [
     "esp32s3",
     "exception-handler",
@@ -16,23 +15,16 @@ esp-backtrace = { version = "0.15.0", features = [
 ] }
 
 esp-hal = { version = "0.23.1", features = ["esp32s3", "octal-psram"] }
-
 esp-hal-embassy = { version = "0.6.0", features = ["esp32s3"] }
-
 embedded-hal = { version = "1.0.0" }
-
 embassy-executor = { version = "0.7.0", features = ["nightly"] }
-
 embassy-time = { version = "0.4.0" }
-
 embassy-sync = { version = "0.6.2", features = [] }
-
 esp-println = { version = "0.13.0", features = ["esp32s3", "log"] }
 
 log = { version = "0.4.25" }
 esp-alloc = { version = "0.6.0" }
 little_weirdo = { path = "../little-weirdo" }
-#little-weirdo-soundbanks = { path = "../little-weirdo-soundbanks" }
 
 static_cell = { version = "2.1.0", features = ["nightly"] }
 usb-device = "0.3.2"
@@ -47,10 +39,11 @@ esp-storage ={ version="0.4.0", features = ["esp32s3"]}
 embedded-storage = "0.3.1"
 esp-partition-table = "0.1.2"
 driver-sgtl5000 = { path = "../driver-sgtl5000"}
+esp-hal-smartled = {git = "https://github.com/esp-rs/esp-hal-community.git", rev = "ad75112ae5d4b4fe2fe927356dc281283cafedfc", features = ["esp32s3"] }
+smart-leds = "0.4.0"
 
 [profile.dev]
 opt-level = "s"
-
 
 [profile.release]
 codegen-units = 1        # LLVM can perform better optimizations using a single thread
@@ -60,4 +53,3 @@ incremental = false
 lto = 'fat'
 opt-level = 's'
 overflow-checks = false
-
