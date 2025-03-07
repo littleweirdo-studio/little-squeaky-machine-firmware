@@ -24,6 +24,8 @@ use embassy_usb::class::midi::MidiClass;
 use embassy_usb::Builder;
 use esp_hal::peripheral::Peripheral;
 use esp_hal::peripherals::PSRAM;
+use midi_usb::midi_usb_task;
+use smart_leds::colors;
 //
 extern crate alloc;
 use core::mem::MaybeUninit;
@@ -42,8 +44,11 @@ use esp_hal::timer::{timg::TimerGroup, AnyTimer};
 static MIDI_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, usbd_midi::message::Message, 30> =
     Channel::new();
 
-// create stack for second core (running the Synth tasks, 160KB stack reserved)
+
+// create stack for second core (running the Synth tasks, 220KB stack reserved)
 static mut APP_CORE_STACK: Stack<220_000> = Stack::new();
+
+const usb_midi_enabled: bool = false;
 
 #[esp_hal_embassy::main]
 async fn main(spawner: Spawner) {
@@ -74,51 +79,18 @@ async fn main(spawner: Spawner) {
         })
         .unwrap();
 
-    // Create MIDI USB device
-    let usb = Usb::new(peripherals.USB0, peripherals.GPIO20, peripherals.GPIO19);
-    let mut ep_out_buffer = [0u8; 1024];
-    let config = esp_hal::otg_fs::asynch::Config::default();
-    let driver = Driver::new(usb, &mut ep_out_buffer, config);
-    // Setup the configuration for the USB device
-    let mut config = embassy_usb::Config::new(0x303A, 0x3001);
-    config.manufacturer = Some("Hi Squeaky Things");
-    config.product = Some("Lttl Squeak Machine");
-    config.serial_number = Some("00110022");
-    config.device_class = 0x00;
-    config.device_sub_class = 0x00;
-    config.device_protocol = 0x00;
-    config.composite_with_iads = false;
-    let mut config_descriptor = [0; 256];
-    let mut bos_descriptor = [0; 256];
-    let mut control_buf = [0; 64];
-
-    let mut builder = Builder::new(
-        driver,
-        config,
-        &mut config_descriptor,
-        &mut bos_descriptor,
-        &mut [],
-        &mut control_buf,
-    );
-
-    // initlize the actual MIDI class
-    let mut midi_class = MidiClass::new(&mut builder, 1, 1, 64);
-    let mut usb_device = builder.build();
-    let usb_future = usb_device.run();
-    Timer::after(Duration::from_millis(100)).await;
-    let process_midi = async {
-        loop {
-            midi_class.wait_connection().await;
-            let _ = midi_read(&mut midi_class).await;
-        }
-    };
     // spawn the tasks
     let _ = spawner.spawn(led_task());
-    Timer::after(Duration::from_millis(100)).await;
+  
+    // Create MIDI USB device
+    if usb_midi_enabled {
+        Timer::after(Duration::from_millis(10)).await;
+        spawner.spawn(midi_usb_task());
+    }
+    
+    Timer::after(Duration::from_millis(10)).await;
     let _ = spawner.spawn(oled_task());
-    // let _ = spawner.spawn(midi_uart_task());
-    //  let _ = spawner.spawn(potmeter_task());
-    Timer::after(Duration::from_millis(100)).await;
-    // spawn the USB device task (MIDI)
-    join(usb_future, process_midi).await;
+
+    Timer::after(Duration::from_millis(10)).await;
+    let _ = spawner.spawn(potmeter_task());   
 }

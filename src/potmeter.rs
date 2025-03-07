@@ -1,3 +1,4 @@
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, watch::Watch};
 use embassy_time::{Duration, Timer};
 use esp_backtrace as _;
 use esp_hal::{
@@ -5,6 +6,17 @@ use esp_hal::{
     gpio::GpioPin,
     peripherals::{Peripherals, ADC1, ADC2},
 };
+use esp_println::println;
+use smart_leds::RGB8;
+use usbd_midi::message::{ControlFunction, U7};
+
+use crate::{led, MIDI_MESSAGE_CHANNEL};
+
+
+pub static POT1_MESSAGE_CHANNEL: Watch<CriticalSectionRawMutex, u16, 10> = Watch::new();
+pub static POT2_MESSAGE_CHANNEL: Watch<CriticalSectionRawMutex, u16, 10> = Watch::new();
+pub static POT3_MESSAGE_CHANNEL: Watch<CriticalSectionRawMutex, u16, 10> = Watch::new();
+pub static POT4_MESSAGE_CHANNEL: Watch<CriticalSectionRawMutex, u16, 10> = Watch::new();
 
 #[embassy_executor::task]
 pub async fn potmeter_task() {
@@ -52,9 +64,26 @@ pub async fn potmeter_task() {
 
     loop {
         let pin_value_pot_1: u16 = adc2.read_blocking(&mut pot_in1);
+        POT1_MESSAGE_CHANNEL.sender().send(pin_value_pot_1);
+        Timer::after(Duration::from_millis(1)).await;
+
         let pin_value_pot_2: u16 = adc2.read_blocking(&mut pot_in2);
+        POT2_MESSAGE_CHANNEL.sender().send(pin_value_pot_2);
+        Timer::after(Duration::from_millis(1)).await;
+
         let pin_value_pot_3: u16 = adc1.read_blocking(&mut pot_in3);
+        POT3_MESSAGE_CHANNEL.sender().send(pin_value_pot_3);
+        Timer::after(Duration::from_millis(1)).await;
+
         let pin_value_pot_4: u16 = adc1.read_blocking(&mut pot_in4);
-        Timer::after(Duration::from_millis(100)).await;
+        POT4_MESSAGE_CHANNEL.sender().send(pin_value_pot_4);
+        Timer::after(Duration::from_millis(10)).await;
+
+        let _ = led::LED_MESSAGE_CHANNEL.send(led::LedMessage{color: RGB8{b:(pin_value_pot_1 / 20) as u8, g:(pin_value_pot_1 / 20) as u8, r:0}, id:21, enable:true}).await;
+        let _ = led::LED_MESSAGE_CHANNEL.send(led::LedMessage{color: RGB8{b:(pin_value_pot_2 / 20) as u8, g:0, r:0}, id:20, enable:true}).await;
+        let _ = led::LED_MESSAGE_CHANNEL.send(led::LedMessage{color: RGB8{b:(pin_value_pot_3 / 20) as u8, g:0, r:0}, id:19, enable:true}).await;
+        let _ = led::LED_MESSAGE_CHANNEL.send(led::LedMessage{color: RGB8{b:(pin_value_pot_4 / 20) as u8, g:0, r:0}, id:18, enable:true}).await;
+                   
+        MIDI_MESSAGE_CHANNEL.send(usbd_midi::Message::ControlChange(usbd_midi::message::Channel::Channel1, ControlFunction::CHANNEL_VOLUME_7, U7::try_from((pin_value_pot_1 / 50) as u8).unwrap() )).await;           
     }
 }

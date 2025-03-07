@@ -1,28 +1,28 @@
 extern crate alloc;
 
-
-use esp_hal::gpio::NoPin;
-use fugit::RateExtU32;
+use alloc::rc::Rc;
 use alloc::vec::Vec;
-use alloc::{rc::Rc};
 use driver_sgtl5000::SGTL5000;
+use embedded_storage::ReadStorage;
 use esp_alloc as _;
 use esp_backtrace as _;
+use esp_hal::gpio::NoPin;
 use esp_hal::i2c::master::{Config, I2c};
 use esp_hal::Cpu;
 use esp_hal::{
-   dma_circular_buffers,
+    dma_circular_buffers,
     i2s::master::{DataFormat, I2s, Standard},
-    peripherals::Peripherals
+    peripherals::Peripherals,
 };
 use esp_println::println;
+use esp_storage::FlashStorage;
+use fugit::RateExtU32;
 use little_weirdo::synth::sampler::BoxedSample;
+use smart_leds::colors;
 use usbd_midi::message::control_function::ControlFunction;
 use usbd_midi::message::Message;
-use esp_storage::FlashStorage;
-use embedded_storage::{ReadStorage};
 
-use crate::MIDI_MESSAGE_CHANNEL;
+use crate::{led, MIDI_MESSAGE_CHANNEL};
 use little_weirdo::synth::{
     self,
     data::wavetables::{BoxedWavetable, BoxedWavetables},
@@ -49,7 +49,6 @@ pub fn synth_loop() {
 
     esp_println::println!("-:= > Starting LttL Weirdɵ @ 16bits / {} Hz", SAMPLE_RATE);
     let mut storage = FlashStorage::new();
-    
 
     let mut wt_on_heap = BoxedWavetables::new();
     let mut wt_read_buffer = [0u8; 1200];
@@ -61,13 +60,12 @@ pub fn synth_loop() {
 
     let mut sample_read_buffer = [0u8; 1000];
 
-
-    let mut sample:Vec<u8> = Vec::with_capacity(328 * 1_000);
-    for wt in 0..328 {
+    let mut sample: Vec<u8> = Vec::with_capacity(1 * 1_000);
+    for wt in 0..1 {
         let offset = 0x00220000 + 10 * 1200 + wt * 1000;
         let result = storage.read(offset, &mut sample_read_buffer);
         match result {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(error) => esp_println::println!("Error {:?}", error),
         }
         let mut buffer = sample_read_buffer.to_vec();
@@ -75,19 +73,18 @@ pub fn synth_loop() {
     }
 
     let boxed = BoxedSample::new(sample);
-    
 
-    let  sample_on_heap = Rc::new(boxed);
+    let sample_on_heap = Rc::new(boxed);
 
-    esp_println::println!("-:= > Heap used {} KB", esp_alloc::HEAP.used()/1000);
-  
+    esp_println::println!("-:= > Heap used {} KB", esp_alloc::HEAP.used() / 1000);
+
     let patch = Patch {
         synth_config: SynthConfiguration {
             mode: SynthMode::Mono,
         },
         voices: [
             WaveTableOscillatorConfig {
-                soundbank_index: 7,
+                soundbank_index: 1,
                 glide: false,
                 glide_rate: 200,
                 detune: 0,
@@ -95,12 +92,12 @@ pub fn synth_loop() {
                 freq_detune: 0,
             },
             WaveTableOscillatorConfig {
-                soundbank_index: 7,
+                soundbank_index: 1,
                 glide: false,
-                glide_rate: 0,
+                glide_rate: 200,
                 detune: 0,
                 freq: 440,
-                freq_detune: 0,
+                freq_detune: 2,
             },
             WaveTableOscillatorConfig {
                 soundbank_index: 1,
@@ -153,16 +150,16 @@ pub fn synth_loop() {
         ],
         envelops: [
             EnvelopConfiguration {
-                attack_time: 10,
+                attack_time: 100,
                 decay_time: 100,
-                release_time: 10,
-                sustain_level: 80,
+                release_time: 100,
+                sustain_level: 100,
             },
             EnvelopConfiguration {
-                attack_time: 10,
+                attack_time: 100,
                 decay_time: 100,
-                release_time: 10,
-                sustain_level: 80,
+                release_time: 100,
+                sustain_level: 100,
             },
             EnvelopConfiguration {
                 attack_time: 50,
@@ -232,7 +229,7 @@ pub fn synth_loop() {
             ],
             voice_to_lfo: [
                 VoiceToLFORoute {
-                    enable: true,
+                    enable: false,
                     voices: [1, 255],
                 },
                 VoiceToLFORoute {
@@ -263,12 +260,17 @@ pub fn synth_loop() {
         overdrive_config: OverdriveConfiguration {
             threshold: 1000,
             kind: KindOfOverdrive::Softer,
-            enabled: true,
+            enabled: false,
         },
     };
-  
-    let mut synth: synth::Synth = synth::Synth::new(SAMPLE_RATE as u16, &patch, Rc::clone(&wt), Rc::clone(&sample_on_heap));
-    
+
+    let mut synth: synth::Synth = synth::Synth::new(
+        SAMPLE_RATE as u16,
+        &patch,
+        Rc::clone(&wt),
+        Rc::clone(&sample_on_heap),
+    );
+
     let (_, rx_descriptors, tx_buffer, tx_descriptors) = dma_circular_buffers!(0, BUFFER_SIZE);
 
     unsafe {
@@ -285,8 +287,6 @@ pub fn synth_loop() {
             tx_descriptors,
         );
 
-       
-   
         i2s = i2s.with_mclk(peripherals.GPIO38);
         let mut i2s_tx = i2s
             .i2s_tx
@@ -295,38 +295,32 @@ pub fn synth_loop() {
             .with_dout(peripherals.GPIO42)
             .build();
 
+        let mut config = Config::default();
 
-            let mut config = Config::default();
-            
-            let mut i2c = I2c::new(peripherals.I2C0, config).unwrap()
-                .with_sda(peripherals.GPIO47)
-                .with_scl(peripherals.GPIO48);
-        
-        
+        let mut i2c = I2c::new(peripherals.I2C0, config)
+            .unwrap()
+            .with_sda(peripherals.GPIO47)
+            .with_scl(peripherals.GPIO48);
 
-            let mut sgtl500 = SGTL5000::new(i2c);
-    
-    println!("Check if the SGTL5000 is ready and respond to commands\n");
-    println!(
-        "--> SGTL5000 :: Chip Ready {:?}",
-        sgtl500.ready().unwrap()
-    );
+        let mut sgtl500 = SGTL5000::new(i2c);
 
-    println!("Initialize the SGTL5000\n");
-    println!(
-        "--> SGTL5000 :: Chip Revision {:#x}",
-        sgtl500.get_chip_revision().unwrap()
-    );
-    println!("--> SGTL5000 :: Codec setup {:?}", sgtl500.init());
+        println!("Check if the SGTL5000 is ready and respond to commands\n");
+        println!("--> SGTL5000 :: Chip Ready {:?}", sgtl500.ready().unwrap());
 
+        println!("Initialize the SGTL5000\n");
+        println!(
+            "--> SGTL5000 :: Chip Revision {:#x}",
+            sgtl500.get_chip_revision().unwrap()
+        );
+        println!("--> SGTL5000 :: Codec setup {:?}", sgtl500.init());
 
-    println!(
-        "--> SGTL5000 ::Volume to 70 {:?}",
-        sgtl500.headphone_volume(70)
-    );
+        println!(
+            "--> SGTL5000 ::Volume to 70 {:?}",
+            sgtl500.headphone_volume(70)
+        );
 
-    sgtl500.enable_audio_processing();
-    //sgtl500.enable_bass_enhance();
+        sgtl500.enable_audio_processing();
+        //sgtl500.enable_bass_enhance();
 
         esp_println::println!(
             "-:= > Starting LttL Weirdɵ DMA transfer with a {} ms buffer",
@@ -336,14 +330,16 @@ pub fn synth_loop() {
         let mut transfer = i2s_tx.write_dma_circular(tx_buffer).unwrap();
         let mut buffer = [0u8; BUFFER_SIZE];
         loop {
-            
-            match 
-            MIDI_MESSAGE_CHANNEL.try_receive() {
+            match MIDI_MESSAGE_CHANNEL.try_receive() {
                 Ok(message) => match message {
                     Message::NoteOn(_channel, note, velocity) => {
+                        let _ = led::LED_MESSAGE_CHANNEL.try_send(led::LedMessage{color: colors::AQUAMARINE, id:1, enable:true});
                         synth.note_on(note.into(), velocity.into())
                     }
-                    Message::NoteOff(_channel, note, _velocity) => synth.note_off(note.into()),
+                    Message::NoteOff(_channel, note, _velocity) => {
+                    let _ = led::LED_MESSAGE_CHANNEL.try_send(led::LedMessage{color: colors::DARK_BLUE, id:1, enable:true});
+                        synth.note_off(note.into())
+                    }
                     Message::ProgramChange(_channel, program) => {
                         let program_change: u8 = program.into();
                         match program_change {
@@ -368,7 +364,7 @@ pub fn synth_loop() {
                             synth.change_main_volume(new_value);
                         }
                         if control_change == ControlFunction::SOUND_CONTROLLER_1_70 {
-                         //   synth.change_main_volume(new_value);
+                            //   synth.change_main_volume(new_value);
                         }
                         if control_change == ControlFunction::SOUND_CONTROLLER_2_71 {
                             synth.change_resonance(new_value);

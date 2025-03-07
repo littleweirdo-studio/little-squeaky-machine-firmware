@@ -1,9 +1,25 @@
+use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
+use embassy_sync::channel::Channel;
+
+use embassy_time::{Duration, Timer};
 use esp_backtrace as _;
 //use embassy_time::{Duration, Timer};
 use esp_hal::peripherals::Peripherals;
 use esp_hal::{rmt::Rmt, time::RateExtU32};
 use esp_hal_smartled::{smartLedBuffer, SmartLedsAdapter};
-use smart_leds::{brightness, gamma, SmartLedsWrite};
+use esp_println::println;
+use smart_leds::{brightness, colors, gamma, SmartLedsWrite, RGB8};
+use usbd_midi::message;
+
+// channel for sharing led update message between tasks and processes running on different cores.
+#[derive(Debug)]
+pub struct LedMessage {
+    pub enable: bool,
+    pub color: RGB8,
+    pub id: u8,
+}
+
+pub static LED_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, LedMessage, 10> = Channel::new();
 
 #[embassy_executor::task]
 pub async fn led_task() {
@@ -21,11 +37,14 @@ pub async fn led_task() {
 
     let rmt_buffer = smartLedBuffer!(22);
     let mut led = SmartLedsAdapter::new(rmt.channel0, led_pin, rmt_buffer);
-    let data = [smart_leds::colors::AQUAMARINE; 22];
-    led.write(brightness(gamma(data.iter().cloned()), 1))
+    let mut data: [RGB8; 22] = [colors::RED; 22];
+
+    led.write(brightness(gamma(data.iter().cloned()), 2))
         .unwrap();
 
-    //   loop {
-    //     Timer::after(Duration::from_millis(10000)).await;
-    //   }
+    loop {
+        let message = LED_MESSAGE_CHANNEL.receive().await;
+        data[message.id as usize] = message.color;
+        led.write(brightness(data.iter().cloned(), 50)).unwrap();
+    }
 }

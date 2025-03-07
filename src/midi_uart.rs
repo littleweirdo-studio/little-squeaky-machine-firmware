@@ -43,6 +43,7 @@ pub async fn midi_uart_task() {
             Ok(size) => println!("write = {}", size),    
             Err(error) => println!("write error = {}", error),
         }
+
         let buffer_read_succes = midi_uart.read_async(&mut buffer).await;
         match buffer_read_succes {
             Ok(size) => {
