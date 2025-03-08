@@ -80,11 +80,11 @@ pub fn synth_loop() {
 
     let patch = Patch {
         synth_config: SynthConfiguration {
-            mode: SynthMode::Mono,
+            mode: SynthMode::OctoPoly,
         },
         voices: [
             WaveTableOscillatorConfig {
-                soundbank_index: 1,
+                soundbank_index: 2,
                 glide: false,
                 glide_rate: 200,
                 detune: 0,
@@ -92,110 +92,110 @@ pub fn synth_loop() {
                 freq_detune: 0,
             },
             WaveTableOscillatorConfig {
-                soundbank_index: 1,
+                soundbank_index: 2,
                 glide: false,
                 glide_rate: 200,
                 detune: 0,
                 freq: 440,
-                freq_detune: 2,
+                freq_detune: 0,
             },
             WaveTableOscillatorConfig {
-                soundbank_index: 1,
+                soundbank_index: 2,
                 glide: false,
                 glide_rate: 200,
                 detune: 0,
                 freq: 440,
-                freq_detune: 2,
+                freq_detune: 0,
             },
             WaveTableOscillatorConfig {
-                soundbank_index: 1,
-                glide: false,
-                glide_rate: 0,
-                detune: 0,
-                freq: 440,
-                freq_detune: 3,
-            },
-            WaveTableOscillatorConfig {
-                soundbank_index: 1,
-                glide: true,
-                glide_rate: 200,
-                detune: 0,
-                freq: 440,
-                freq_detune: 4,
-            },
-            WaveTableOscillatorConfig {
-                soundbank_index: 1,
-                glide: false,
-                glide_rate: 0,
-                detune: 0,
-                freq: 440,
-                freq_detune: 5,
-            },
-            WaveTableOscillatorConfig {
-                soundbank_index: 1,
+                soundbank_index: 2,
                 glide: false,
                 glide_rate: 200,
                 detune: 0,
                 freq: 440,
-                freq_detune: 6,
+                freq_detune: 0,
             },
             WaveTableOscillatorConfig {
-                soundbank_index: 1,
+                soundbank_index: 2,
                 glide: false,
-                glide_rate: 0,
+                glide_rate: 200,
                 detune: 0,
                 freq: 440,
-                freq_detune: 7,
+                freq_detune: 0,
+            },
+            WaveTableOscillatorConfig {
+                soundbank_index: 2,
+                glide: false,
+                glide_rate: 200,
+                detune: 0,
+                freq: 440,
+                freq_detune: 0,
+            },
+            WaveTableOscillatorConfig {
+                soundbank_index: 2,
+                glide: false,
+                glide_rate: 200,
+                detune: 0,
+                freq: 440,
+                freq_detune: 0,
+            },
+            WaveTableOscillatorConfig {
+                soundbank_index: 2,
+                glide: false,
+                glide_rate: 200,
+                detune: 0,
+                freq: 440,
+                freq_detune: 0,
             },
         ],
         envelops: [
             EnvelopConfiguration {
-                attack_time: 100,
+                attack_time: 20,
                 decay_time: 100,
-                release_time: 100,
-                sustain_level: 100,
+                release_time: 1000,
+                sustain_level: 50,
+            },
+            EnvelopConfiguration {
+                attack_time: 20,
+                decay_time: 100,
+                release_time: 1000,
+                sustain_level: 50,
+            },
+            EnvelopConfiguration {
+                attack_time: 20,
+                decay_time: 100,
+                release_time: 1000,
+                sustain_level: 50,
+            },
+            EnvelopConfiguration {
+                attack_time: 20,
+                decay_time: 100,
+                release_time: 1000,
+                sustain_level: 50,
+            },
+            EnvelopConfiguration {
+                attack_time: 20,
+                decay_time: 100,
+                release_time: 1000,
+                sustain_level: 50,
+            },
+            EnvelopConfiguration {
+                attack_time: 20,
+                decay_time: 100,
+                release_time: 1000,
+                sustain_level: 50,
+            },
+            EnvelopConfiguration {
+                attack_time: 20,
+                decay_time: 100,
+                release_time: 1000,
+                sustain_level: 50,
             },
             EnvelopConfiguration {
                 attack_time: 100,
                 decay_time: 100,
-                release_time: 100,
-                sustain_level: 100,
-            },
-            EnvelopConfiguration {
-                attack_time: 50,
-                decay_time: 100,
-                release_time: 300,
-                sustain_level: 90,
-            },
-            EnvelopConfiguration {
-                attack_time: 50,
-                decay_time: 100,
-                release_time: 300,
-                sustain_level: 90,
-            },
-            EnvelopConfiguration {
-                attack_time: 50,
-                decay_time: 100,
-                release_time: 300,
-                sustain_level: 90,
-            },
-            EnvelopConfiguration {
-                attack_time: 50,
-                decay_time: 100,
-                release_time: 300,
-                sustain_level: 90,
-            },
-            EnvelopConfiguration {
-                attack_time: 50,
-                decay_time: 100,
-                release_time: 300,
-                sustain_level: 90,
-            },
-            EnvelopConfiguration {
-                attack_time: 50,
-                decay_time: 100,
-                release_time: 300,
-                sustain_level: 90,
+                release_time: 1000,
+                sustain_level: 50,
             },
         ],
         lfos: [
@@ -204,28 +204,28 @@ pub fn synth_loop() {
                 time: 50,
             },
             WaveTableLoFreqOscillatorConfig {
-                soundbank_index: 1,
+                soundbank_index: 4,
                 time: 200,
             },
             WaveTableLoFreqOscillatorConfig {
-                soundbank_index: 1,
+                soundbank_index: 4,
                 time: 200,
             },
             WaveTableLoFreqOscillatorConfig {
-                soundbank_index: 1,
+                soundbank_index: 4,
                 time: 200,
             },
         ],
         routering_config: RoutingConfiguration {
             voices_to_envelop: [
                 VoiceToEnvelopRoute { env: 0 },
-                VoiceToEnvelopRoute { env: 0 },
-                VoiceToEnvelopRoute { env: 0 },
-                VoiceToEnvelopRoute { env: 0 },
-                VoiceToEnvelopRoute { env: 0 },
-                VoiceToEnvelopRoute { env: 0 },
-                VoiceToEnvelopRoute { env: 0 },
-                VoiceToEnvelopRoute { env: 0 },
+                VoiceToEnvelopRoute { env: 1 },
+                VoiceToEnvelopRoute { env: 2 },
+                VoiceToEnvelopRoute { env: 3 },
+                VoiceToEnvelopRoute { env: 4 },
+                VoiceToEnvelopRoute { env: 5 },
+                VoiceToEnvelopRoute { env: 6 },
+                VoiceToEnvelopRoute { env: 7 },
             ],
             voice_to_lfo: [
                 VoiceToLFORoute {
@@ -250,11 +250,11 @@ pub fn synth_loop() {
         filter_config: FilterConfig {
             cutoff_frequency: 1_000,
             resonance: 6_000,
-            enabled: false,
+            enabled: true,
             kind_of_filter: KindOfFilter::Low,
         },
         mixer_config: MixerConfiguration {
-            gain_voices: [30, 30, 0, 0, 0, 0, 0, 0],
+            gain_voices: [10, 10, 10, 10, 10, 10, 10, 10],
             gain_main: 20,
         },
         overdrive_config: OverdriveConfiguration {
@@ -295,32 +295,6 @@ pub fn synth_loop() {
             .with_dout(peripherals.GPIO42)
             .build();
 
-        let mut config = Config::default();
-
-        let mut i2c = I2c::new(peripherals.I2C0, config)
-            .unwrap()
-            .with_sda(peripherals.GPIO47)
-            .with_scl(peripherals.GPIO48);
-
-        let mut sgtl500 = SGTL5000::new(i2c);
-
-        println!("Check if the SGTL5000 is ready and respond to commands\n");
-        println!("--> SGTL5000 :: Chip Ready {:?}", sgtl500.ready().unwrap());
-
-        println!("Initialize the SGTL5000\n");
-        println!(
-            "--> SGTL5000 :: Chip Revision {:#x}",
-            sgtl500.get_chip_revision().unwrap()
-        );
-        println!("--> SGTL5000 :: Codec setup {:?}", sgtl500.init());
-
-        println!(
-            "--> SGTL5000 ::Volume to 70 {:?}",
-            sgtl500.headphone_volume(70)
-        );
-
-        sgtl500.enable_audio_processing();
-        //sgtl500.enable_bass_enhance();
 
         esp_println::println!(
             "-:= > Starting LttL Weirdɵ DMA transfer with a {} ms buffer",
@@ -333,11 +307,9 @@ pub fn synth_loop() {
             match MIDI_MESSAGE_CHANNEL.try_receive() {
                 Ok(message) => match message {
                     Message::NoteOn(_channel, note, velocity) => {
-                        let _ = led::LED_MESSAGE_CHANNEL.try_send(led::LedMessage{color: colors::AQUAMARINE, id:1, enable:true});
                         synth.note_on(note.into(), velocity.into())
                     }
                     Message::NoteOff(_channel, note, _velocity) => {
-                    let _ = led::LED_MESSAGE_CHANNEL.try_send(led::LedMessage{color: colors::DARK_BLUE, id:1, enable:true});
                         synth.note_off(note.into())
                     }
                     Message::ProgramChange(_channel, program) => {
@@ -364,7 +336,7 @@ pub fn synth_loop() {
                             synth.change_main_volume(new_value);
                         }
                         if control_change == ControlFunction::SOUND_CONTROLLER_1_70 {
-                            //   synth.change_main_volume(new_value);
+                           synth.change_cutoff(new_value);
                         }
                         if control_change == ControlFunction::SOUND_CONTROLLER_2_71 {
                             synth.change_resonance(new_value);

@@ -3,17 +3,19 @@
 #![feature(impl_trait_in_assoc_type)]
 //
 mod led;
-mod midi_uart;
 mod midi_usb;
+mod midi_uart;
 mod oled;
 mod potmeter;
 mod synth;
+mod codec;
+
 use crate::led::led_task;
-use crate::midi_uart::midi_uart_task;
-use crate::midi_usb::midi_read;
 use crate::oled::oled_task;
 use crate::potmeter::potmeter_task;
 use crate::synth::synth_loop;
+use crate::codec::codec_task;
+
 //
 use embassy_executor::Spawner;
 use embassy_futures::join::join;
@@ -24,8 +26,11 @@ use embassy_usb::class::midi::MidiClass;
 use embassy_usb::Builder;
 use esp_hal::peripheral::Peripheral;
 use esp_hal::peripherals::PSRAM;
-use midi_usb::midi_usb_task;
+use midi_uart::midi_uart_task;
+use midi_usb::{midi_usb_task};
 use smart_leds::colors;
+use usbd_midi::message::U7;
+use usbd_midi::Message;
 //
 extern crate alloc;
 use core::mem::MaybeUninit;
@@ -36,7 +41,7 @@ use esp_backtrace as _;
 use esp_hal::cpu_control::{CpuControl, Stack};
 use esp_hal::otg_fs::asynch::Driver;
 use esp_hal::otg_fs::Usb;
-use esp_hal::psram;
+use esp_hal::{psram, uart};
 use esp_hal::timer::{timg::TimerGroup, AnyTimer};
 //
 
@@ -44,11 +49,16 @@ use esp_hal::timer::{timg::TimerGroup, AnyTimer};
 static MIDI_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, usbd_midi::message::Message, 30> =
     Channel::new();
 
+static MIDI_OUT_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, usbd_midi::message::Message, 30> =
+    Channel::new();
+
 
 // create stack for second core (running the Synth tasks, 220KB stack reserved)
 static mut APP_CORE_STACK: Stack<220_000> = Stack::new();
 
-const usb_midi_enabled: bool = false;
+const usb_midi_enabled: bool = true;
+const uart_midi_enabled: bool = true;
+
 
 #[esp_hal_embassy::main]
 async fn main(spawner: Spawner) {
@@ -71,7 +81,11 @@ async fn main(spawner: Spawner) {
     let timer4: AnyTimer = timer_group_1.timer1.into();
 
     esp_hal_embassy::init([timer1, timer2, timer3, timer4]);
-
+    // spawn the tasks
+    let _ = spawner.spawn(led_task());
+    Timer::after(Duration::from_millis(10)).await;
+  
+    
     let mut cpu_control = CpuControl::new(peripherals.CPU_CTRL);
     let _guard = cpu_control
         .start_app_core(unsafe { &mut *addr_of_mut!(APP_CORE_STACK) }, move || {
@@ -79,8 +93,8 @@ async fn main(spawner: Spawner) {
         })
         .unwrap();
 
-    // spawn the tasks
-    let _ = spawner.spawn(led_task());
+
+    Timer::after(Duration::from_millis(100)).await;
   
     // Create MIDI USB device
     if usb_midi_enabled {
@@ -88,9 +102,23 @@ async fn main(spawner: Spawner) {
         spawner.spawn(midi_usb_task());
     }
     
+
+    if uart_midi_enabled {
+        Timer::after(Duration::from_millis(10)).await;
+        spawner.spawn(midi_uart_task());
+    }
+
     Timer::after(Duration::from_millis(10)).await;
     let _ = spawner.spawn(oled_task());
 
     Timer::after(Duration::from_millis(10)).await;
-    let _ = spawner.spawn(potmeter_task());   
+    let _ = spawner.spawn(potmeter_task());  
+
+    Timer::after(Duration::from_millis(10)).await;
+    let _ = spawner.spawn(codec_task());  
+
+    loop {
+        Timer::after(Duration::from_millis(500)).await;
+    }
+
 }
