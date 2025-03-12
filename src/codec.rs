@@ -24,10 +24,15 @@ pub async fn codec_task() {
     let mut sgtl500 = SGTL5000::new(i2c);
     println!("--> SGTL5000 :: Chip Ready {:?}", sgtl500.ready().unwrap());
     println!("--> SGTL5000 :: Chip Revision {:#x}", sgtl500.get_chip_revision().unwrap());
+    Timer::after(Duration::from_millis(10)).await;
     println!("--> SGTL5000 :: Codec setup {:?}", sgtl500.init());
+    Timer::after(Duration::from_millis(10)).await;
+    println!("--> SGTL5000 :: Codec setup {:?}", sgtl500.power_up());
+    Timer::after(Duration::from_millis(10)).await;
+    
  
     sgtl500.headphone_volume(70);
-    sgtl500.enable_audio_processing();
+   // sgtl500.enable_audio_processing();
 
     loop {
         Timer::after(Duration::from_millis(50)).await;

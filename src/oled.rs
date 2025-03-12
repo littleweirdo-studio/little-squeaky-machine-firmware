@@ -19,7 +19,7 @@ use ssd1306::{I2CDisplayInterface, Ssd1306};
 use embedded_graphics::{mono_font::MonoTextStyleBuilder, prelude::*};
 use ssd1306::mode::DisplayConfig;
 
-use crate::potmeter::{POT1_MESSAGE_CHANNEL, POT2_MESSAGE_CHANNEL, POT3_MESSAGE_CHANNEL, POT4_MESSAGE_CHANNEL};
+use crate::potmeter::{POT1_MESSAGE_CHANNEL, POT2_MESSAGE_CHANNEL, POT3_MESSAGE_CHANNEL, POT4_MESSAGE_CHANNEL, USB_POWER_MESSAGE_CHANNEL};
 
 #[rustfmt::skip]
 const DATA: &[u8] = &[
@@ -70,6 +70,8 @@ pub async fn oled_task() {
     let mut receiver_pot2 =  POT2_MESSAGE_CHANNEL.receiver().unwrap();
     let mut receiver_pot3 =  POT3_MESSAGE_CHANNEL.receiver().unwrap();
     let mut receiver_pot4 =  POT4_MESSAGE_CHANNEL.receiver().unwrap();
+    let mut receiver_usb =  USB_POWER_MESSAGE_CHANNEL.receiver().unwrap();
+    
 
     loop {
 
@@ -77,20 +79,31 @@ pub async fn oled_task() {
         let value_pot_2 = receiver_pot2.changed().await;
         let value_pot_3 = receiver_pot3.changed().await;
         let value_pot_4 = receiver_pot4.changed().await;
+        let usb_power = receiver_usb.changed().await;
         
 
         display.clear_buffer();
+
+        Text::with_alignment(
+            format!("p={}", usb_power).as_str(),
+            Point::new(70, 10),
+            character_style,
+            Alignment::Left,
+        )
+        .draw(&mut display)
+        .unwrap();
+
        
-       RoundedRectangle::with_equal_corners( Rectangle::new(Point::new(0, 2), Size::new(value_pot_1 as u32 / , 10)), Size { width: 2, height: 2 })
+       RoundedRectangle::with_equal_corners( Rectangle::new(Point::new(0, 2), Size::new(value_pot_1 as u32 / 4, 10)), Size { width: 2, height: 2 })
      .into_styled(PrimitiveStyle::with_fill(BinaryColor::On))
      .draw(&mut display).unwrap();
-    RoundedRectangle::with_equal_corners( Rectangle::new(Point::new(0, 19), Size::new(value_pot_2 as u32 / , 10)), Size { width: 2, height: 2 })
+    RoundedRectangle::with_equal_corners( Rectangle::new(Point::new(0, 19), Size::new(value_pot_2 as u32 / 4, 10)), Size { width: 2, height: 2 })
     .into_styled(PrimitiveStyle::with_stroke(BinaryColor::On, 2))
     .draw(&mut display).unwrap();
-Rectangle::new(Point::new(0, 34), Size::new(value_pot_3 as u32 / , 10))
+Rectangle::new(Point::new(0, 34), Size::new(value_pot_3 as u32 / 4, 10))
 .into_styled(PrimitiveStyle::with_fill(BinaryColor::On))
 .draw(&mut display).unwrap();
-Rectangle::new(Point::new(0, 51), Size::new(value_pot_4 as u32 / , 10))
+Rectangle::new(Point::new(0, 51), Size::new(value_pot_4 as u32 /4 , 10))
 .into_styled(PrimitiveStyle::with_stroke(BinaryColor::On, 2))
 .draw(&mut display).unwrap();
 

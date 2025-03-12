@@ -9,12 +9,14 @@ mod oled;
 mod potmeter;
 mod synth;
 mod codec;
+mod touch_input;
 
 use crate::led::led_task;
 use crate::oled::oled_task;
 use crate::potmeter::potmeter_task;
 use crate::synth::synth_loop;
 use crate::codec::codec_task;
+use crate::touch_input::touch_input_task;
 
 //
 use embassy_executor::Spawner;
@@ -56,7 +58,7 @@ static MIDI_OUT_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, usbd_midi::mes
 // create stack for second core (running the Synth tasks, 220KB stack reserved)
 static mut APP_CORE_STACK: Stack<220_000> = Stack::new();
 
-const usb_midi_enabled: bool = true;
+const usb_midi_enabled: bool = false;
 const uart_midi_enabled: bool = true;
 
 
@@ -117,6 +119,9 @@ async fn main(spawner: Spawner) {
     Timer::after(Duration::from_millis(10)).await;
     let _ = spawner.spawn(codec_task());  
 
+    Timer::after(Duration::from_millis(10)).await;
+    let _ = spawner.spawn(touch_input_task());  
+    
     loop {
         Timer::after(Duration::from_millis(500)).await;
     }

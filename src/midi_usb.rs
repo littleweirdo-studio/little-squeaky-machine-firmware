@@ -77,7 +77,9 @@ pub async fn midi_read<'d>(class: &mut MidiClass<'d, Driver<'d>>) -> Result<(), 
             if let Ok(packet) = packet {
                 let message = usbd_midi::message::Message::try_from(packet.payload_bytes());
                 match message {
-                    Ok(m) =>  MIDI_MESSAGE_CHANNEL.send(m).await,
+                    Ok(m) =>  {
+                        MIDI_MESSAGE_CHANNEL.send(m).await
+                    },
                     Err(e) => println!("Error = {:?}", e),
                 }
                 }

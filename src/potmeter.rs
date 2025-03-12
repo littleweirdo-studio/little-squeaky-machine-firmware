@@ -17,6 +17,8 @@ pub static POT1_MESSAGE_CHANNEL: Watch<CriticalSectionRawMutex, u16, 10> = Watch
 pub static POT2_MESSAGE_CHANNEL: Watch<CriticalSectionRawMutex, u16, 10> = Watch::new();
 pub static POT3_MESSAGE_CHANNEL: Watch<CriticalSectionRawMutex, u16, 10> = Watch::new();
 pub static POT4_MESSAGE_CHANNEL: Watch<CriticalSectionRawMutex, u16, 10> = Watch::new();
+pub static USB_POWER_MESSAGE_CHANNEL: Watch<CriticalSectionRawMutex, u16, 10> = Watch::new();
+
 
 #[embassy_executor::task]
 pub async fn potmeter_task() {
@@ -24,6 +26,7 @@ pub async fn potmeter_task() {
     let mut pot_in2;
     let mut pot_in3;
     let mut pot_in4;
+    let mut usb_power;
     let mut adc1;
     let mut adc2;
 
@@ -33,10 +36,16 @@ pub async fn potmeter_task() {
         | Pin | 16 |  ADC2_CH5   | 🎛️ Potmeter 2 |
         | Pin | 01 |  ADC1_CH0   | 🎛️ Potmeter 3 |
         | Pin | 02 |  ADC1_CH1   | 🎛️ Potmeter 4 |
+        | Pin | 08 |  ADC1_CH7 | 🔌 USB power management |
         */
         let peripherals: Peripherals = Peripherals::steal();
         let mut adc1_config = AdcConfig::default();
         let mut adc2_config = AdcConfig::default();
+
+        usb_power = adc1_config.enable_pin_with_cal::<GpioPin<8>, AdcCalBasic<ADC1>>(
+            peripherals.GPIO8,
+            Attenuation::_11dB,
+        );
 
         pot_in1 = adc2_config.enable_pin_with_cal::<GpioPin<15>, AdcCalBasic<ADC2>>(
             peripherals.GPIO15,
@@ -61,8 +70,11 @@ pub async fn potmeter_task() {
         adc1 = Adc::new(peripherals.ADC1, adc1_config);
         adc2 = Adc::new(peripherals.ADC2, adc2_config);
     }
-
     loop {
+        let usb_power_value: u16 = adc1.read_blocking(&mut usb_power);
+        USB_POWER_MESSAGE_CHANNEL.sender().send(usb_power_value);
+        Timer::after(Duration::from_millis(1)).await;
+    
         let pin_value_pot_1: u16 = adc2.read_blocking(&mut pot_in1);
         POT1_MESSAGE_CHANNEL.sender().send(pin_value_pot_1 / 16);
         Timer::after(Duration::from_millis(1)).await;

@@ -84,7 +84,7 @@ pub fn synth_loop() {
         },
         voices: [
             WaveTableOscillatorConfig {
-                soundbank_index: 2,
+                soundbank_index: 1,
                 glide: false,
                 glide_rate: 200,
                 detune: 0,
@@ -92,7 +92,7 @@ pub fn synth_loop() {
                 freq_detune: 0,
             },
             WaveTableOscillatorConfig {
-                soundbank_index: 2,
+                soundbank_index: 1,
                 glide: false,
                 glide_rate: 200,
                 detune: 0,
@@ -150,16 +150,16 @@ pub fn synth_loop() {
         ],
         envelops: [
             EnvelopConfiguration {
-                attack_time: 20,
-                decay_time: 100,
-                release_time: 1000,
-                sustain_level: 50,
+                attack_time: 10,
+                decay_time: 10,
+                release_time: 10,
+                sustain_level: 100,
             },
             EnvelopConfiguration {
-                attack_time: 20,
-                decay_time: 100,
-                release_time: 1000,
-                sustain_level: 50,
+                attack_time: 10,
+                decay_time: 10,
+                release_time: 10,
+                sustain_level: 100,
             },
             EnvelopConfiguration {
                 attack_time: 20,
@@ -229,8 +229,8 @@ pub fn synth_loop() {
             ],
             voice_to_lfo: [
                 VoiceToLFORoute {
-                    enable: false,
-                    voices: [1, 255],
+                    enable: true,
+                    voices: [0, 1],
                 },
                 VoiceToLFORoute {
                     enable: false,

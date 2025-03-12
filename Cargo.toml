@@ -35,12 +35,13 @@ fugit = "0.3.7"
 embassy-futures = "0.1.1"
 embassy-usb = "0.4.0"
 tinybmp = "0.6.0"
-esp-storage ={ version="0.4.0", features = ["esp32s3"]}
-embedded-storage = "0.3.1"
+esp-storage ={ version="0.5.0", features = ["esp32s3", "nor-flash"]}
+embedded-storage = { version= "0.3.1", features = []}
 esp-partition-table = "0.1.2"
 driver-sgtl5000 = { path = "../driver-sgtl5000"}
 esp-hal-smartled = {git = "https://github.com/esp-rs/esp-hal-community.git", rev = "ad75112ae5d4b4fe2fe927356dc281283cafedfc", features = ["esp32s3"] }
 smart-leds = "0.4.0"
+sequential-storage = "4.0.1"
 
 [profile.dev]
 opt-level = "s"
