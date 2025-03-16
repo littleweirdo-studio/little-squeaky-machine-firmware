@@ -2,12 +2,9 @@ extern crate alloc;
 
 use alloc::rc::Rc;
 use alloc::vec::Vec;
-use driver_sgtl5000::SGTL5000;
 use embedded_storage::ReadStorage;
 use esp_alloc as _;
 use esp_backtrace as _;
-use esp_hal::gpio::NoPin;
-use esp_hal::i2c::master::{Config, I2c};
 use esp_hal::Cpu;
 use esp_hal::{
     dma_circular_buffers,
@@ -18,11 +15,8 @@ use esp_println::println;
 use esp_storage::FlashStorage;
 use fugit::RateExtU32;
 use little_weirdo::synth::sampler::BoxedSample;
-use smart_leds::colors;
-use usbd_midi::message::control_function::ControlFunction;
-use usbd_midi::message::Message;
 
-use crate::{led, MIDI_MESSAGE_CHANNEL};
+use crate::MIDI_MESSAGE_CHANNEL;
 use little_weirdo::synth::{
     self,
     data::wavetables::{BoxedWavetable, BoxedWavetables},

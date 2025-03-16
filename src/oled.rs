@@ -1,12 +1,11 @@
 extern crate alloc;
-use alloc::fmt::format;
 use alloc::format;
 use embassy_time::{Duration, Timer};
 use embedded_graphics::image::{Image, ImageRaw};
 use embedded_graphics::mono_font::ascii::FONT_7X14_BOLD;
 use embedded_graphics::pixelcolor::BinaryColor;
 use embedded_graphics::prelude::Point;
-use embedded_graphics::primitives::{CornerRadii, Ellipse, PrimitiveStyle, Rectangle, RoundedRectangle};
+use embedded_graphics::primitives::{PrimitiveStyle, Rectangle, RoundedRectangle};
 use embedded_graphics::text::{Alignment, Text};
 use esp_alloc as _;
 use esp_backtrace as _;

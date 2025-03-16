@@ -1,7 +1,6 @@
 extern crate alloc;
 
-use alloc::vec::{self, Vec};
-use embassy_futures::select::{select, Either};
+use alloc::vec::{Vec};
 use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::{
@@ -10,9 +9,8 @@ use esp_hal::{
 };
 use esp_println::println;
 use midi_msg::ReceiverContext;
-use usbd_midi::{message, Message, UsbMidiPacketReader};
 
-use crate::{MIDI_MESSAGE_CHANNEL, MIDI_OUT_MESSAGE_CHANNEL};
+use crate::MIDI_MESSAGE_CHANNEL;
 
 const READ_BUF_SIZE:usize = 128;
 #[embassy_executor::task]

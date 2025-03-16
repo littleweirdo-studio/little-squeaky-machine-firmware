@@ -6,11 +6,9 @@ use esp_hal::{
     gpio::GpioPin,
     peripherals::{Peripherals, ADC1, ADC2},
 };
-use esp_println::println;
 use smart_leds::RGB8;
-use usbd_midi::message::{ControlFunction, U7};
 
-use crate::{led, MIDI_MESSAGE_CHANNEL};
+use crate::led;
 
 
 pub static POT1_MESSAGE_CHANNEL: Watch<CriticalSectionRawMutex, u16, 10> = Watch::new();

@@ -1,12 +1,8 @@
-use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use embassy_sync::channel::Channel;
 
-use embassy_time::{Duration, Timer};
 use esp_backtrace as _;
 //use embassy_time::{Duration, Timer};
-use esp_hal::{gpio::{Input, Pin}, peripherals::Peripherals};
+use esp_hal::{gpio::Input, peripherals::Peripherals};
 use esp_println::println;
-use usbd_midi::message::U7;
 
 use crate::{MIDI_MESSAGE_CHANNEL, MIDI_OUT_MESSAGE_CHANNEL};
 extern crate alloc;

@@ -1,15 +1,12 @@
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::Channel;
 
-use embassy_time::{Duration, Timer};
 use esp_backtrace as _;
 //use embassy_time::{Duration, Timer};
 use esp_hal::peripherals::Peripherals;
 use esp_hal::{rmt::Rmt, time::RateExtU32};
 use esp_hal_smartled::{smartLedBuffer, SmartLedsAdapter};
-use esp_println::println;
 use smart_leds::{brightness, colors, gamma, SmartLedsWrite, RGB8};
-use usbd_midi::message;
 
 // channel for sharing led update message between tasks and processes running on different cores.
 #[derive(Debug)]

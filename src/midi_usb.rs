@@ -12,7 +12,7 @@ use esp_backtrace as _;
 //
 use esp_hal::otg_fs::asynch::Driver;
 use esp_hal::otg_fs::Usb;
-use esp_hal::peripherals::{self, Peripherals};
+use esp_hal::peripherals::{Peripherals};
 use esp_println::println;
 use midi_msg::ReceiverContext;
 //

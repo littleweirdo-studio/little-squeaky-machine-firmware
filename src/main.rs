@@ -20,30 +20,19 @@ use crate::touch_input::touch_input_task;
 
 //
 use embassy_executor::Spawner;
-use embassy_futures::join::join;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::Channel;
 use embassy_time::{Duration, Timer};
-use embassy_usb::class::midi::MidiClass;
-use embassy_usb::Builder;
-use esp_hal::peripheral::Peripheral;
-use esp_hal::peripherals::PSRAM;
 use midi_uart::midi_uart_task;
 use midi_usb::{midi_usb_task};
-use smart_leds::colors;
-use usbd_midi::message::U7;
-use usbd_midi::Message;
 //
 extern crate alloc;
-use core::mem::MaybeUninit;
 use core::ptr::addr_of_mut;
 use esp_alloc as _;
 use esp_backtrace as _;
 //
 use esp_hal::cpu_control::{CpuControl, Stack};
-use esp_hal::otg_fs::asynch::Driver;
-use esp_hal::otg_fs::Usb;
-use esp_hal::{psram, uart};
+use esp_hal::psram;
 use esp_hal::timer::{timg::TimerGroup, AnyTimer};
 //
 
