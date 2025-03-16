@@ -46,8 +46,8 @@ static MIDI_OUT_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, midi_msg::Midi
 // create stack for second core (running the Synth tasks, 220KB stack reserved)
 static mut APP_CORE_STACK: Stack<220_000> = Stack::new();
 
-const usb_midi_enabled: bool = true;
-const uart_midi_enabled: bool = false;
+const USB_MIDI_ENABLED: bool = true;
+const UART_MIDI_ENABLED: bool = false;
 
 #[esp_hal_embassy::main]
 async fn main(spawner: Spawner) {
@@ -84,14 +84,14 @@ async fn main(spawner: Spawner) {
     Timer::after(Duration::from_millis(100)).await;
 
     // Create MIDI USB device
-    if usb_midi_enabled {
+    if USB_MIDI_ENABLED {
         Timer::after(Duration::from_millis(10)).await;
-        spawner.spawn(midi_usb_task());
+        let _ = spawner.spawn(midi_usb_task());
     }
 
-    if uart_midi_enabled {
+    if UART_MIDI_ENABLED {
         Timer::after(Duration::from_millis(10)).await;
-        spawner.spawn(midi_uart_task());
+        let _ = spawner.spawn(midi_uart_task());
     }
 
     Timer::after(Duration::from_millis(10)).await;

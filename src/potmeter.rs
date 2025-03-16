@@ -95,7 +95,6 @@ pub async fn potmeter_task() {
                     r: 0,
                 },
                 id: 21,
-                enable: true,
             })
             .await;
         let _ = led::LED_MESSAGE_CHANNEL
@@ -106,7 +105,6 @@ pub async fn potmeter_task() {
                     r: 0,
                 },
                 id: 20,
-                enable: true,
             })
             .await;
         let _ = led::LED_MESSAGE_CHANNEL
@@ -117,7 +115,6 @@ pub async fn potmeter_task() {
                     r: 0,
                 },
                 id: 19,
-                enable: true,
             })
             .await;
         let _ = led::LED_MESSAGE_CHANNEL
@@ -128,7 +125,6 @@ pub async fn potmeter_task() {
                     r: 0,
                 },
                 id: 18,
-                enable: true,
             })
             .await;
 

@@ -80,7 +80,7 @@ pub async fn midi_read<'d>(class: &mut MidiClass<'d, Driver<'d>>) -> Result<(), 
                     &mut context,
                 );
                 match parsed_message {
-                    Ok((message, size_of_processed_bytes)) => {
+                    Ok((message, _size_of_processed_bytes)) => {
                         MIDI_MESSAGE_CHANNEL.send(message).await
                     }
                     Err(e) => println!("Error = {:?}", e),

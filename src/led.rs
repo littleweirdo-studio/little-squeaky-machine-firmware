@@ -11,7 +11,6 @@ use smart_leds::{brightness, colors, gamma, SmartLedsWrite, RGB8};
 // channel for sharing led update message between tasks and processes running on different cores.
 #[derive(Debug)]
 pub struct LedMessage {
-    pub enable: bool,
     pub color: RGB8,
     pub id: u8,
 }
