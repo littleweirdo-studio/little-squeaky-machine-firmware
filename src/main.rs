@@ -2,20 +2,20 @@
 #![no_main]
 #![feature(impl_trait_in_assoc_type)]
 //
+mod codec;
 mod led;
-mod midi_usb;
 mod midi_uart;
+mod midi_usb;
 mod oled;
 mod potmeter;
 mod synth;
-mod codec;
 mod touch_input;
 
+use crate::codec::codec_task;
 use crate::led::led_task;
 use crate::oled::oled_task;
 use crate::potmeter::potmeter_task;
 use crate::synth::synth_loop;
-use crate::codec::codec_task;
 use crate::touch_input::touch_input_task;
 
 //
@@ -24,7 +24,7 @@ use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::Channel;
 use embassy_time::{Duration, Timer};
 use midi_uart::midi_uart_task;
-use midi_usb::{midi_usb_task};
+use midi_usb::midi_usb_task;
 //
 extern crate alloc;
 use core::ptr::addr_of_mut;
@@ -43,13 +43,11 @@ static MIDI_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, midi_msg::MidiMsg,
 static MIDI_OUT_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, midi_msg::MidiMsg, 30> =
     Channel::new();
 
-
 // create stack for second core (running the Synth tasks, 220KB stack reserved)
 static mut APP_CORE_STACK: Stack<220_000> = Stack::new();
 
 const usb_midi_enabled: bool = true;
 const uart_midi_enabled: bool = false;
-
 
 #[esp_hal_embassy::main]
 async fn main(spawner: Spawner) {
@@ -75,8 +73,7 @@ async fn main(spawner: Spawner) {
     // spawn the tasks
     let _ = spawner.spawn(led_task());
     Timer::after(Duration::from_millis(10)).await;
-  
-    
+
     let mut cpu_control = CpuControl::new(peripherals.CPU_CTRL);
     let _guard = cpu_control
         .start_app_core(unsafe { &mut *addr_of_mut!(APP_CORE_STACK) }, move || {
@@ -84,15 +81,13 @@ async fn main(spawner: Spawner) {
         })
         .unwrap();
 
-
     Timer::after(Duration::from_millis(100)).await;
-  
+
     // Create MIDI USB device
     if usb_midi_enabled {
         Timer::after(Duration::from_millis(10)).await;
         spawner.spawn(midi_usb_task());
     }
-    
 
     if uart_midi_enabled {
         Timer::after(Duration::from_millis(10)).await;
@@ -103,16 +98,15 @@ async fn main(spawner: Spawner) {
     let _ = spawner.spawn(oled_task());
 
     Timer::after(Duration::from_millis(10)).await;
-    let _ = spawner.spawn(potmeter_task());  
+    let _ = spawner.spawn(potmeter_task());
 
     Timer::after(Duration::from_millis(10)).await;
-    let _ = spawner.spawn(codec_task());  
+    let _ = spawner.spawn(codec_task());
 
     Timer::after(Duration::from_millis(10)).await;
-    let _ = spawner.spawn(touch_input_task());  
-    
+    let _ = spawner.spawn(touch_input_task());
+
     loop {
         Timer::after(Duration::from_millis(500)).await;
     }
-
 }

@@ -1,5 +1,5 @@
-use embassy_time::{Duration, Timer};
 use embassy_futures::join::join;
+use embassy_time::{Duration, Timer};
 
 //
 use embassy_usb::class::midi::MidiClass;
@@ -12,23 +12,21 @@ use esp_backtrace as _;
 //
 use esp_hal::otg_fs::asynch::Driver;
 use esp_hal::otg_fs::Usb;
-use esp_hal::peripherals::{Peripherals};
+use esp_hal::peripherals::Peripherals;
 use esp_println::println;
 use midi_msg::ReceiverContext;
 //
-use usbd_midi::packet::reader::UsbMidiPacketReader;
 use crate::MIDI_MESSAGE_CHANNEL;
-
+use usbd_midi::packet::reader::UsbMidiPacketReader;
 
 #[embassy_executor::task]
 pub async fn midi_usb_task() {
     let usb;
     unsafe {
-
-    let peripherals: Peripherals = Peripherals::steal();
+        let peripherals: Peripherals = Peripherals::steal();
         usb = Usb::new(peripherals.USB0, peripherals.GPIO20, peripherals.GPIO19);
     }
-    
+
     let mut ep_out_buffer = [0u8; 1024];
     let config = esp_hal::otg_fs::asynch::Config::default();
     let driver = Driver::new(usb, &mut ep_out_buffer, config);
@@ -66,29 +64,31 @@ pub async fn midi_usb_task() {
         }
     };
     join(usb_future, process_midi).await;
-
 }
 
 pub async fn midi_read<'d>(class: &mut MidiClass<'d, Driver<'d>>) -> Result<(), Disconnected> {
     let mut buf = [0; 64];
     let mut context = ReceiverContext::new();
-     
+
     loop {
         let n = class.read_packet(&mut buf).await?;
         let buffer_reader = UsbMidiPacketReader::new(&buf, n);
         for packet in buffer_reader.into_iter() {
             if let Ok(packet) = packet {
-                let parsed_message = midi_msg::MidiMsg::from_midi_with_context_no_extensions(packet.payload_bytes(), &mut context);
+                let parsed_message = midi_msg::MidiMsg::from_midi_with_context_no_extensions(
+                    packet.payload_bytes(),
+                    &mut context,
+                );
                 match parsed_message {
-                    Ok((message, size_of_processed_bytes)) =>  {
-                       MIDI_MESSAGE_CHANNEL.send(message).await
-                    },
+                    Ok((message, size_of_processed_bytes)) => {
+                        MIDI_MESSAGE_CHANNEL.send(message).await
+                    }
                     Err(e) => println!("Error = {:?}", e),
-                }
                 }
             }
         }
     }
+}
 
 pub struct Disconnected {}
 

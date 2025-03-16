@@ -10,13 +10,11 @@ use smart_leds::RGB8;
 
 use crate::led;
 
-
 pub static POT1_MESSAGE_CHANNEL: Watch<CriticalSectionRawMutex, u16, 10> = Watch::new();
 pub static POT2_MESSAGE_CHANNEL: Watch<CriticalSectionRawMutex, u16, 10> = Watch::new();
 pub static POT3_MESSAGE_CHANNEL: Watch<CriticalSectionRawMutex, u16, 10> = Watch::new();
 pub static POT4_MESSAGE_CHANNEL: Watch<CriticalSectionRawMutex, u16, 10> = Watch::new();
 pub static USB_POWER_MESSAGE_CHANNEL: Watch<CriticalSectionRawMutex, u16, 10> = Watch::new();
-
 
 #[embassy_executor::task]
 pub async fn potmeter_task() {
@@ -72,7 +70,7 @@ pub async fn potmeter_task() {
         let usb_power_value: u16 = adc1.read_blocking(&mut usb_power);
         USB_POWER_MESSAGE_CHANNEL.sender().send(usb_power_value);
         Timer::after(Duration::from_millis(1)).await;
-    
+
         let pin_value_pot_1: u16 = adc2.read_blocking(&mut pot_in1);
         POT1_MESSAGE_CHANNEL.sender().send(pin_value_pot_1 / 16);
         Timer::after(Duration::from_millis(1)).await;
@@ -86,16 +84,55 @@ pub async fn potmeter_task() {
         Timer::after(Duration::from_millis(1)).await;
 
         let pin_value_pot_4: u16 = adc1.read_blocking(&mut pot_in4);
-        POT4_MESSAGE_CHANNEL.sender().send(pin_value_pot_4 / 16 );
+        POT4_MESSAGE_CHANNEL.sender().send(pin_value_pot_4 / 16);
         Timer::after(Duration::from_millis(10)).await;
 
-        let _ = led::LED_MESSAGE_CHANNEL.send(led::LedMessage{color: RGB8{b:(pin_value_pot_1 / 16) as u8, g:(pin_value_pot_1 / 20) as u8, r:0}, id:21, enable:true}).await;
-        let _ = led::LED_MESSAGE_CHANNEL.send(led::LedMessage{color: RGB8{b:(pin_value_pot_2 / 16) as u8, g:0, r:0}, id:20, enable:true}).await;
-        let _ = led::LED_MESSAGE_CHANNEL.send(led::LedMessage{color: RGB8{b:(pin_value_pot_3 / 16) as u8, g:0, r:0}, id:19, enable:true}).await;
-        let _ = led::LED_MESSAGE_CHANNEL.send(led::LedMessage{color: RGB8{b:(pin_value_pot_4 / 16) as u8, g:0, r:0}, id:18, enable:true}).await;
-                   
-       // MIDI_MESSAGE_CHANNEL.send(usbd_midi::Message::ControlChange(usbd_midi::message::Channel::Channel1, ControlFunction::CHANNEL_VOLUME_7, U7::try_from((pin_value_pot_1 / 32) as u8).unwrap() )).await;           
-       // MIDI_MESSAGE_CHANNEL.send(usbd_midi::Message::ControlChange(usbd_midi::message::Channel::Channel1, ControlFunction::SOUND_CONTROLLER_1_70, U7::try_from((pin_value_pot_2 / 32) as u8).unwrap() )).await;           
-   
+        let _ = led::LED_MESSAGE_CHANNEL
+            .send(led::LedMessage {
+                color: RGB8 {
+                    b: (pin_value_pot_1 / 16) as u8,
+                    g: (pin_value_pot_1 / 20) as u8,
+                    r: 0,
+                },
+                id: 21,
+                enable: true,
+            })
+            .await;
+        let _ = led::LED_MESSAGE_CHANNEL
+            .send(led::LedMessage {
+                color: RGB8 {
+                    b: (pin_value_pot_2 / 16) as u8,
+                    g: 0,
+                    r: 0,
+                },
+                id: 20,
+                enable: true,
+            })
+            .await;
+        let _ = led::LED_MESSAGE_CHANNEL
+            .send(led::LedMessage {
+                color: RGB8 {
+                    b: (pin_value_pot_3 / 16) as u8,
+                    g: 0,
+                    r: 0,
+                },
+                id: 19,
+                enable: true,
+            })
+            .await;
+        let _ = led::LED_MESSAGE_CHANNEL
+            .send(led::LedMessage {
+                color: RGB8 {
+                    b: (pin_value_pot_4 / 16) as u8,
+                    g: 0,
+                    r: 0,
+                },
+                id: 18,
+                enable: true,
+            })
+            .await;
+
+        // MIDI_MESSAGE_CHANNEL.send(usbd_midi::Message::ControlChange(usbd_midi::message::Channel::Channel1, ControlFunction::CHANNEL_VOLUME_7, U7::try_from((pin_value_pot_1 / 32) as u8).unwrap() )).await;
+        // MIDI_MESSAGE_CHANNEL.send(usbd_midi::Message::ControlChange(usbd_midi::message::Channel::Channel1, ControlFunction::SOUND_CONTROLLER_1_70, U7::try_from((pin_value_pot_2 / 32) as u8).unwrap() )).await;
     }
 }

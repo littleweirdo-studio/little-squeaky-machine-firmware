@@ -2,16 +2,13 @@
 #![no_main]
 #![feature(impl_trait_in_assoc_type)]
 
-
 use alloc::format;
 use embassy_executor::Spawner;
 extern crate alloc;
-use embassy_usb::Builder;
-use embedded_graphics::mono_font::iso_8859_3::FONT_10X20;
-use embedded_storage::nor_flash::NorFlash;
-use esp_alloc as _;
 use embassy_time::Duration;
 use embassy_time::Timer;
+use embassy_usb::Builder;
+use embedded_graphics::mono_font::iso_8859_3::FONT_10X20;
 use embedded_graphics::mono_font::mapping::StrGlyphMapping;
 use embedded_graphics::mono_font::mapping::ASCII;
 use embedded_graphics::mono_font::MonoFont;
@@ -26,16 +23,21 @@ use embedded_graphics::text::TextStyle;
 use embedded_graphics::text::TextStyleBuilder;
 use embedded_graphics::{
     mono_font::{
-        ascii::{FONT_6X10, FONT_9X18_BOLD, FONT_5X8},
+        ascii::{FONT_5X8, FONT_6X10, FONT_9X18_BOLD},
         MonoTextStyleBuilder,
     },
     pixelcolor::BinaryColor,
     prelude::*,
     text::{Alignment, Text},
 };
-
-use esp_backtrace as _;
+use embedded_storage::nor_flash::NorFlash;
 use esp_alloc as _;
+
+use core::ops::Range;
+use embedded_graphics::{image::Image, prelude::*};
+use embedded_storage::{ReadStorage, Storage};
+use esp_alloc as _;
+use esp_backtrace as _;
 use esp_hal::analog::adc;
 use esp_hal::analog::adc::Adc;
 use esp_hal::analog::adc::AdcCalBasic;
@@ -48,21 +50,16 @@ use esp_hal::gpio::Input;
 use esp_hal::i2c::master::{Config, I2c};
 use esp_hal::otg_fs::asynch::Driver;
 use esp_hal::otg_fs::Usb;
-use esp_hal::psram::{self, PsramSize};
 use esp_hal::peripheral;
 use esp_hal::peripheral::Peripheral;
 use esp_hal::peripherals::ADC1;
+use esp_hal::psram::{self, PsramSize};
 use esp_hal::rtc_cntl::Rtc;
-use esp_hal::{
-    timer::{timg::TimerGroup, AnyTimer},
-};
-use embedded_graphics::{image::Image, prelude::*};
+use esp_hal::timer::{timg::TimerGroup, AnyTimer};
 use esp_println::println;
 use esp_storage::FlashStorage;
 use sequential_storage::cache::NoCache;
 use sequential_storage::map::store_item;
-use core::ops::Range;
-use embedded_storage::{ReadStorage, Storage};
 
 #[esp_hal_embassy::main]
 async fn main(_spawner: Spawner) {
@@ -77,8 +74,8 @@ async fn main(_spawner: Spawner) {
     esp_alloc::psram_allocator!(peripherals.PSRAM, psram);
 
     let mut storage = FlashStorage::new();
-    println!("Flash size = {} MB", storage.capacity() / 1_000_000 );
-    let flash_range:Range<u32> = 0x00_220_000..0x0_0240_000;
+    println!("Flash size = {} MB", storage.capacity() / 1_000_000);
+    let flash_range: Range<u32> = 0x00_220_000..0x0_0240_000;
     let mut data_buffer = [0; 32];
 
     sequential_storage::map::store_item(
@@ -89,8 +86,4 @@ async fn main(_spawner: Spawner) {
         &42u8,
         &104729u32,
     );
-
 }
-
-
-

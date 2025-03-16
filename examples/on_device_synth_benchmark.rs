@@ -42,7 +42,10 @@ async fn main(_spawner: Spawner) {
     esp_alloc::psram_allocator!(peripherals.PSRAM, psram);
     println!("> performance run start");
     println!("> Heap size  = {:?} bytes", esp_alloc::HEAP.free());
-    println!("> Heap used before allocation of wavetables/synth = {:?} bytes", esp_alloc::HEAP.used());
+    println!(
+        "> Heap used before allocation of wavetables/synth = {:?} bytes",
+        esp_alloc::HEAP.used()
+    );
 
     let mut wt_on_heap = BoxedWavetables::new();
     wt_on_heap.add(BoxedWavetable::new(include_bytes!("../src/wav0.lwt")));
@@ -245,9 +248,16 @@ async fn main(_spawner: Spawner) {
 
     let sample_on_heap = BoxedSample::new(include_bytes!("../src/sample.raw").to_vec());
 
-    let mut synth: synth::Synth = synth::Synth::new(SAMPLE_RATE as u16, &patch, Rc::clone(&wt), Rc::new(sample_on_heap));
-    println!("> Heap used after allocation of wavetables/synth = {:?} bytes", esp_alloc::HEAP.used());
-
+    let mut synth: synth::Synth = synth::Synth::new(
+        SAMPLE_RATE as u16,
+        &patch,
+        Rc::clone(&wt),
+        Rc::new(sample_on_heap),
+    );
+    println!(
+        "> Heap used after allocation of wavetables/synth = {:?} bytes",
+        esp_alloc::HEAP.used()
+    );
 
     let mut sum = 0;
     let mut overrun = 0;
@@ -258,19 +268,22 @@ async fn main(_spawner: Spawner) {
         let start_time = rtc.current_time().and_utc().timestamp_micros();
         synth.load_patch(&patch);
         let stop_time = rtc.current_time().and_utc().timestamp_micros();
-        esp_println::println!("> patch change in {} µs (max {}µs)", stop_time - start_time, DELAY_US);
+        esp_println::println!(
+            "> patch change in {} µs (max {}µs)",
+            stop_time - start_time,
+            DELAY_US
+        );
     }
 
-
     for _x in 0..10 {
-       synth.note_on(60, 100);
+        synth.note_on(60, 100);
         synth.note_on(61, 100);
-       
+
         synth.note_on(62, 100);
         synth.note_on(63, 100);
         synth.note_on(64, 100);
         synth.note_on(65, 100);
-       
+
         for n in 0..SAMPLE_RATE {
             let start_time = rtc.current_time().and_utc().timestamp_micros();
             let _output = synth.clock_and_output();
@@ -284,7 +297,7 @@ async fn main(_spawner: Spawner) {
             } else {
                 overrun += 1;
                 esp_println::println!("> ! highest process time {}µs (@{})", calculation_cost, n);
-       
+
                 if high < calculation_cost {
                     high = calculation_cost;
                     moment = n;
@@ -294,11 +307,11 @@ async fn main(_spawner: Spawner) {
 
         synth.note_off(60);
         synth.note_off(61);
-         synth.note_off(62);
+        synth.note_off(62);
         synth.note_off(63);
         synth.note_off(64);
         synth.note_off(65);
-       
+
         for n in 0..SAMPLE_RATE {
             synth.clock_and_output();
         }
@@ -316,5 +329,4 @@ async fn main(_spawner: Spawner) {
         low = DELAY_US as i64;
     }
     println!("> performance run stop");
-    
 }

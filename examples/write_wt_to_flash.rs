@@ -5,11 +5,10 @@
 use alloc::format;
 use embassy_executor::Spawner;
 extern crate alloc;
-use embassy_usb::Builder;
-use embedded_graphics::mono_font::iso_8859_3::FONT_10X20;
-use esp_alloc as _;
 use embassy_time::Duration;
 use embassy_time::Timer;
+use embassy_usb::Builder;
+use embedded_graphics::mono_font::iso_8859_3::FONT_10X20;
 use embedded_graphics::mono_font::mapping::StrGlyphMapping;
 use embedded_graphics::mono_font::mapping::ASCII;
 use embedded_graphics::mono_font::MonoFont;
@@ -24,16 +23,18 @@ use embedded_graphics::text::TextStyle;
 use embedded_graphics::text::TextStyleBuilder;
 use embedded_graphics::{
     mono_font::{
-        ascii::{FONT_6X10, FONT_9X18_BOLD, FONT_5X8},
+        ascii::{FONT_5X8, FONT_6X10, FONT_9X18_BOLD},
         MonoTextStyleBuilder,
     },
     pixelcolor::BinaryColor,
     prelude::*,
     text::{Alignment, Text},
 };
-
-use esp_backtrace as _;
 use esp_alloc as _;
+
+use embedded_graphics::{image::Image, prelude::*};
+use esp_alloc as _;
+use esp_backtrace as _;
 use esp_hal::analog::adc;
 use esp_hal::analog::adc::Adc;
 use esp_hal::analog::adc::AdcCalBasic;
@@ -46,15 +47,12 @@ use esp_hal::gpio::Input;
 use esp_hal::i2c::master::{Config, I2c};
 use esp_hal::otg_fs::asynch::Driver;
 use esp_hal::otg_fs::Usb;
-use esp_hal::psram::{self, PsramSize};
 use esp_hal::peripheral;
 use esp_hal::peripheral::Peripheral;
 use esp_hal::peripherals::ADC1;
+use esp_hal::psram::{self, PsramSize};
 use esp_hal::rtc_cntl::Rtc;
-use esp_hal::{
-    timer::{timg::TimerGroup, AnyTimer},
-};
-use embedded_graphics::{image::Image, prelude::*};
+use esp_hal::timer::{timg::TimerGroup, AnyTimer};
 use esp_println::println;
 use esp_storage::FlashStorage;
 
@@ -73,21 +71,17 @@ async fn main(_spawner: Spawner) {
     esp_alloc::psram_allocator!(peripherals.PSRAM, psram);
 
     let mut storage = FlashStorage::new();
-    println!("Flash size = {} MB", storage.capacity() / 1_000_000 );
+    println!("Flash size = {} MB", storage.capacity() / 1_000_000);
 
     storage.write(0x00220000, include_bytes!("../src/wav0.lwt"));
-    storage.write(0x00220000 +  1 * 1200, include_bytes!("../src/wav1.lwt"));
-    storage.write(0x00220000 +  2 * 1200, include_bytes!("../src/wav2.lwt"));
-    storage.write(0x00220000 +  3 * 1200, include_bytes!("../src/wav3.lwt"));
-    storage.write(0x00220000 +  4 * 1200, include_bytes!("../src/wav4.lwt"));
-    storage.write(0x00220000 +  5 * 1200, include_bytes!("../src/wav5.lwt"));
-    storage.write(0x00220000 +  6 * 1200, include_bytes!("../src/wav6.lwt"));
-    storage.write(0x00220000 +  7 * 1200, include_bytes!("../src/wav7.lwt"));
-    storage.write(0x00220000 +  8 * 1200, include_bytes!("../src/wav8.lwt"));
-    storage.write(0x00220000 +  9 * 1200, include_bytes!("../src/wav9.lwt"));
-    storage.write(0x00220000 +  10 * 1200, include_bytes!("../src/sample.raw"));
-
+    storage.write(0x00220000 + 1 * 1200, include_bytes!("../src/wav1.lwt"));
+    storage.write(0x00220000 + 2 * 1200, include_bytes!("../src/wav2.lwt"));
+    storage.write(0x00220000 + 3 * 1200, include_bytes!("../src/wav3.lwt"));
+    storage.write(0x00220000 + 4 * 1200, include_bytes!("../src/wav4.lwt"));
+    storage.write(0x00220000 + 5 * 1200, include_bytes!("../src/wav5.lwt"));
+    storage.write(0x00220000 + 6 * 1200, include_bytes!("../src/wav6.lwt"));
+    storage.write(0x00220000 + 7 * 1200, include_bytes!("../src/wav7.lwt"));
+    storage.write(0x00220000 + 8 * 1200, include_bytes!("../src/wav8.lwt"));
+    storage.write(0x00220000 + 9 * 1200, include_bytes!("../src/wav9.lwt"));
+    storage.write(0x00220000 + 10 * 1200, include_bytes!("../src/sample.raw"));
 }
-
-
-

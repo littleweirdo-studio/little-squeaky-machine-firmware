@@ -289,7 +289,6 @@ pub fn synth_loop() {
             .with_dout(peripherals.GPIO42)
             .build();
 
-
         esp_println::println!(
             "-:= > Starting LttL Weirdɵ DMA transfer with a {} ms buffer",
             (AMOUNT_OF_SAMPLES_BUFFERING * 1000 / SAMPLE_RATE as usize * 1000) / 1000
@@ -301,56 +300,30 @@ pub fn synth_loop() {
             match MIDI_MESSAGE_CHANNEL.try_receive() {
                 Ok(message) => match message {
                     midi_msg::MidiMsg::ChannelVoice { channel, msg } => {
-                   //     println!("{:?}", msg);
-                       match msg {
-                        midi_msg::ChannelVoiceMsg::NoteOn { note, velocity } => {
-                 //           println!("note on");
-                            synth.note_on(note, velocity);
-                        },
-                        midi_msg::ChannelVoiceMsg::NoteOff { note, velocity } => {
-                            synth.note_off(note);
-                        },
-                        midi_msg::ChannelVoiceMsg::ControlChange { control } => {
-                            
-                        },
-                        midi_msg::ChannelVoiceMsg::HighResNoteOn { note, velocity } => {
-                            
-                        },
-                        midi_msg::ChannelVoiceMsg::HighResNoteOff { note, velocity } => {
-                            
-                        },
-                        midi_msg::ChannelVoiceMsg::PolyPressure { note, pressure } => {
-                            
-                        },
-                        midi_msg::ChannelVoiceMsg::ChannelPressure { pressure } => {
-                            
-                        },
-                        midi_msg::ChannelVoiceMsg::ProgramChange { program } => {
-                            
-                        },
-                        midi_msg::ChannelVoiceMsg::PitchBend { bend } => {
-                            
-                        },
-                                           }
-                    },
-                    midi_msg::MidiMsg::RunningChannelVoice { channel, msg } =>{
-                            
-                        },
-                    midi_msg::MidiMsg::ChannelMode { channel, msg } =>{
-                            
-                        },
-                    midi_msg::MidiMsg::RunningChannelMode { channel, msg } =>{
-                            
-                        },
-                    midi_msg::MidiMsg::SystemCommon { msg } =>{
-                            
-                        },
-                    midi_msg::MidiMsg::SystemRealTime { msg } =>{
-                            
-                        },
-                    midi_msg::MidiMsg::SystemExclusive { msg } =>{
-                            
-                        },
+                        //     println!("{:?}", msg);
+                        match msg {
+                            midi_msg::ChannelVoiceMsg::NoteOn { note, velocity } => {
+                                //           println!("note on");
+                                synth.note_on(note, velocity);
+                            }
+                            midi_msg::ChannelVoiceMsg::NoteOff { note, velocity: _ } => {
+                                synth.note_off(note);
+                            }
+                            midi_msg::ChannelVoiceMsg::ControlChange { control: _ } => {}
+                            midi_msg::ChannelVoiceMsg::HighResNoteOn { note, velocity } => {}
+                            midi_msg::ChannelVoiceMsg::HighResNoteOff { note, velocity } => {}
+                            midi_msg::ChannelVoiceMsg::PolyPressure { note, pressure } => {}
+                            midi_msg::ChannelVoiceMsg::ChannelPressure { pressure } => {}
+                            midi_msg::ChannelVoiceMsg::ProgramChange { program } => {}
+                            midi_msg::ChannelVoiceMsg::PitchBend { bend } => {}
+                        }
+                    }
+                    midi_msg::MidiMsg::RunningChannelVoice { channel, msg } => {}
+                    midi_msg::MidiMsg::ChannelMode { channel, msg } => {}
+                    midi_msg::MidiMsg::RunningChannelMode { channel, msg } => {}
+                    midi_msg::MidiMsg::SystemCommon { msg } => {}
+                    midi_msg::MidiMsg::SystemRealTime { msg } => {}
+                    midi_msg::MidiMsg::SystemExclusive { msg } => {}
                 },
                 _error => {}
             };
