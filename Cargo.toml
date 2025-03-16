@@ -42,6 +42,7 @@ driver-sgtl5000 = { path = "../driver-sgtl5000"}
 esp-hal-smartled = {git = "https://github.com/esp-rs/esp-hal-community.git", rev = "ad75112ae5d4b4fe2fe927356dc281283cafedfc", features = ["esp32s3"] }
 smart-leds = "0.4.0"
 sequential-storage = "4.0.1"
+midi-msg = { version = "0.8.0", default-features = false, features=["sysex"] }
 
 [profile.dev]
 opt-level = "s"

@@ -8,8 +8,8 @@ use esp_hal::{gpio::{Input, Pin}, peripherals::Peripherals};
 use esp_println::println;
 use usbd_midi::message::U7;
 
-use crate::MIDI_MESSAGE_CHANNEL;
-
+use crate::{MIDI_MESSAGE_CHANNEL, MIDI_OUT_MESSAGE_CHANNEL};
+extern crate alloc;
 
 
 
@@ -22,8 +22,16 @@ pub async fn touch_input_task() {
     }
     loop {
         pin.wait_for_low().await;
-        MIDI_MESSAGE_CHANNEL.send(usbd_midi::Message::NoteOn(usbd_midi::message::Channel::Channel1, usbd_midi::message::Note::C2, U7::MAX)).await;
+        println!("test");
+        MIDI_MESSAGE_CHANNEL.send(midi_msg::MidiMsg::ChannelVoice { channel: midi_msg::Channel::Ch1, msg: midi_msg::ChannelVoiceMsg::NoteOn { note: 60, velocity: 100 } }).await;
+
+        MIDI_OUT_MESSAGE_CHANNEL.send(midi_msg::MidiMsg::ChannelVoice { channel: midi_msg::Channel::Ch1, msg: midi_msg::ChannelVoiceMsg::NoteOn { note: 60, velocity: 100 } }).await;
+
         pin.wait_for_high().await;
-        MIDI_MESSAGE_CHANNEL.send(usbd_midi::Message::NoteOff(usbd_midi::message::Channel::Channel1, usbd_midi::message::Note::C2, U7::MAX)).await;
+        MIDI_MESSAGE_CHANNEL.send(midi_msg::MidiMsg::ChannelVoice { channel: midi_msg::Channel::Ch1, msg: midi_msg::ChannelVoiceMsg::NoteOff{ note: 60, velocity: 100 } }).await;
+
+        MIDI_OUT_MESSAGE_CHANNEL.send(midi_msg::MidiMsg::ChannelVoice { channel: midi_msg::Channel::Ch1, msg: midi_msg::ChannelVoiceMsg::NoteOff{ note: 60, velocity: 100 } }).await;
+      
     }
 }
+   

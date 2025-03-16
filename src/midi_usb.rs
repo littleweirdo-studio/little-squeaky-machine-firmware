@@ -14,6 +14,7 @@ use esp_hal::otg_fs::asynch::Driver;
 use esp_hal::otg_fs::Usb;
 use esp_hal::peripherals::{self, Peripherals};
 use esp_println::println;
+use midi_msg::ReceiverContext;
 //
 use usbd_midi::packet::reader::UsbMidiPacketReader;
 use crate::MIDI_MESSAGE_CHANNEL;
@@ -70,15 +71,17 @@ pub async fn midi_usb_task() {
 
 pub async fn midi_read<'d>(class: &mut MidiClass<'d, Driver<'d>>) -> Result<(), Disconnected> {
     let mut buf = [0; 64];
+    let mut context = ReceiverContext::new();
+     
     loop {
         let n = class.read_packet(&mut buf).await?;
         let buffer_reader = UsbMidiPacketReader::new(&buf, n);
         for packet in buffer_reader.into_iter() {
             if let Ok(packet) = packet {
-                let message = usbd_midi::message::Message::try_from(packet.payload_bytes());
-                match message {
-                    Ok(m) =>  {
-                        MIDI_MESSAGE_CHANNEL.send(m).await
+                let parsed_message = midi_msg::MidiMsg::from_midi_with_context_no_extensions(packet.payload_bytes(), &mut context);
+                match parsed_message {
+                    Ok((message, size_of_processed_bytes)) =>  {
+                       MIDI_MESSAGE_CHANNEL.send(message).await
                     },
                     Err(e) => println!("Error = {:?}", e),
                 }

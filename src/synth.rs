@@ -100,7 +100,7 @@ pub fn synth_loop() {
                 freq_detune: 0,
             },
             WaveTableOscillatorConfig {
-                soundbank_index: 2,
+                soundbank_index: 1,
                 glide: false,
                 glide_rate: 200,
                 detune: 0,
@@ -108,7 +108,7 @@ pub fn synth_loop() {
                 freq_detune: 0,
             },
             WaveTableOscillatorConfig {
-                soundbank_index: 2,
+                soundbank_index: 1,
                 glide: false,
                 glide_rate: 200,
                 detune: 0,
@@ -116,7 +116,7 @@ pub fn synth_loop() {
                 freq_detune: 0,
             },
             WaveTableOscillatorConfig {
-                soundbank_index: 2,
+                soundbank_index: 1,
                 glide: false,
                 glide_rate: 200,
                 detune: 0,
@@ -124,7 +124,7 @@ pub fn synth_loop() {
                 freq_detune: 0,
             },
             WaveTableOscillatorConfig {
-                soundbank_index: 2,
+                soundbank_index: 1,
                 glide: false,
                 glide_rate: 200,
                 detune: 0,
@@ -132,7 +132,7 @@ pub fn synth_loop() {
                 freq_detune: 0,
             },
             WaveTableOscillatorConfig {
-                soundbank_index: 2,
+                soundbank_index: 1,
                 glide: false,
                 glide_rate: 200,
                 detune: 0,
@@ -140,7 +140,7 @@ pub fn synth_loop() {
                 freq_detune: 0,
             },
             WaveTableOscillatorConfig {
-                soundbank_index: 2,
+                soundbank_index: 1,
                 glide: false,
                 glide_rate: 200,
                 detune: 0,
@@ -162,40 +162,40 @@ pub fn synth_loop() {
                 sustain_level: 100,
             },
             EnvelopConfiguration {
-                attack_time: 20,
-                decay_time: 100,
-                release_time: 1000,
-                sustain_level: 50,
+                attack_time: 10,
+                decay_time: 10,
+                release_time: 10,
+                sustain_level: 100,
             },
             EnvelopConfiguration {
-                attack_time: 20,
-                decay_time: 100,
-                release_time: 1000,
-                sustain_level: 50,
+                attack_time: 10,
+                decay_time: 10,
+                release_time: 10,
+                sustain_level: 100,
             },
             EnvelopConfiguration {
-                attack_time: 20,
-                decay_time: 100,
-                release_time: 1000,
-                sustain_level: 50,
+                attack_time: 10,
+                decay_time: 10,
+                release_time: 10,
+                sustain_level: 100,
             },
             EnvelopConfiguration {
-                attack_time: 20,
-                decay_time: 100,
-                release_time: 1000,
-                sustain_level: 50,
+                attack_time: 10,
+                decay_time: 10,
+                release_time: 10,
+                sustain_level: 100,
             },
             EnvelopConfiguration {
-                attack_time: 20,
-                decay_time: 100,
-                release_time: 1000,
-                sustain_level: 50,
+                attack_time: 10,
+                decay_time: 10,
+                release_time: 10,
+                sustain_level: 100,
             },
             EnvelopConfiguration {
-                attack_time: 100,
-                decay_time: 100,
-                release_time: 1000,
-                sustain_level: 50,
+                attack_time: 10,
+                decay_time: 10,
+                release_time: 10,
+                sustain_level: 100,
             },
         ],
         lfos: [
@@ -229,7 +229,7 @@ pub fn synth_loop() {
             ],
             voice_to_lfo: [
                 VoiceToLFORoute {
-                    enable: true,
+                    enable: false,
                     voices: [0, 1],
                 },
                 VoiceToLFORoute {
@@ -250,7 +250,7 @@ pub fn synth_loop() {
         filter_config: FilterConfig {
             cutoff_frequency: 1_000,
             resonance: 6_000,
-            enabled: true,
+            enabled: false,
             kind_of_filter: KindOfFilter::Low,
         },
         mixer_config: MixerConfiguration {
@@ -306,43 +306,57 @@ pub fn synth_loop() {
         loop {
             match MIDI_MESSAGE_CHANNEL.try_receive() {
                 Ok(message) => match message {
-                    Message::NoteOn(_channel, note, velocity) => {
-                        synth.note_on(note.into(), velocity.into())
-                    }
-                    Message::NoteOff(_channel, note, _velocity) => {
-                        synth.note_off(note.into())
-                    }
-                    Message::ProgramChange(_channel, program) => {
-                        let program_change: u8 = program.into();
-                        match program_change {
-                            0x00 => {
-                                //synth.load_patch(&SOUND_BANK_PURE_ELEKTRO.patches[0]);
-                            }
-                            0x01 => {
-                                //synth.load_patch(&SOUND_BANK_PURE_ELEKTRO.patches[1]);
-                            }
-                            0x02 => {
-                                //synth.load_patch(&SOUND_BANK_PURE_ELEKTRO.patches[2]);
-                            }
-                            0x03 => {
-                                //synth.load_patch(&SOUND_BANK_PURE_ELEKTRO.patches[3]);
-                            }
-                            _ => {}
-                        }
-                    }
-                    Message::ControlChange(_channel, control_change, value) => {
-                        let new_value: u8 = value.into();
-                        if control_change == ControlFunction::CHANNEL_VOLUME_7 {
-                            synth.change_main_volume(new_value);
-                        }
-                        if control_change == ControlFunction::SOUND_CONTROLLER_1_70 {
-                           synth.change_cutoff(new_value);
-                        }
-                        if control_change == ControlFunction::SOUND_CONTROLLER_2_71 {
-                            synth.change_resonance(new_value);
-                        }
-                    }
-                    _ => {}
+                    midi_msg::MidiMsg::ChannelVoice { channel, msg } => {
+                   //     println!("{:?}", msg);
+                       match msg {
+                        midi_msg::ChannelVoiceMsg::NoteOn { note, velocity } => {
+                 //           println!("note on");
+                            synth.note_on(note, velocity);
+                        },
+                        midi_msg::ChannelVoiceMsg::NoteOff { note, velocity } => {
+                            synth.note_off(note);
+                        },
+                        midi_msg::ChannelVoiceMsg::ControlChange { control } => {
+                            
+                        },
+                        midi_msg::ChannelVoiceMsg::HighResNoteOn { note, velocity } => {
+                            
+                        },
+                        midi_msg::ChannelVoiceMsg::HighResNoteOff { note, velocity } => {
+                            
+                        },
+                        midi_msg::ChannelVoiceMsg::PolyPressure { note, pressure } => {
+                            
+                        },
+                        midi_msg::ChannelVoiceMsg::ChannelPressure { pressure } => {
+                            
+                        },
+                        midi_msg::ChannelVoiceMsg::ProgramChange { program } => {
+                            
+                        },
+                        midi_msg::ChannelVoiceMsg::PitchBend { bend } => {
+                            
+                        },
+                                           }
+                    },
+                    midi_msg::MidiMsg::RunningChannelVoice { channel, msg } =>{
+                            
+                        },
+                    midi_msg::MidiMsg::ChannelMode { channel, msg } =>{
+                            
+                        },
+                    midi_msg::MidiMsg::RunningChannelMode { channel, msg } =>{
+                            
+                        },
+                    midi_msg::MidiMsg::SystemCommon { msg } =>{
+                            
+                        },
+                    midi_msg::MidiMsg::SystemRealTime { msg } =>{
+                            
+                        },
+                    midi_msg::MidiMsg::SystemExclusive { msg } =>{
+                            
+                        },
                 },
                 _error => {}
             };

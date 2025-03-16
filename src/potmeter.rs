@@ -96,8 +96,8 @@ pub async fn potmeter_task() {
         let _ = led::LED_MESSAGE_CHANNEL.send(led::LedMessage{color: RGB8{b:(pin_value_pot_3 / 16) as u8, g:0, r:0}, id:19, enable:true}).await;
         let _ = led::LED_MESSAGE_CHANNEL.send(led::LedMessage{color: RGB8{b:(pin_value_pot_4 / 16) as u8, g:0, r:0}, id:18, enable:true}).await;
                    
-        MIDI_MESSAGE_CHANNEL.send(usbd_midi::Message::ControlChange(usbd_midi::message::Channel::Channel1, ControlFunction::CHANNEL_VOLUME_7, U7::try_from((pin_value_pot_1 / 32) as u8).unwrap() )).await;           
-        MIDI_MESSAGE_CHANNEL.send(usbd_midi::Message::ControlChange(usbd_midi::message::Channel::Channel1, ControlFunction::SOUND_CONTROLLER_1_70, U7::try_from((pin_value_pot_2 / 32) as u8).unwrap() )).await;           
+       // MIDI_MESSAGE_CHANNEL.send(usbd_midi::Message::ControlChange(usbd_midi::message::Channel::Channel1, ControlFunction::CHANNEL_VOLUME_7, U7::try_from((pin_value_pot_1 / 32) as u8).unwrap() )).await;           
+       // MIDI_MESSAGE_CHANNEL.send(usbd_midi::Message::ControlChange(usbd_midi::message::Channel::Channel1, ControlFunction::SOUND_CONTROLLER_1_70, U7::try_from((pin_value_pot_2 / 32) as u8).unwrap() )).await;           
    
     }
 }

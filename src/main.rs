@@ -48,18 +48,18 @@ use esp_hal::timer::{timg::TimerGroup, AnyTimer};
 //
 
 // channel for sharing midi message between tasks and processes running on different cores.
-static MIDI_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, usbd_midi::message::Message, 30> =
+static MIDI_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, midi_msg::MidiMsg, 30> =
     Channel::new();
 
-static MIDI_OUT_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, usbd_midi::message::Message, 30> =
+static MIDI_OUT_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, midi_msg::MidiMsg, 30> =
     Channel::new();
 
 
 // create stack for second core (running the Synth tasks, 220KB stack reserved)
 static mut APP_CORE_STACK: Stack<220_000> = Stack::new();
 
-const usb_midi_enabled: bool = false;
-const uart_midi_enabled: bool = true;
+const usb_midi_enabled: bool = true;
+const uart_midi_enabled: bool = false;
 
 
 #[esp_hal_embassy::main]
