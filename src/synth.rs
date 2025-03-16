@@ -299,10 +299,10 @@ pub fn synth_loop() {
         loop {
             match MIDI_MESSAGE_CHANNEL.try_receive() {
                 Ok(message) => match message {
-                    midi_msg::MidiMsg::ChannelVoice { channel:  _, msg } => {
+                    midi_msg::MidiMsg::ChannelVoice { channel: _, msg } => {
                         //     println!("{:?}", msg);
                         match msg {
-                            midi_msg::ChannelVoiceMsg::NoteOn { note, velocity} => {
+                            midi_msg::ChannelVoiceMsg::NoteOn { note, velocity } => {
                                 //           println!("note on");
                                 synth.note_on(note, velocity);
                             }
@@ -310,20 +310,29 @@ pub fn synth_loop() {
                                 synth.note_off(note);
                             }
                             midi_msg::ChannelVoiceMsg::ControlChange { control: _ } => {}
-                            midi_msg::ChannelVoiceMsg::HighResNoteOn { note: _, velocity:  _ } => {}
-                            midi_msg::ChannelVoiceMsg::HighResNoteOff { note:  _, velocity:  _ } => {}
-                            midi_msg::ChannelVoiceMsg::PolyPressure { note:  _, pressure:  _ } => {}
-                            midi_msg::ChannelVoiceMsg::ChannelPressure { pressure:  _ } => {}
-                            midi_msg::ChannelVoiceMsg::ProgramChange { program:  _ } => {}
-                            midi_msg::ChannelVoiceMsg::PitchBend { bend:  _ } => {}
+                            midi_msg::ChannelVoiceMsg::HighResNoteOn {
+                                note: _,
+                                velocity: _,
+                            } => {}
+                            midi_msg::ChannelVoiceMsg::HighResNoteOff {
+                                note: _,
+                                velocity: _,
+                            } => {}
+                            midi_msg::ChannelVoiceMsg::PolyPressure {
+                                note: _,
+                                pressure: _,
+                            } => {}
+                            midi_msg::ChannelVoiceMsg::ChannelPressure { pressure: _ } => {}
+                            midi_msg::ChannelVoiceMsg::ProgramChange { program: _ } => {}
+                            midi_msg::ChannelVoiceMsg::PitchBend { bend: _ } => {}
                         }
                     }
-                    midi_msg::MidiMsg::RunningChannelVoice { channel:  _, msg:  _ } => {}
-                    midi_msg::MidiMsg::ChannelMode { channel:  _, msg:  _ } => {}
-                    midi_msg::MidiMsg::RunningChannelMode { channel:  _, msg:  _ } => {}
-                    midi_msg::MidiMsg::SystemCommon { msg:  _ } => {}
-                    midi_msg::MidiMsg::SystemRealTime { msg:  _ } => {}
-                    midi_msg::MidiMsg::SystemExclusive { msg:  _ } => {}
+                    midi_msg::MidiMsg::RunningChannelVoice { channel: _, msg: _ } => {}
+                    midi_msg::MidiMsg::ChannelMode { channel: _, msg: _ } => {}
+                    midi_msg::MidiMsg::RunningChannelMode { channel: _, msg: _ } => {}
+                    midi_msg::MidiMsg::SystemCommon { msg: _ } => {}
+                    midi_msg::MidiMsg::SystemRealTime { msg: _ } => {}
+                    midi_msg::MidiMsg::SystemExclusive { msg: _ } => {}
                 },
                 _error => {}
             };
