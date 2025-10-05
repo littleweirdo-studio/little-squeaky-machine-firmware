@@ -33,7 +33,7 @@ pub async fn led_task() {
 
     let rmt_buffer = smartLedBuffer!(22);
     let mut led = SmartLedsAdapter::new(rmt.channel0, led_pin, rmt_buffer);
-    let mut data: [RGB8; 22] = [colors::AQUAMARINE; 22];
+    let mut data: [RGB8; 22] = [colors::YELLOW; 22];
 
     led.write(brightness(gamma(data.iter().cloned()), 2))
         .unwrap();
@@ -42,7 +42,7 @@ pub async fn led_task() {
         let message = LED_MESSAGE_CHANNEL.receive().await;
         data[message.id as usize] = message.color;
 
-        led.write(brightness(gamma(data.iter().cloned()), 10))
+        led.write(brightness(gamma(data.iter().cloned()), 20))
             .unwrap();
     }
 }

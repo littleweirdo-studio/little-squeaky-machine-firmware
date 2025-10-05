@@ -1,6 +1,7 @@
 extern crate alloc;
 
 use alloc::rc::Rc;
+use alloc::sync::Arc;
 use alloc::vec::Vec;
 use embedded_storage::ReadStorage;
 use esp_alloc as _;
@@ -14,6 +15,7 @@ use esp_hal::{
 use esp_println::println;
 use esp_storage::FlashStorage;
 use fugit::RateExtU32;
+use little_weirdo::synth::effects::bitcrunch::BitcrunchConfiguration;
 use little_weirdo::synth::sampler::BoxedSample;
 
 use crate::MIDI_MESSAGE_CHANNEL;
@@ -50,9 +52,11 @@ pub fn synth_loop() {
         let _ = storage.read(0x00220000 + wt * 1200, &mut wt_read_buffer);
         wt_on_heap.add(BoxedWavetable::new(&wt_read_buffer));
     }
-    let wt = Rc::new(wt_on_heap);
+    let wt = Arc::new(wt_on_heap);
 
-    let mut sample_read_buffer = [0u8; 1000];
+
+    /* 
+let mut sample_read_buffer = [0u8; 1000];
 
     let mut sample: Vec<u8> = Vec::with_capacity(1 * 1_000);
     for wt in 0..1 {
@@ -69,16 +73,25 @@ pub fn synth_loop() {
     let boxed = BoxedSample::new(sample);
 
     let sample_on_heap = Rc::new(boxed);
+    */
 
     esp_println::println!("-:= > Heap used {} KB", esp_alloc::HEAP.used() / 1000);
 
     let patch = Patch {
         synth_config: SynthConfiguration {
-            mode: SynthMode::OctoPoly,
+            mode: SynthMode::Mono,
         },
         voices: [
             WaveTableOscillatorConfig {
-                soundbank_index: 1,
+                soundbank_index: 2,
+                glide: false,
+                glide_rate: 200,
+                detune: 0,
+                freq: 440,
+                freq_detune: 0,
+            },
+            WaveTableOscillatorConfig {
+                soundbank_index: 4,
                 glide: false,
                 glide_rate: 200,
                 detune: 0,
@@ -91,10 +104,10 @@ pub fn synth_loop() {
                 glide_rate: 200,
                 detune: 0,
                 freq: 440,
-                freq_detune: 0,
+                freq_detune: 6,
             },
             WaveTableOscillatorConfig {
-                soundbank_index: 1,
+                soundbank_index: 2,
                 glide: false,
                 glide_rate: 200,
                 detune: 0,
@@ -102,7 +115,7 @@ pub fn synth_loop() {
                 freq_detune: 0,
             },
             WaveTableOscillatorConfig {
-                soundbank_index: 1,
+                soundbank_index: 2,
                 glide: false,
                 glide_rate: 200,
                 detune: 0,
@@ -110,7 +123,7 @@ pub fn synth_loop() {
                 freq_detune: 0,
             },
             WaveTableOscillatorConfig {
-                soundbank_index: 1,
+                soundbank_index: 2,
                 glide: false,
                 glide_rate: 200,
                 detune: 0,
@@ -118,7 +131,7 @@ pub fn synth_loop() {
                 freq_detune: 0,
             },
             WaveTableOscillatorConfig {
-                soundbank_index: 1,
+                soundbank_index: 2,
                 glide: false,
                 glide_rate: 200,
                 detune: 0,
@@ -126,15 +139,7 @@ pub fn synth_loop() {
                 freq_detune: 0,
             },
             WaveTableOscillatorConfig {
-                soundbank_index: 1,
-                glide: false,
-                glide_rate: 200,
-                detune: 0,
-                freq: 440,
-                freq_detune: 0,
-            },
-            WaveTableOscillatorConfig {
-                soundbank_index: 1,
+                soundbank_index: 2,
                 glide: false,
                 glide_rate: 200,
                 detune: 0,
@@ -144,16 +149,16 @@ pub fn synth_loop() {
         ],
         envelops: [
             EnvelopConfiguration {
-                attack_time: 10,
-                decay_time: 10,
-                release_time: 10,
-                sustain_level: 100,
+                  attack_time: 200,
+                decay_time: 100,
+                release_time: 100,
+                sustain_level: 50,
             },
             EnvelopConfiguration {
-                attack_time: 10,
-                decay_time: 10,
-                release_time: 10,
-                sustain_level: 100,
+                attack_time: 200,
+                decay_time: 100,
+                release_time: 100,
+                sustain_level: 50,
             },
             EnvelopConfiguration {
                 attack_time: 10,
@@ -195,10 +200,10 @@ pub fn synth_loop() {
         lfos: [
             WaveTableLoFreqOscillatorConfig {
                 soundbank_index: 0,
-                time: 50,
+                time: 10,
             },
             WaveTableLoFreqOscillatorConfig {
-                soundbank_index: 4,
+                soundbank_index: 1,
                 time: 200,
             },
             WaveTableLoFreqOscillatorConfig {
@@ -213,7 +218,7 @@ pub fn synth_loop() {
         routering_config: RoutingConfiguration {
             voices_to_envelop: [
                 VoiceToEnvelopRoute { env: 0 },
-                VoiceToEnvelopRoute { env: 1 },
+                VoiceToEnvelopRoute { env: 0 },
                 VoiceToEnvelopRoute { env: 2 },
                 VoiceToEnvelopRoute { env: 3 },
                 VoiceToEnvelopRoute { env: 4 },
@@ -240,29 +245,32 @@ pub fn synth_loop() {
                 },
             ],
             lfo_to_filter: false,
+            lfo_to_freq: false,
+            lfo_to_freq_amount: 100,
         },
         filter_config: FilterConfig {
-            cutoff_frequency: 1_000,
-            resonance: 6_000,
-            enabled: false,
+            cutoff_frequency: 2000,
+            resonance: 0,
+            enabled: true,
             kind_of_filter: KindOfFilter::Low,
         },
         mixer_config: MixerConfiguration {
-            gain_voices: [10, 10, 10, 10, 10, 10, 10, 10],
-            gain_main: 20,
+            gain_voices: [50, 50, 0, 0, 0, 0, 0, 0],
+            gain_main: 100,
         },
         overdrive_config: OverdriveConfiguration {
-            threshold: 1000,
+            threshold: 2000,
             kind: KindOfOverdrive::Softer,
             enabled: false,
         },
+        bitcrunch_config: BitcrunchConfiguration { enabled: false }
+     
     };
 
     let mut synth: synth::Synth = synth::Synth::new(
         SAMPLE_RATE as u16,
         &patch,
-        Rc::clone(&wt),
-        Rc::clone(&sample_on_heap),
+        Arc::clone(&wt),
     );
 
     let (_, rx_descriptors, tx_buffer, tx_descriptors) = dma_circular_buffers!(0, BUFFER_SIZE);
@@ -309,7 +317,20 @@ pub fn synth_loop() {
                             midi_msg::ChannelVoiceMsg::NoteOff { note, velocity: _ } => {
                                 synth.note_off(note);
                             }
-                            midi_msg::ChannelVoiceMsg::ControlChange { control: _ } => {}
+                            midi_msg::ChannelVoiceMsg::ControlChange { control } => {
+                                match control {
+              
+                                    midi_msg::ControlChange::Volume(volume) => {
+                                        synth.change_main_volume(volume as u8);
+                                    },
+
+                                    midi_msg::ControlChange::SoundControl1(value) => {
+                                        synth.change_cutoff(value);
+                                    }
+                    
+                                    _ => todo!(),
+                                }
+                            }
                             midi_msg::ChannelVoiceMsg::HighResNoteOn {
                                 note: _,
                                 velocity: _,

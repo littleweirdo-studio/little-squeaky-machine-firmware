@@ -8,7 +8,7 @@ use esp_hal::{
 };
 use smart_leds::RGB8;
 
-use crate::led;
+use crate::{led, MIDI_MESSAGE_CHANNEL};
 
 pub static POT1_MESSAGE_CHANNEL: Watch<CriticalSectionRawMutex, u16, 10> = Watch::new();
 pub static POT2_MESSAGE_CHANNEL: Watch<CriticalSectionRawMutex, u16, 10> = Watch::new();
@@ -90,9 +90,9 @@ pub async fn potmeter_task() {
         let _ = led::LED_MESSAGE_CHANNEL
             .send(led::LedMessage {
                 color: RGB8 {
-                    b: (pin_value_pot_1 / 16) as u8,
-                    g: (pin_value_pot_1 / 20) as u8,
-                    r: 0,
+                    b: 0,
+                    g: 0,
+                    r: (pin_value_pot_1 / 16) as u8,
                 },
                 id: 21,
             })
@@ -127,8 +127,7 @@ pub async fn potmeter_task() {
                 id: 18,
             })
             .await;
-
-        // MIDI_MESSAGE_CHANNEL.send(usbd_midi::Message::ControlChange(usbd_midi::message::Channel::Channel1, ControlFunction::CHANNEL_VOLUME_7, U7::try_from((pin_value_pot_1 / 32) as u8).unwrap() )).await;
-        // MIDI_MESSAGE_CHANNEL.send(usbd_midi::Message::ControlChange(usbd_midi::message::Channel::Channel1, ControlFunction::SOUND_CONTROLLER_1_70, U7::try_from((pin_value_pot_2 / 32) as u8).unwrap() )).await;
+            MIDI_MESSAGE_CHANNEL.send(midi_msg::MidiMsg::ChannelVoice { channel: midi_msg::Channel::Ch1, msg: midi_msg::ChannelVoiceMsg::ControlChange { control: midi_msg::ControlChange::Volume(pin_value_pot_1 / 32) }}).await;
+            MIDI_MESSAGE_CHANNEL.send(midi_msg::MidiMsg::ChannelVoice { channel: midi_msg::Channel::Ch1, msg: midi_msg::ChannelVoiceMsg::ControlChange { control: midi_msg::ControlChange::SoundControl1((pin_value_pot_2 / 32) as u8) }}).await;
     }
 }
