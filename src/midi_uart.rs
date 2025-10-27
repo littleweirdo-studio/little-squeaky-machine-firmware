@@ -1,8 +1,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use embassy_futures::select::{self, Either, select};
-use embassy_usb::class::midi;
+use embassy_futures::select::{Either, select};
 use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::{

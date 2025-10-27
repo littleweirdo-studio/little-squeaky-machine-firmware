@@ -23,7 +23,6 @@ mod oled;
 use crate::oled::oled_task;
 
 mod potmeter;
-use crate::potmeter::potmeter_task;
 
 mod touch_input;
 use crate::touch_input::touch_input_task;
@@ -35,7 +34,7 @@ use embassy_executor::Spawner;
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
 use embassy_time::{Duration, Timer};
 use esp_alloc::heap_allocator;
-use esp_hal::{clock::CpuClock, psram, ram, system::{CpuControl, Stack}};
+use esp_hal::{clock::CpuClock, ram, system::{CpuControl, Stack}};
 use esp_backtrace as _;
 //
 
@@ -68,7 +67,7 @@ async fn main(spawner: Spawner) {
     esp_println::println!("-:=  Powered by Little Weirdo v0.1.0     =:-");
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
     esp_println::println!("-:= > Set CPU Speed to {:?}", config.cpu_clock());
-    let mut peripherals = esp_hal::init(config);
+    let peripherals = esp_hal::init(config);
 
     // Use 64kB in dram2_seg for the heap, which is otherwise unused.
     heap_allocator!(#[ram(reclaimed)] size: 64000);

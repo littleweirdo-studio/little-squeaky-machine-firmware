@@ -1,13 +1,13 @@
 extern crate alloc;
 
 use alloc::sync::Arc;
-use embedded_storage::{ReadStorage, nor_flash::NorFlash};
+use embedded_storage::ReadStorage;
 use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::{
     dma_circular_buffers,
     i2s::master::{Channels, Config, DataFormat, I2s},
-    peripherals::{FLASH, Peripherals},
+    peripherals::Peripherals,
     system::Cpu, time::Rate,
 };
 use esp_println::println;

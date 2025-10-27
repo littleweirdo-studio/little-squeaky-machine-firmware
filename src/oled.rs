@@ -36,7 +36,7 @@ pub async fn oled_task() {
     let i2c;
     unsafe {
         let peripherals: Peripherals = Peripherals::steal();
-        let mut config = Config::default();
+        let config = Config::default();
     
 
         i2c = I2c::new(peripherals.I2C0, config)
