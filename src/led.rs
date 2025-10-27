@@ -32,7 +32,7 @@ pub async fn led_task() {
 
     let rmt_buffer = smart_led_buffer!(22);
     let mut led = SmartLedsAdapter::new(rmt.channel0, led_pin, rmt_buffer);
-    let mut data: [RGB8; 22] = [colors::ALICE_BLUE; 22];
+    let mut data: [RGB8; 22] = [colors::YELLOW; 22];
 
     led.write(brightness(gamma(data.iter().cloned()), 2))
         .unwrap();

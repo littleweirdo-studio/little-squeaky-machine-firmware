@@ -23,6 +23,7 @@ mod oled;
 use crate::oled::oled_task;
 
 mod potmeter;
+use crate::potmeter::potmeter_task;
 
 mod touch_input;
 use crate::touch_input::touch_input_task;
@@ -108,8 +109,8 @@ async fn main(spawner: Spawner) {
     Timer::after(Duration::from_millis(10)).await;
     let _ = spawner.spawn(oled_task());
 
-  //  Timer::after(Duration::from_millis(10)).await;
-  // let _ = spawner.spawn(potmeter_task());
+    Timer::after(Duration::from_millis(10)).await;
+   let _ = spawner.spawn(potmeter_task());
 
     Timer::after(Duration::from_millis(10)).await;
     let _ = spawner.spawn(codec_task());
