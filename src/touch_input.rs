@@ -1,6 +1,6 @@
 use esp_backtrace as _;
 //use embassy_time::{Duration, Timer};
-use esp_hal::{gpio::Input, peripherals::Peripherals};
+use esp_hal::{gpio::{Input, InputConfig, Pull}, peripherals::Peripherals};
 use esp_println::println;
 
 use crate::{MIDI_MESSAGE_CHANNEL, MIDI_OUT_MESSAGE_CHANNEL};
@@ -11,7 +11,8 @@ pub async fn touch_input_task() {
     let mut pin;
     unsafe {
         let peripherals: Peripherals = Peripherals::steal();
-        pin = Input::new(peripherals.GPIO0, esp_hal::gpio::Pull::Up);
+        let config = InputConfig::default().with_pull(Pull::Up);
+        pin = Input::new(peripherals.GPIO0, config);
     }
     loop {
         pin.wait_for_low().await;

@@ -30,7 +30,6 @@ pub async fn midi_uart_task() {
                 .with_baudrate(31_250)
                 .with_data_bits(esp_hal::uart::DataBits::_8)
                 .with_stop_bits(esp_hal::uart::StopBits::_1)
-                .with_rx_fifo_full_threshold(READ_BUF_SIZE as u16)
         )
         .unwrap()
         .with_rx(peripherals.GPIO18)

@@ -1,23 +1,21 @@
 extern crate alloc;
 
 use alloc::sync::Arc;
-use embedded_storage::ReadStorage;
+use embedded_storage::{ReadStorage, nor_flash::NorFlash};
 use esp_alloc as _;
 use esp_backtrace as _;
-use esp_hal::Cpu;
 use esp_hal::{
     dma_circular_buffers,
-    i2s::master::{DataFormat, I2s, Standard},
-    peripherals::Peripherals,
+    i2s::master::{Channels, Config, DataFormat, I2s},
+    peripherals::{FLASH, Peripherals},
+    system::Cpu, time::Rate,
 };
 use esp_println::println;
 use esp_storage::FlashStorage;
-use fugit::RateExtU32;
-use little_weirdo::synth;
 use little_weirdo::synth::data::wavetables::{BoxedWavetable, BoxedWavetables};
+use little_weirdo::synth::{self, patch::Patch};
 
 use crate::MIDI_MESSAGE_CHANNEL;
-
 
 pub fn synth_loop() {
     const SAMPLE_RATE: u32 = 44100;
@@ -40,18 +38,12 @@ pub fn synth_loop() {
     }
     let wt = Arc::new(wt_on_heap);
 
-
     esp_println::println!("-:= > Heap used {} KB", esp_alloc::HEAP.used() / 1000);
 
-    let patch_bytes: &[u8] = include_bytes!("patches/bass.lwp");
-    let patch = postcard::from_bytes(patch_bytes).unwrap();
+    let patch_bytes: &[u8] = include_bytes!("patches/supersaw_4_oscillators.lwp");
+    let patch: Patch = postcard::from_bytes(patch_bytes).unwrap();
 
-
-    let mut synth: synth::Synth = synth::Synth::new(
-        SAMPLE_RATE as u16,
-        &patch,
-        Arc::clone(&wt),
-    );
+    let mut synth: synth::Synth = synth::Synth::new(SAMPLE_RATE as u16, &patch, Arc::clone(&wt));
 
     let (_, rx_descriptors, tx_buffer, tx_descriptors) = dma_circular_buffers!(0, BUFFER_SIZE);
 
@@ -61,21 +53,21 @@ pub fn synth_loop() {
 
         let mut i2s = I2s::new(
             peripherals.I2S0,
-            Standard::Philips,
-            DataFormat::Data16Channel16,
-            SAMPLE_RATE.Hz(),
             dma_channel,
-            rx_descriptors,
-            tx_descriptors,
-        );
+            Config::new_tdm_philips()
+                .with_sample_rate(Rate::from_hz(44100))
+                .with_data_format(DataFormat::Data16Channel16)
+                .with_channels(Channels::STEREO),
+        ).unwrap();
 
         i2s = i2s.with_mclk(peripherals.GPIO38);
+       
         let mut i2s_tx = i2s
             .i2s_tx
             .with_bclk(peripherals.GPIO40)
             .with_ws(peripherals.GPIO39)
             .with_dout(peripherals.GPIO42)
-            .build();
+            .build(tx_descriptors);
 
         esp_println::println!(
             "-:= > Starting LttL Weirdɵ DMA transfer with a {} ms buffer",
@@ -84,6 +76,7 @@ pub fn synth_loop() {
 
         let mut transfer = i2s_tx.write_dma_circular(tx_buffer).unwrap();
         let mut buffer = [0u8; BUFFER_SIZE];
+
         loop {
             match MIDI_MESSAGE_CHANNEL.try_receive() {
                 Ok(message) => match message {
@@ -97,20 +90,17 @@ pub fn synth_loop() {
                             midi_msg::ChannelVoiceMsg::NoteOff { note, velocity: _ } => {
                                 synth.note_off(note);
                             }
-                            midi_msg::ChannelVoiceMsg::ControlChange { control } => {
-                                match control {
-              
-                                    midi_msg::ControlChange::Volume(volume) => {
-                                        synth.change_main_volume(volume as u8);
-                                    },
-
-                                    midi_msg::ControlChange::SoundControl1(value) => {
-                                        synth.change_cutoff(value);
-                                    }
-                    
-                                    _ => todo!(),
+                            midi_msg::ChannelVoiceMsg::ControlChange { control } => match control {
+                                midi_msg::ControlChange::Volume(volume) => {
+                                    synth.change_main_volume(volume as u8);
                                 }
-                            }
+
+                                midi_msg::ControlChange::SoundControl1(value) => {
+                                    synth.change_cutoff(value);
+                                }
+
+                                _ => todo!(),
+                            },
                             midi_msg::ChannelVoiceMsg::HighResNoteOn {
                                 note: _,
                                 velocity: _,
@@ -158,6 +148,6 @@ pub fn synth_loop() {
                     println!("Error: {:?}", error);
                 }
             }
-        }
+        } 
     }
 }

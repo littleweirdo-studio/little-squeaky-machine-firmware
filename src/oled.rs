@@ -12,7 +12,6 @@ use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::i2c::master::{Config, I2c};
 use esp_hal::peripherals::Peripherals;
-use fugit::RateExtU32;
 use ssd1306::mode::DisplayConfig;
 use ssd1306::prelude::DisplayRotation;
 use ssd1306::size::DisplaySize128x64;
@@ -38,7 +37,7 @@ pub async fn oled_task() {
     unsafe {
         let peripherals: Peripherals = Peripherals::steal();
         let mut config = Config::default();
-        config.frequency = 400u32.kHz();
+    
 
         i2c = I2c::new(peripherals.I2C0, config)
             .unwrap()

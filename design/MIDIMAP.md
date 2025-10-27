@@ -1,13 +1,11 @@
 # MIDI Implementation
 
 ```
- __   ____  ____  __      _  _  ____  __  ____  ____   __  
-(  ) (_  _)(_  _)(  )    / )( \(  __)(  )(  _ \(    \ /  \ 
-/ (_/\ )(    )(  / (_/\  \ /\ / ) _)  )(  )   / ) D ((  O )
-\____/(__)  (__) \____/  (_/\_)(____)(__)(__\_)(____/ \__/ 
+ ⡇ ⡇⢹⠁⢹⠁⡇ ⣏⡉ ⡇⢸⣏⡉⡇⣏⡱⡏⢱⡎⢱
+ ⠧⠤⠇⠸ ⠸ ⠧⠤⠧⠤ ⠟⠻⠧⠤⠇⠇⠱⠧⠜⠣⠜
 ```
 
-MIDI implementation of LttL Weirdo of the LttL Squeaky Machine!
+MIDI implementation of Little Weirdo on the LttL Squeaky Machine!
 
 ## Notes
 

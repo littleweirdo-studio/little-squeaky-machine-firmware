@@ -3,8 +3,7 @@ use embassy_time::{Duration, Timer};
 use esp_backtrace as _;
 use esp_hal::{
     analog::adc::{Adc, AdcCalBasic, AdcConfig, Attenuation},
-    gpio::GpioPin,
-    peripherals::{Peripherals, ADC1, ADC2},
+    peripherals::{ADC1, ADC2, GPIO1, GPIO2, GPIO8, GPIO15, GPIO16, Peripherals},
 };
 use smart_leds::RGB8;
 
@@ -38,27 +37,27 @@ pub async fn potmeter_task() {
         let mut adc1_config = AdcConfig::default();
         let mut adc2_config = AdcConfig::default();
 
-        usb_power = adc1_config.enable_pin_with_cal::<GpioPin<8>, AdcCalBasic<ADC1>>(
+        usb_power = adc1_config.enable_pin_with_cal::<GPIO8, AdcCalBasic<ADC1>>(
             peripherals.GPIO8,
             Attenuation::_11dB,
         );
 
-        pot_in1 = adc2_config.enable_pin_with_cal::<GpioPin<15>, AdcCalBasic<ADC2>>(
+        pot_in1 = adc2_config.enable_pin_with_cal::<GPIO15, AdcCalBasic<ADC2>>(
             peripherals.GPIO15,
             Attenuation::_11dB,
         );
 
-        pot_in2 = adc2_config.enable_pin_with_cal::<GpioPin<16>, AdcCalBasic<ADC2>>(
+        pot_in2 = adc2_config.enable_pin_with_cal::<GPIO16, AdcCalBasic<ADC2>>(
             peripherals.GPIO16,
             Attenuation::_11dB,
         );
 
-        pot_in3 = adc1_config.enable_pin_with_cal::<GpioPin<1>, AdcCalBasic<ADC1>>(
+        pot_in3 = adc1_config.enable_pin_with_cal::<GPIO1, AdcCalBasic<ADC1>>(
             peripherals.GPIO1,
             Attenuation::_11dB,
         );
 
-        pot_in4 = adc1_config.enable_pin_with_cal::<GpioPin<2>, AdcCalBasic<ADC1>>(
+        pot_in4 = adc1_config.enable_pin_with_cal::<GPIO2, AdcCalBasic<ADC1>>(
             peripherals.GPIO2,
             Attenuation::_11dB,
         );
