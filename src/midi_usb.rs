@@ -73,18 +73,16 @@ pub async fn midi_read<'d>(class: &mut MidiClass<'d, Driver<'d>>) -> Result<(), 
     loop {
         let n = class.read_packet(&mut buf).await?;
         let buffer_reader = UsbMidiPacketReader::new(&buf, n);
-        for packet in buffer_reader.into_iter() {
-            if let Ok(packet) = packet {
-                let parsed_message = midi_msg::MidiMsg::from_midi_with_context_no_extensions(
-                    packet.payload_bytes(),
-                    &mut context,
-                );
-                match parsed_message {
-                    Ok((message, _size_of_processed_bytes)) => {
-                        MIDI_MESSAGE_CHANNEL.send(message).await
-                    }
-                    Err(e) => println!("Error = {:?}", e),
+        for packet in buffer_reader.into_iter().flatten() {
+            let parsed_message = midi_msg::MidiMsg::from_midi_with_context_no_extensions(
+                packet.payload_bytes(),
+                &mut context,
+            );
+            match parsed_message {
+                Ok((message, _size_of_processed_bytes)) => {
+                    MIDI_MESSAGE_CHANNEL.send(message).await
                 }
+                Err(e) => println!("Error = {:?}", e),
             }
         }
     }
