@@ -14,28 +14,28 @@ esp-backtrace = { version = "0.15.0", features = [
     "println",
 ] }
 
-esp-hal = { version = "0.23.1", features = ["esp32s3", "octal-psram"] }
-esp-hal-embassy = { version = "0.6.0", features = ["esp32s3"] }
+esp-hal = { version = "1.0.0-rc.1", features = ["esp32s3"] }
+esp-hal-embassy = { version = "0.9.1", features = ["esp32s3"] }
 embedded-hal = { version = "1.0.0" }
-embassy-executor = { version = "0.7.0", features = ["nightly"] }
-embassy-time = { version = "0.4.0" }
-embassy-sync = { version = "0.6.2", features = [] }
+embassy-executor = { version = "0.9.1", features = ["nightly"] }
+embassy-time = { version = "0.5.0" }
+embassy-sync = { version = "0.7.2", features = [] }
 esp-println = { version = "0.13.0", features = ["esp32s3", "log"] }
 
-log = { version = "0.4.25" }
-esp-alloc = { version = "0.6.0" }
+log = { version = "0.4.28" }
+esp-alloc = { version = "0.9.0" }
 little_weirdo = { path = "../little-weirdo" }
 
-static_cell = { version = "2.1.0", features = ["nightly"] }
+static_cell = { version = "2.1.1", features = ["nightly"] }
 usb-device = "0.3.2"
 usbd-midi = { version = "0.5.0" }
 embedded-graphics = { version = "0.8.1" }
 ssd1306 = { git = "https://github.com/rust-embedded-community/ssd1306.git", rev = "f3a2f7aca421fbf3ddda45ecef0dfd1f0f12330e",  features=["async"] }
 fugit = "0.3.7"
-embassy-futures = "0.1.1"
-embassy-usb = "0.4.0"
+embassy-futures = "0.1.2"
+embassy-usb = "0.5.1"
 tinybmp = "0.6.0"
-esp-storage ={ version="0.5.0", features = ["esp32s3", "nor-flash"]}
+esp-storage ={ version="0.8.0", features = ["esp32s3"]}
 embedded-storage = { version= "0.3.1", features = []}
 esp-partition-table = "0.1.2"
 driver_sgtl5000 = { path = "../driver-sgtl5000"}
