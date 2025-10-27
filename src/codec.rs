@@ -33,7 +33,7 @@ pub async fn codec_task() {
     println!("--> SGTL5000 :: Codec setup {:?}", sgtl500.power_up());
     Timer::after(Duration::from_millis(10)).await;
 
-    let _ = sgtl500.headphone_volume(70);
+    let _ = sgtl500.headphone_volume(100);
     // sgtl500.enable_audio_processing();
 
     loop {

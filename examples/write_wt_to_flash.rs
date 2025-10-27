@@ -72,16 +72,17 @@ async fn main(_spawner: Spawner) {
 
     let mut storage = FlashStorage::new();
     println!("Flash size = {} MB", storage.capacity() / 1_000_000);
-
-    storage.write(0x00220000, include_bytes!("../src/wav0.lwt"));
-    storage.write(0x00220000 + 1 * 1200, include_bytes!("../src/wav1.lwt"));
-    storage.write(0x00220000 + 2 * 1200, include_bytes!("../src/wav2.lwt"));
-    storage.write(0x00220000 + 3 * 1200, include_bytes!("../src/wav3.lwt"));
-    storage.write(0x00220000 + 4 * 1200, include_bytes!("../src/wav4.lwt"));
-    storage.write(0x00220000 + 5 * 1200, include_bytes!("../src/wav5.lwt"));
-    storage.write(0x00220000 + 6 * 1200, include_bytes!("../src/wav6.lwt"));
-    storage.write(0x00220000 + 7 * 1200, include_bytes!("../src/wav7.lwt"));
-    storage.write(0x00220000 + 8 * 1200, include_bytes!("../src/wav8.lwt"));
-    storage.write(0x00220000 + 9 * 1200, include_bytes!("../src/wav9.lwt"));
-    storage.write(0x00220000 + 10 * 1200, include_bytes!("../src/sample.raw"));
+    println!("Writing to flash");
+    let _ = storage.write(0x00220000, include_bytes!("../src/soundbank/soundbank_pure_elektro/src/wav0.raw"));
+    let _ = storage.write(0x00220000 + 1 * 1200, include_bytes!("../src/soundbank/soundbank_pure_elektro/src/wav1.raw"));
+    let _ = storage.write(0x00220000 + 2 * 1200, include_bytes!("../src/soundbank/soundbank_pure_elektro/src/wav2.raw"));
+    let _ = storage.write(0x00220000 + 3 * 1200, include_bytes!("../src/soundbank/soundbank_pure_elektro/src/wav3.raw"));
+    let _ = storage.write(0x00220000 + 4 * 1200, include_bytes!("../src/soundbank/soundbank_pure_elektro/src/wav4.raw"));
+    let _ = storage.write(0x00220000 + 5 * 1200, include_bytes!("../src/soundbank/soundbank_pure_elektro/src/wav5.raw"));
+    let _ = storage.write(0x00220000 + 6 * 1200, include_bytes!("../src/soundbank/soundbank_pure_elektro/src/wav6.raw"));
+    let _ = storage.write(0x00220000 + 7 * 1200, include_bytes!("../src/soundbank/soundbank_pure_elektro/src/wav7.raw"));
+    let _ = storage.write(0x00220000 + 8 * 1200, include_bytes!("../src/soundbank/soundbank_pure_elektro/src/wav8.raw"));
+    let _ = storage.write(0x00220000 + 9 * 1200, include_bytes!("../src/soundbank/soundbank_pure_elektro/src/wav9.raw"));
+    let _ = storage.write(0x00220000 + 10 * 1200, include_bytes!("../src/soundbank/soundbank_pure_elektro/src/sample.raw"));
+    println!("Writing to flash done");
 }
