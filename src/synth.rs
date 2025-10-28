@@ -99,23 +99,9 @@ pub fn synth_loop() {
                                     synth.change_cutoff(value);
                                 }
 
-                                _ => todo!(),
+                                _ => {},
                             },
-                            midi_msg::ChannelVoiceMsg::HighResNoteOn {
-                                note: _,
-                                velocity: _,
-                            } => {}
-                            midi_msg::ChannelVoiceMsg::HighResNoteOff {
-                                note: _,
-                                velocity: _,
-                            } => {}
-                            midi_msg::ChannelVoiceMsg::PolyPressure {
-                                note: _,
-                                pressure: _,
-                            } => {}
-                            midi_msg::ChannelVoiceMsg::ChannelPressure { pressure: _ } => {}
-                            midi_msg::ChannelVoiceMsg::ProgramChange { program: _ } => {}
-                            midi_msg::ChannelVoiceMsg::PitchBend { bend: _ } => {}
+                            _ => {},
                         }
                     }
                     midi_msg::MidiMsg::RunningChannelVoice { channel: _, msg: _ } => {}

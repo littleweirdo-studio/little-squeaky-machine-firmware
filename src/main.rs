@@ -105,8 +105,8 @@ async fn main(spawner: Spawner) {
         let _ = spawner.spawn(midi_uart_task());
     }
 
-    //Timer::after(Duration::from_millis(10)).await;
-    //let _ = spawner.spawn(oled_task());
+    Timer::after(Duration::from_millis(10)).await;
+    let _ = spawner.spawn(oled_task());
 
     Timer::after(Duration::from_millis(10)).await;
     let _ = spawner.spawn(potmeter_task());
@@ -118,10 +118,10 @@ async fn main(spawner: Spawner) {
     let _ = spawner.spawn(touch_input_task());
 
     loop {
-        Timer::after(Duration::from_millis(200)).await;
-       // Timer::after(Duration::from_millis(50)).await;
-       // MIDI_MESSAGE_CHANNEL.send(midi_msg::MidiMsg::ChannelVoice { channel: midi_msg::Channel::Ch1, msg: midi_msg::ChannelVoiceMsg::NoteOn { note: 60, velocity: 100} }).await;
-      //  Timer::after(Duration::from_millis(50)).await;
-       // MIDI_MESSAGE_CHANNEL.send(midi_msg::MidiMsg::ChannelVoice { channel: midi_msg::Channel::Ch1, msg: midi_msg::ChannelVoiceMsg::NoteOff { note: 60, velocity: 100} }).await;
+       Timer::after(Duration::from_millis(10)).await;
+   //     Timer::after(Duration::from_millis(10)).await;
+   //    MIDI_MESSAGE_CHANNEL.send(midi_msg::MidiMsg::ChannelVoice { channel: midi_msg::Channel::Ch1, msg: midi_msg::ChannelVoiceMsg::NoteOn { note: 60, velocity: 100} }).await;
+   //     Timer::after(Duration::from_millis(10)).await;
+   //     MIDI_MESSAGE_CHANNEL.send(midi_msg::MidiMsg::ChannelVoice { channel: midi_msg::Channel::Ch1, msg: midi_msg::ChannelVoiceMsg::NoteOff { note: 60, velocity: 100} }).await;
     }
 }

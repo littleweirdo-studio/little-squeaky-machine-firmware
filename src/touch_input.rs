@@ -19,7 +19,6 @@ pub async fn touch_input_task() {
     }
     loop {
         pin.wait_for_low().await;
-        println!("test");
         MIDI_MESSAGE_CHANNEL
             .send(midi_msg::MidiMsg::ChannelVoice {
                 channel: midi_msg::Channel::Ch1,

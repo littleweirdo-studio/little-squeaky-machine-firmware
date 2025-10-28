@@ -15,7 +15,7 @@ use esp_hal::peripherals::Peripherals;
 use ssd1306::mode::DisplayConfig;
 use ssd1306::prelude::DisplayRotation;
 use ssd1306::size::DisplaySize128x64;
-use ssd1306::{I2CDisplayInterface, Ssd1306};
+use ssd1306::{I2CDisplayInterface, Ssd1306, Ssd1306Async};
 
 use crate::potmeter::{
     POT1_MESSAGE_CHANNEL, POT2_MESSAGE_CHANNEL, POT3_MESSAGE_CHANNEL, POT4_MESSAGE_CHANNEL,
@@ -41,15 +41,17 @@ pub async fn oled_task() {
         i2c = I2c::new(peripherals.I2C0, config)
             .unwrap()
             .with_sda(peripherals.GPIO47)
-            .with_scl(peripherals.GPIO48);
+            .with_scl(peripherals.GPIO48).into_async();
     }
 
     let interface = I2CDisplayInterface::new(i2c);
-    let mut display = Ssd1306::new(interface, DisplaySize128x64, DisplayRotation::Rotate180)
+    let mut display: Ssd1306Async<ssd1306::prelude::I2CInterface<I2c<'_, esp_hal::Async>>, DisplaySize128x64, ssd1306::mode::BufferedGraphicsModeAsync<DisplaySize128x64>> = Ssd1306Async::new(interface, DisplaySize128x64, DisplayRotation::Rotate180)
         .into_buffered_graphics_mode();
-    let _ = display.init();
-    display.clear_buffer();
-    display.flush().unwrap();
+     //display.init().await.unwrap();
+   
+     display.init_with_addr_mode(ssd1306::command::AddrMode::Horizontal).await;
+
+    display.flush().await;
 
     let character_style = MonoTextStyleBuilder::new()
         .font(&FONT_7X14_BOLD)
@@ -79,7 +81,7 @@ pub async fn oled_task() {
         let value_pot_4 = receiver_pot4.changed().await;
         let usb_power = receiver_usb.changed().await;
 
-        display.clear_buffer();
+        display.clear(BinaryColor::Off);
 
         Text::with_alignment(
             format!("p={}", usb_power).as_str(),
@@ -87,8 +89,7 @@ pub async fn oled_task() {
             character_style,
             Alignment::Left,
         )
-        .draw(&mut display)
-        .unwrap();
+        .draw(&mut display).unwrap();
 
         RoundedRectangle::with_equal_corners(
             Rectangle::new(Point::new(0, 2), Size::new(value_pot_1 as u32 / 4, 10)),
@@ -129,36 +130,8 @@ pub async fn oled_task() {
             .draw(&mut display)
             .unwrap();
 
-        /*
-        Image::new(&image_raw, Point::new(0, 0))
-            .draw(&mut display)
-            .unwrap();
-        Text::with_alignment(
-            "LttL Weirdo",
-            Point::new(0, 24),
-            character_style,
-            Alignment::Left,
-        )
-        .draw(&mut display)
-        .unwrap();*/
-        /*  Text::with_alignment(
-                format!("pot 1 = {}", value_pot_1).as_str(),
-                Point::new(0, 44),
-                character_style,
-                Alignment::Left,
-            )
-            .draw(&mut display)
-            .unwrap();
-        Text::with_alignment(
-            format!("pot 2= {}", value_pot_2).as_str(),
-            Point::new(0, 64),
-            character_style,
-            Alignment::Left,
-        )
-        .draw(&mut display) */
-        //.unwrap();
-
-        let _ = display.flush();
+     
+        let _ = display.flush().await;
         Timer::after(Duration::from_millis(50)).await;
     }
 }
