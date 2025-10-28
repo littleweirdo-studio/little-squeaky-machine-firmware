@@ -19,7 +19,7 @@ use crate::MIDI_MESSAGE_CHANNEL;
 
 pub fn synth_loop() {
     const SAMPLE_RATE: u32 = 44100;
-    const AMOUNT_OF_SAMPLES_BUFFERING: usize = 1100;
+    const AMOUNT_OF_SAMPLES_BUFFERING: usize = 110;
     const BUFFER_SIZE: usize = 4 * AMOUNT_OF_SAMPLES_BUFFERING;
 
     esp_println::println!(
