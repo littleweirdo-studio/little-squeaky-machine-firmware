@@ -7,11 +7,11 @@ use embassy_executor::Spawner;
 extern crate alloc;
 use embassy_time::Duration;
 use embassy_time::Timer;
-use embedded_graphics::mono_font::iso_8859_3::FONT_10X20;
-use embedded_graphics::mono_font::mapping::StrGlyphMapping;
-use embedded_graphics::mono_font::mapping::ASCII;
 use embedded_graphics::mono_font::MonoFont;
 use embedded_graphics::mono_font::MonoTextStyle;
+use embedded_graphics::mono_font::iso_8859_3::FONT_10X20;
+use embedded_graphics::mono_font::mapping::ASCII;
+use embedded_graphics::mono_font::mapping::StrGlyphMapping;
 use embedded_graphics::pixelcolor::Gray8;
 use embedded_graphics::primitives::Polyline;
 use embedded_graphics::primitives::PrimitiveStyle;
@@ -22,8 +22,8 @@ use embedded_graphics::text::TextStyle;
 use embedded_graphics::text::TextStyleBuilder;
 use embedded_graphics::{
     mono_font::{
-        ascii::{FONT_5X8, FONT_6X10, FONT_9X18_BOLD},
         MonoTextStyleBuilder,
+        ascii::{FONT_5X8, FONT_6X10, FONT_9X18_BOLD},
     },
     pixelcolor::BinaryColor,
     prelude::*,
@@ -51,7 +51,7 @@ use esp_hal::psram::{self, PsramSize};
 use esp_hal::rtc_cntl::Rtc;
 use esp_hal::{
     prelude::*,
-    timer::{timg::TimerGroup, AnyTimer},
+    timer::{AnyTimer, timg::TimerGroup},
 };
 use esp_println::println;
 use ssd1306::mode::DisplayConfig;

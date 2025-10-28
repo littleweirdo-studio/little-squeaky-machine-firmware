@@ -7,7 +7,7 @@ use esp_hal::{
 };
 use smart_leds::RGB8;
 
-use crate::{led, MIDI_MESSAGE_CHANNEL};
+use crate::{MIDI_MESSAGE_CHANNEL, led};
 
 pub static POT1_MESSAGE_CHANNEL: Watch<CriticalSectionRawMutex, u16, 10> = Watch::new();
 pub static POT2_MESSAGE_CHANNEL: Watch<CriticalSectionRawMutex, u16, 10> = Watch::new();
@@ -37,10 +37,8 @@ pub async fn potmeter_task() {
         let mut adc1_config = AdcConfig::default();
         let mut adc2_config = AdcConfig::default();
 
-        usb_power = adc1_config.enable_pin_with_cal::<GPIO8, AdcCalBasic<ADC1>>(
-            peripherals.GPIO8,
-            Attenuation::_11dB,
-        );
+        usb_power = adc1_config
+            .enable_pin_with_cal::<GPIO8, AdcCalBasic<ADC1>>(peripherals.GPIO8, Attenuation::_11dB);
 
         pot_in1 = adc2_config.enable_pin_with_cal::<GPIO15, AdcCalBasic<ADC2>>(
             peripherals.GPIO15,
@@ -52,15 +50,11 @@ pub async fn potmeter_task() {
             Attenuation::_11dB,
         );
 
-        pot_in3 = adc1_config.enable_pin_with_cal::<GPIO1, AdcCalBasic<ADC1>>(
-            peripherals.GPIO1,
-            Attenuation::_11dB,
-        );
+        pot_in3 = adc1_config
+            .enable_pin_with_cal::<GPIO1, AdcCalBasic<ADC1>>(peripherals.GPIO1, Attenuation::_11dB);
 
-        pot_in4 = adc1_config.enable_pin_with_cal::<GPIO2, AdcCalBasic<ADC1>>(
-            peripherals.GPIO2,
-            Attenuation::_11dB,
-        );
+        pot_in4 = adc1_config
+            .enable_pin_with_cal::<GPIO2, AdcCalBasic<ADC1>>(peripherals.GPIO2, Attenuation::_11dB);
 
         adc1 = Adc::new(peripherals.ADC1, adc1_config);
         adc2 = Adc::new(peripherals.ADC2, adc2_config);
@@ -126,7 +120,21 @@ pub async fn potmeter_task() {
                 id: 18,
             })
             .await;
-            MIDI_MESSAGE_CHANNEL.send(midi_msg::MidiMsg::ChannelVoice { channel: midi_msg::Channel::Ch1, msg: midi_msg::ChannelVoiceMsg::ControlChange { control: midi_msg::ControlChange::Volume(pin_value_pot_1 / 32) }}).await;
-            MIDI_MESSAGE_CHANNEL.send(midi_msg::MidiMsg::ChannelVoice { channel: midi_msg::Channel::Ch1, msg: midi_msg::ChannelVoiceMsg::ControlChange { control: midi_msg::ControlChange::SoundControl1((pin_value_pot_2 / 32) as u8) }}).await;
+        MIDI_MESSAGE_CHANNEL
+            .send(midi_msg::MidiMsg::ChannelVoice {
+                channel: midi_msg::Channel::Ch1,
+                msg: midi_msg::ChannelVoiceMsg::ControlChange {
+                    control: midi_msg::ControlChange::Volume(pin_value_pot_1 / 32),
+                },
+            })
+            .await;
+        MIDI_MESSAGE_CHANNEL
+            .send(midi_msg::MidiMsg::ChannelVoice {
+                channel: midi_msg::Channel::Ch1,
+                msg: midi_msg::ChannelVoiceMsg::ControlChange {
+                    control: midi_msg::ControlChange::SoundControl1((pin_value_pot_2 / 32) as u8),
+                },
+            })
+            .await;
     }
 }

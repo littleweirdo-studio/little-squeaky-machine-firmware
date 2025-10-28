@@ -3,9 +3,9 @@ use embassy_sync::channel::Channel;
 
 use esp_backtrace as _;
 use esp_hal::peripherals::Peripherals;
-use esp_hal::{rmt::Rmt,  time::Rate};
+use esp_hal::{rmt::Rmt, time::Rate};
 use esp_hal_smartled::{SmartLedsAdapter, smart_led_buffer};
-use smart_leds::{brightness, colors, gamma, SmartLedsWrite, RGB8};
+use smart_leds::{RGB8, SmartLedsWrite, brightness, colors, gamma};
 
 // channel for sharing led update message between tasks and processes running on different cores.
 #[derive(Debug)]

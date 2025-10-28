@@ -7,15 +7,15 @@ use embassy_executor::Spawner;
 use embassy_time::{Duration, Timer};
 use esp_hal::peripherals::Peripherals;
 use esp_hal::{delay::Delay, main, rmt::Rmt, time::RateExtU32};
-use esp_hal_smartled::{smartLedBuffer, SmartLedsAdapter};
+use esp_hal_smartled::{SmartLedsAdapter, smartLedBuffer};
 use esp_println::println;
-use smart_leds::{brightness, gamma, SmartLedsWrite};
+use smart_leds::{SmartLedsWrite, brightness, gamma};
 
 //
 use esp_backtrace as _;
 //
 
-use esp_hal::timer::{timg::TimerGroup, AnyTimer};
+use esp_hal::timer::{AnyTimer, timg::TimerGroup};
 //
 
 #[embassy_executor::task]

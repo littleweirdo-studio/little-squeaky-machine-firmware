@@ -19,7 +19,10 @@ pub async fn codec_task() {
     }
 
     let mut sgtl500 = SGTL5000::new(i2c);
-    println!("-:= > SGTL5000 :: Chip Ready {:?}", sgtl500.ready().unwrap());
+    println!(
+        "-:= > SGTL5000 :: Chip Ready {:?}",
+        sgtl500.ready().unwrap()
+    );
     println!(
         "-:= > SGTL5000 :: Chip Revision {:#x}",
         sgtl500.get_chip_revision().unwrap()

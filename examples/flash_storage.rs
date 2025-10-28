@@ -8,11 +8,11 @@ extern crate alloc;
 use embassy_time::Duration;
 use embassy_time::Timer;
 use embassy_usb::Builder;
-use embedded_graphics::mono_font::iso_8859_3::FONT_10X20;
-use embedded_graphics::mono_font::mapping::StrGlyphMapping;
-use embedded_graphics::mono_font::mapping::ASCII;
 use embedded_graphics::mono_font::MonoFont;
 use embedded_graphics::mono_font::MonoTextStyle;
+use embedded_graphics::mono_font::iso_8859_3::FONT_10X20;
+use embedded_graphics::mono_font::mapping::ASCII;
+use embedded_graphics::mono_font::mapping::StrGlyphMapping;
 use embedded_graphics::pixelcolor::Gray8;
 use embedded_graphics::primitives::Polyline;
 use embedded_graphics::primitives::PrimitiveStyle;
@@ -23,8 +23,8 @@ use embedded_graphics::text::TextStyle;
 use embedded_graphics::text::TextStyleBuilder;
 use embedded_graphics::{
     mono_font::{
-        ascii::{FONT_5X8, FONT_6X10, FONT_9X18_BOLD},
         MonoTextStyleBuilder,
+        ascii::{FONT_5X8, FONT_6X10, FONT_9X18_BOLD},
     },
     pixelcolor::BinaryColor,
     prelude::*,
@@ -48,14 +48,14 @@ use esp_hal::gpio::AnalogPin;
 use esp_hal::gpio::GpioPin;
 use esp_hal::gpio::Input;
 use esp_hal::i2c::master::{Config, I2c};
-use esp_hal::otg_fs::asynch::Driver;
 use esp_hal::otg_fs::Usb;
+use esp_hal::otg_fs::asynch::Driver;
 use esp_hal::peripheral;
 use esp_hal::peripheral::Peripheral;
 use esp_hal::peripherals::ADC1;
 use esp_hal::psram::{self, PsramSize};
 use esp_hal::rtc_cntl::Rtc;
-use esp_hal::timer::{timg::TimerGroup, AnyTimer};
+use esp_hal::timer::{AnyTimer, timg::TimerGroup};
 use esp_println::println;
 use esp_storage::FlashStorage;
 use sequential_storage::cache::NoCache;

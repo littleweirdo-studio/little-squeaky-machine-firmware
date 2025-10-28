@@ -40,7 +40,7 @@ pub fn synth_loop() {
 
     esp_println::println!("-:= > Heap used {} KB", esp_alloc::HEAP.used() / 1000);
 
-    let patch_bytes: &[u8] = include_bytes!("patches/supersaw_4_oscillators.lwp");
+    let patch_bytes: &[u8] = include_bytes!("patches/piano.lwp");
     let patch: Patch = postcard::from_bytes(patch_bytes).unwrap();
 
     let mut synth: synth::Synth = synth::Synth::new(SAMPLE_RATE as u16, &patch, Arc::clone(&wt));
@@ -81,7 +81,7 @@ pub fn synth_loop() {
             match MIDI_MESSAGE_CHANNEL.try_receive() {
                 Ok(message) => match message {
                     midi_msg::MidiMsg::ChannelVoice { channel: _, msg } => {
-                        //     println!("{:?}", msg);
+                       //      println!("{:?}", msg);
                         match msg {
                             midi_msg::ChannelVoiceMsg::NoteOn { note, velocity } => {
                                 //           println!("note on");

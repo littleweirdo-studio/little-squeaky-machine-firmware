@@ -10,8 +10,9 @@ mod codec;
 use crate::codec::codec_task;
 
 mod synth;
+use embassy_usb::class::midi;
+use esp_println::print;
 use synth::synth_loop;
-
 
 mod midi_uart;
 use midi_uart::midi_uart_task;
@@ -28,23 +29,24 @@ use crate::potmeter::potmeter_task;
 mod touch_input;
 use crate::touch_input::touch_input_task;
 
-
-
 //
 use embassy_executor::Spawner;
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
 use embassy_time::{Duration, Timer};
 use esp_alloc::heap_allocator;
-use esp_hal::{clock::CpuClock, ram, system::{CpuControl, Stack}};
 use esp_backtrace as _;
+use esp_hal::{
+    clock::CpuClock,
+    ram,
+    system::{CpuControl, Stack},
+};
 //
 
 extern crate alloc;
 
 //
-use esp_hal::timer::{timg::TimerGroup};
+use esp_hal::timer::timg::TimerGroup;
 //
-
 
 // channel for sharing midi message between tasks and processes running on different cores.
 static MIDI_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, midi_msg::MidiMsg, 30> =
@@ -56,8 +58,8 @@ static MIDI_OUT_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, midi_msg::Midi
 // create stack for second core (running the Synth tasks, 220KB stack reserved)
 static mut APP_CORE_STACK: Stack<220_000> = Stack::new();
 
-const USB_MIDI_ENABLED: bool = false;
-const UART_MIDI_ENABLED: bool = true;
+const USB_MIDI_ENABLED: bool = true;
+const UART_MIDI_ENABLED: bool = false;
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
@@ -74,12 +76,10 @@ async fn main(spawner: Spawner) {
     heap_allocator!(#[ram(reclaimed)] size: 64000);
 
     esp_println::println!("-:= > Heap free {} KB", esp_alloc::HEAP.free() / 1_000);
-    
+
     let timg0 = TimerGroup::new(peripherals.TIMG0);
-    
-    esp_rtos::start(
-        timg0.timer0
-    );
+
+    esp_rtos::start(timg0.timer0);
 
     // spawn the tasks
     let _ = spawner.spawn(led_task());
@@ -105,20 +105,23 @@ async fn main(spawner: Spawner) {
         let _ = spawner.spawn(midi_uart_task());
     }
 
+    //Timer::after(Duration::from_millis(10)).await;
+    //let _ = spawner.spawn(oled_task());
 
     Timer::after(Duration::from_millis(10)).await;
-    let _ = spawner.spawn(oled_task());
-
-    Timer::after(Duration::from_millis(10)).await;
-   let _ = spawner.spawn(potmeter_task());
+    let _ = spawner.spawn(potmeter_task());
 
     Timer::after(Duration::from_millis(10)).await;
     let _ = spawner.spawn(codec_task());
 
-   Timer::after(Duration::from_millis(10)).await;
-  let _ = spawner.spawn(touch_input_task());
+    Timer::after(Duration::from_millis(10)).await;
+    let _ = spawner.spawn(touch_input_task());
 
     loop {
-        Timer::after(Duration::from_millis(500)).await;
+        Timer::after(Duration::from_millis(200)).await;
+       // Timer::after(Duration::from_millis(50)).await;
+       // MIDI_MESSAGE_CHANNEL.send(midi_msg::MidiMsg::ChannelVoice { channel: midi_msg::Channel::Ch1, msg: midi_msg::ChannelVoiceMsg::NoteOn { note: 60, velocity: 100} }).await;
+      //  Timer::after(Duration::from_millis(50)).await;
+       // MIDI_MESSAGE_CHANNEL.send(midi_msg::MidiMsg::ChannelVoice { channel: midi_msg::Channel::Ch1, msg: midi_msg::ChannelVoiceMsg::NoteOff { note: 60, velocity: 100} }).await;
     }
 }
