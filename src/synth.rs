@@ -40,7 +40,7 @@ pub fn synth_loop() {
 
     esp_println::println!("-:= > Heap used {} KB", esp_alloc::HEAP.used() / 1000);
 
-    let patch_bytes: &[u8] = include_bytes!("patches/piano.lwp");
+    let patch_bytes: &[u8] = include_bytes!("patches/ebass.lwp");
     let patch: Patch = postcard::from_bytes(patch_bytes).unwrap();
 
     let mut synth: synth::Synth = synth::Synth::new(SAMPLE_RATE as u16, &patch, Arc::clone(&wt));
@@ -104,12 +104,7 @@ pub fn synth_loop() {
                             _ => {},
                         }
                     }
-                    midi_msg::MidiMsg::RunningChannelVoice { channel: _, msg: _ } => {}
-                    midi_msg::MidiMsg::ChannelMode { channel: _, msg: _ } => {}
-                    midi_msg::MidiMsg::RunningChannelMode { channel: _, msg: _ } => {}
-                    midi_msg::MidiMsg::SystemCommon { msg: _ } => {}
-                    midi_msg::MidiMsg::SystemRealTime { msg: _ } => {}
-                    midi_msg::MidiMsg::SystemExclusive { msg: _ } => {}
+                   _ => {}
                 },
                 _error => {}
             };
