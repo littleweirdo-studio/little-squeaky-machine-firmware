@@ -33,12 +33,10 @@ use crate::touch_input::touch_input_task;
 use embassy_executor::Spawner;
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
 use embassy_time::{Duration, Timer};
-use esp_alloc::heap_allocator;
+use esp_alloc::{heap_allocator, psram_allocator};
 use esp_backtrace as _;
 use esp_hal::{
-    clock::CpuClock,
-    ram,
-    system::{CpuControl, Stack},
+    clock::CpuClock, psram, ram, system::{Cpu, CpuControl, Stack}
 };
 //
 
@@ -58,7 +56,7 @@ static MIDI_OUT_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, midi_msg::Midi
 // create stack for second core (running the Synth tasks, 220KB stack reserved)
 static mut APP_CORE_STACK: Stack<220_000> = Stack::new();
 
-const USB_MIDI_ENABLED: bool = true;
+const USB_MIDI_ENABLED: bool = false;
 const UART_MIDI_ENABLED: bool = false;
 
 esp_bootloader_esp_idf::esp_app_desc!();
@@ -66,16 +64,22 @@ esp_bootloader_esp_idf::esp_app_desc!();
 #[esp_rtos::main]
 async fn main(spawner: Spawner) {
     esp_println::logger::init_logger_from_env();
-    esp_println::println!("-:=  Little Squeaky Machine v1.1         =:-");
-    esp_println::println!("-:=  Powered by Little Weirdo v0.1.0     =:-");
+    esp_println::println!("⡇ ⡇⢹⠁⢹⠁⡇ ⣏⡉ ⢎⡑⡎⢱⡇⢸⣏⡉⣎⣱⣇⠜⢇⢸ ⡷⢾⣎⣱⡎⠑⣇⣸⡇⡷⣸⣏⡉");
+    esp_println::println!("⠧⠤⠇⠸ ⠸ ⠧⠤⠧⠤ ⠢⠜⠣⠪⠣⠜⠧⠤⠇⠸⠇⠱ ⠇ ⠇⠸⠇⠸⠣⠔⠇⠸⠇⠇⠹⠧⠤");
+    esp_println::println!("Firmware v0.1.0 with Little Weirdo v0.1.1\n");
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
     esp_println::println!("-:= > Set CPU Speed to {:?}", config.cpu_clock());
+    esp_println::println!(
+        "-:= > Starting Little Squeaky Machine on core {}",
+        Cpu::current() as usize
+    );
     let peripherals = esp_hal::init(config);
 
     // Use 64kB in dram2_seg for the heap, which is otherwise unused.
     heap_allocator!(#[ram(reclaimed)] size: 64000);
 
-    esp_println::println!("-:= > Heap free {} KB", esp_alloc::HEAP.free() / 1_000);
+    // Initialize PSRAM and add it as a heap memory region
+    esp_alloc::psram_allocator!(peripherals.PSRAM, esp_hal::psram);
 
     let timg0 = TimerGroup::new(peripherals.TIMG0);
 

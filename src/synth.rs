@@ -23,13 +23,16 @@ pub fn synth_loop() {
     const BUFFER_SIZE: usize = 4 * AMOUNT_OF_SAMPLES_BUFFERING;
 
     esp_println::println!(
-        "-:= > Starting LttL Weirdɵ on core {}",
+        "-:= > Starting Little Weirdo on core {}",
         Cpu::current() as usize
     );
 
-    esp_println::println!("-:= > Starting LttL Weirdɵ @ 16bits / {} Hz", SAMPLE_RATE);
-    let mut storage = FlashStorage::new();
-
+    esp_println::println!("-:= > Starting Little Weirdo @ 16bits / {} Hz", SAMPLE_RATE);
+    let mut storage;
+      unsafe {
+        let peripherals: Peripherals = Peripherals::steal();
+        storage = FlashStorage::new(peripherals.FLASH);
+      }
     let mut wt_on_heap = BoxedWavetables::new();
     let mut wt_read_buffer = [0u8; 1200];
     for wt in 0..10 {
@@ -38,7 +41,9 @@ pub fn synth_loop() {
     }
     let wt = Arc::new(wt_on_heap);
 
-    esp_println::println!("-:= > Heap used {} KB", esp_alloc::HEAP.used() / 1000);
+    esp_println::println!("-:= > \n{}-:= >", esp_alloc::HEAP.stats());
+
+
 
     let patch_bytes: &[u8] = include_bytes!("patches/ebass.lwp");
     let patch: Patch = postcard::from_bytes(patch_bytes).unwrap();
