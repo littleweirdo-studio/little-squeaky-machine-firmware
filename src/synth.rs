@@ -12,7 +12,7 @@ use esp_hal::{
 };
 use esp_println::println;
 use esp_storage::FlashStorage;
-use little_weirdo::synth::data::wavetables::{BoxedWavetable, BoxedWavetables};
+use little_weirdo::synth::{data::wavetables::{BoxedWavetable, BoxedWavetables}, sampler::{BoxedSample, BoxedSamples}};
 use little_weirdo::synth::{self, patch::Patch};
 
 use crate::MIDI_MESSAGE_CHANNEL;
@@ -41,14 +41,22 @@ pub fn synth_loop() {
     }
     let wt = Arc::new(wt_on_heap);
 
+    let mut samples_on_heap = BoxedSamples::new();
+    let mut sample_read_buffer = [0u8; 16458];
+    let _ = storage.read(0x00220000 + 10 * 1200, &mut sample_read_buffer);
+    samples_on_heap.add(BoxedSample::new(&sample_read_buffer));
+    let sp = Arc::new(samples_on_heap);
+
+
+
     esp_println::println!("-:= > \n{}-:= >", esp_alloc::HEAP.stats());
 
 
 
-    let patch_bytes: &[u8] = include_bytes!("patches/ebass.lwp");
+    let patch_bytes: &[u8] = include_bytes!("patches/bass.lwp");
     let patch: Patch = postcard::from_bytes(patch_bytes).unwrap();
 
-    let mut synth: synth::Synth = synth::Synth::new(SAMPLE_RATE as u16, &patch, Arc::clone(&wt));
+    let mut synth: synth::Synth = synth::Synth::new(SAMPLE_RATE as u16, &patch, Arc::clone(&wt), Arc::clone(&sp));
 
     let (_, _rx_descriptors, tx_buffer, tx_descriptors) = dma_circular_buffers!(0, BUFFER_SIZE);
 

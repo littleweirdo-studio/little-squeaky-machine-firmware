@@ -2,54 +2,11 @@
 #![no_main]
 #![feature(impl_trait_in_assoc_type)]
 
-use alloc::format;
 use embassy_executor::Spawner;
 extern crate alloc;
-use embassy_time::Duration;
-use embassy_time::Timer;
-use embassy_usb::Builder;
-use embedded_graphics::mono_font::MonoFont;
-use embedded_graphics::mono_font::MonoTextStyle;
-use embedded_graphics::mono_font::iso_8859_3::FONT_10X20;
-use embedded_graphics::mono_font::mapping::ASCII;
-use embedded_graphics::mono_font::mapping::StrGlyphMapping;
-use embedded_graphics::pixelcolor::Gray8;
-use embedded_graphics::primitives::Polyline;
-use embedded_graphics::primitives::PrimitiveStyle;
-use embedded_graphics::primitives::PrimitiveStyleBuilder;
-use embedded_graphics::primitives::StrokeAlignment;
-use embedded_graphics::text::Baseline;
-use embedded_graphics::text::TextStyle;
-use embedded_graphics::text::TextStyleBuilder;
-use embedded_graphics::{
-    mono_font::{
-        MonoTextStyleBuilder,
-        ascii::{FONT_5X8, FONT_6X10, FONT_9X18_BOLD},
-    },
-    pixelcolor::BinaryColor,
-    prelude::*,
-    text::{Alignment, Text},
-};
-use esp_alloc as _;
 
-use embedded_graphics::{image::Image, prelude::*};
 use esp_alloc as _;
 use esp_backtrace as _;
-use esp_hal::analog::adc;
-use esp_hal::analog::adc::Adc;
-use esp_hal::analog::adc::AdcCalBasic;
-use esp_hal::analog::adc::AdcCalLine;
-use esp_hal::analog::adc::AdcConfig;
-use esp_hal::analog::adc::Attenuation;
-use esp_hal::gpio::AnalogPin;
-use esp_hal::gpio::GpioPin;
-use esp_hal::gpio::Input;
-use esp_hal::i2c::master::{Config, I2c};
-use esp_hal::otg_fs::Usb;
-use esp_hal::otg_fs::asynch::Driver;
-use esp_hal::peripheral;
-use esp_hal::peripheral::Peripheral;
-use esp_hal::peripherals::ADC1;
 use esp_hal::psram::{self, PsramSize};
 use esp_hal::rtc_cntl::Rtc;
 use esp_hal::timer::{AnyTimer, timg::TimerGroup};
@@ -58,19 +15,25 @@ use esp_storage::FlashStorage;
 
 use embedded_storage::{ReadStorage, Storage};
 
-#[esp_hal_embassy::main]
-async fn main(_spawner: Spawner) {
+#[esp_rtos::main]
+async fn main(spawner: Spawner) {
     // init CPU
-    let mut config = esp_hal::Config::default();
+    let config = esp_hal::Config::default().with_cpu_clock(esp_hal::clock::CpuClock::max());
+
     let peripherals = esp_hal::init(config);
     let rtc = Rtc::new(peripherals.LPWR);
-    let timer_group_0 = TimerGroup::new(peripherals.TIMG0);
-    let timer1: AnyTimer = timer_group_0.timer0.into();
-    let timer2: AnyTimer = timer_group_0.timer1.into();
-    esp_hal_embassy::init([timer1, timer2]);
+
+    let timg0 = TimerGroup::new(peripherals.TIMG0);
+
+    esp_rtos::start(timg0.timer0);
+
     esp_alloc::psram_allocator!(peripherals.PSRAM, psram);
 
-    let mut storage = FlashStorage::new();
+     let mut storage;
+      unsafe {
+        let peripherals: esp_hal::peripherals::Peripherals = esp_hal::peripherals::Peripherals::steal();
+        storage = FlashStorage::new(peripherals.FLASH);
+      }
     println!("Flash size = {} MB", storage.capacity() / 1_000_000);
     println!("Writing to flash");
     let _ = storage.write(
@@ -113,9 +76,16 @@ async fn main(_spawner: Spawner) {
         0x00220000 + 9 * 1200,
         include_bytes!("../src/soundbank/soundbank_pure_elektro/src/wav9.raw"),
     );
+
     let _ = storage.write(
         0x00220000 + 10 * 1200,
-        include_bytes!("../src/soundbank/soundbank_pure_elektro/src/sample.raw"),
+        include_bytes!("../src/soundbank/soundbank_samples/src/wav0.raw"),
     );
+
+    let _ = storage.write(
+        0x00220000 + 10 * 1200 + 16458,
+        include_bytes!("../src/soundbank/soundbank_samples/src/wav1.raw"),
+    );
+
     println!("Writing to flash done");
 }
