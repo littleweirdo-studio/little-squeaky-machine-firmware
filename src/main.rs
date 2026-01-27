@@ -54,7 +54,7 @@ static MIDI_OUT_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, midi_msg::Midi
     Channel::new();
 
 // create stack for second core (running the Synth tasks, 220KB stack reserved)
-static mut APP_CORE_STACK: Stack<220_000> = Stack::new();
+static mut APP_CORE_STACK: Stack<250_000> = Stack::new();
 
 const USB_MIDI_ENABLED: bool = true;
 const UART_MIDI_ENABLED: bool = false;

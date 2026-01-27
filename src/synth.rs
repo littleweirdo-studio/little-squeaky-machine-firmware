@@ -45,6 +45,12 @@ pub fn synth_loop() {
     let mut sample_read_buffer = [0u8; 16458];
     let _ = storage.read(0x00220000 + 10 * 1200, &mut sample_read_buffer);
     samples_on_heap.add(BoxedSample::new(&sample_read_buffer));
+    
+
+    let _ = storage.read(0x00220000 + 10 * 1200 + 16458, &mut sample_read_buffer[..11118]);
+    samples_on_heap.add(BoxedSample::new(&sample_read_buffer));
+   
+
     let sp = Arc::new(samples_on_heap);
 
 
