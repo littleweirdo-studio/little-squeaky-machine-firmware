@@ -10,8 +10,6 @@ mod codec;
 use crate::codec::codec_task;
 
 mod synth;
-use embassy_usb::class::midi;
-use esp_println::print;
 use synth::synth_loop;
 
 mod midi_uart;
@@ -36,7 +34,9 @@ use embassy_time::{Duration, Timer};
 use esp_alloc::{heap_allocator, psram_allocator};
 use esp_backtrace as _;
 use esp_hal::{
-    clock::CpuClock, psram, ram, system::{Cpu, CpuControl, Stack}
+    clock::CpuClock,
+    psram, ram,
+    system::{Cpu, CpuControl, Stack},
 };
 //
 
@@ -122,10 +122,10 @@ async fn main(spawner: Spawner) {
     let _ = spawner.spawn(touch_input_task());
 
     loop {
-       Timer::after(Duration::from_millis(10)).await;
-   //     Timer::after(Duration::from_millis(10)).await;
-   //    MIDI_MESSAGE_CHANNEL.send(midi_msg::MidiMsg::ChannelVoice { channel: midi_msg::Channel::Ch1, msg: midi_msg::ChannelVoiceMsg::NoteOn { note: 60, velocity: 100} }).await;
-   //     Timer::after(Duration::from_millis(10)).await;
-   //     MIDI_MESSAGE_CHANNEL.send(midi_msg::MidiMsg::ChannelVoice { channel: midi_msg::Channel::Ch1, msg: midi_msg::ChannelVoiceMsg::NoteOff { note: 60, velocity: 100} }).await;
+        Timer::after(Duration::from_millis(10)).await;
+        //     Timer::after(Duration::from_millis(10)).await;
+        //    MIDI_MESSAGE_CHANNEL.send(midi_msg::MidiMsg::ChannelVoice { channel: midi_msg::Channel::Ch1, msg: midi_msg::ChannelVoiceMsg::NoteOn { note: 60, velocity: 100} }).await;
+        //     Timer::after(Duration::from_millis(10)).await;
+        //     MIDI_MESSAGE_CHANNEL.send(midi_msg::MidiMsg::ChannelVoice { channel: midi_msg::Channel::Ch1, msg: midi_msg::ChannelVoiceMsg::NoteOff { note: 60, velocity: 100} }).await;
     }
 }
