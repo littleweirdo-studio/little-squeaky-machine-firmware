@@ -18,7 +18,7 @@ use esp_storage::FlashStorage;
 
 use embedded_storage::{ReadStorage, Storage};
 
-const MAP_FLASH_RANGE: Range<u32> = 0x00220000..0x00320000;
+const MAP_FLASH_RANGE: Range<u32> = 0x00220000..(0x00220000+0x800000);
 
 
 #[esp_rtos::main]
@@ -59,17 +59,18 @@ async fn main(_spawner: Spawner) {
      let mut map_storage = sequential_storage::map::MapStorage::new(
         storage,
         const { sequential_storage::map::MapConfig::new(MAP_FLASH_RANGE) },
-        sequential_storage::cache::KeyPointerCache:: <4,u8,8> ::new(),
+        sequential_storage::cache::KeyPointerCache:: <4,u16,8> ::new(),
     );
-   // let _ = map_storage.erase_all().await;
+  // let _ = map_storage.erase_all().await;
     
     println!("data = {:?}", include_bytes!("../src/soundbank/soundbank_pure_elektro/src/wav0.raw"));
     println!("store item");
-    let _ = map_storage.store_item(&mut *data_buffer, &1u8, include_bytes!("../src/soundbank/soundbank_pure_elektro/src/wav0.raw")).await.unwrap();
+    let _ = map_storage.store_item(&mut *data_buffer, &1_001u16, include_bytes!("../src/soundbank/soundbank_pure_elektro/src/wav0.raw")).await.unwrap();
     println!("store item done");
      println!("store item fetch");
-     let result =  map_storage.fetch_item::<&[u8]>(&mut *data_buffer, &1).await.unwrap();
+     let result =  map_storage.fetch_item::<&[u8]>(&mut *data_buffer, &1_001u16).await.unwrap();
         println!("store item fetch done");
     println!("{:?}", result);
+
 
 }
