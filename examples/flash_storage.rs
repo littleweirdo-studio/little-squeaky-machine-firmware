@@ -7,6 +7,7 @@ use core::ops::Range;
 use embassy_executor::Spawner;
 extern crate alloc;
 
+use embedded_storage::nor_flash::NorFlash;
 use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::psram::{self, PsramSize};
@@ -17,7 +18,7 @@ use esp_storage::FlashStorage;
 
 use embedded_storage::{ReadStorage, Storage};
 
-const MAP_FLASH_RANGE: Range<u32> = 0x00220000..(0x00220000 + 0x800000);
+const MAP_FLASH_RANGE: Range<u32> = 0x00220000..(0x00220000 + 262144);
 
 #[esp_rtos::main]
 async fn main(_spawner: Spawner) {
@@ -43,52 +44,21 @@ async fn main(_spawner: Spawner) {
     }
     let storage = embassy_embedded_hal::adapter::BlockingAsync::new(storage);
 
-    let mut data_buffer: alloc::boxed::Box<[u8; 500_000]> = alloc::boxed::Box::new([0u8; 500_000]);
+    let mut data_buffer: alloc::boxed::Box<[u8; 2048]> = alloc::boxed::Box::new([0u8; 2048]);
 
     esp_println::println!("-:= > \n{}-:= >", esp_alloc::HEAP.stats());
 
-    let mut map_storage = sequential_storage::map::MapStorage::new(
+
+    let mut map_storage = sequential_storage::map::MapStorage::<u16, _, _>::new(
         storage,
         const { sequential_storage::map::MapConfig::new(MAP_FLASH_RANGE) },
-        sequential_storage::cache::KeyPointerCache::<4, u16, 8>::new(),
+        sequential_storage::cache::NoCache,
     );
     
-    println!(
-        "data = {:?}",
-        include_bytes!("../src/soundbank/soundbank_pure_elektro/src/wav0.raw")
-    );
-    println!("store item");
-    let _ = map_storage
-        .store_item(
-            &mut *data_buffer,
-            &1_001u16,
-            include_bytes!("../src/soundbank/soundbank_pure_elektro/src/wav0.raw"),
-        )
-        .await
-        .unwrap();
-
-    let _ = map_storage
-        .store_item(
-            &mut *data_buffer,
-            &2_001u16,
-            include_bytes!("../src/patches/bass.lwp"),
-        )
-        .await
-        .unwrap();
-
-     let _ = map_storage
-        .store_item(
-            &mut *data_buffer,
-            &2_002u16,
-            include_bytes!("../src/patches/ebass.lwp"),
-        )
-        .await
-        .unwrap();
-
-    println!("store item done");
+   
     println!("store item fetch");
     let result = map_storage
-        .fetch_item::<&[u8]>(&mut *data_buffer, &1_001u16)
+        .fetch_item::<u8>(&mut *data_buffer, &1)
         .await
         .unwrap();
     println!("store item fetch done");
