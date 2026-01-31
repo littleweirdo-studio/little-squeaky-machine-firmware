@@ -3,7 +3,9 @@
 #![feature(impl_trait_in_assoc_type)]
 
 use core::ops::Range;
+use core::str::Chars;
 
+use alloc::string::String;
 use embassy_executor::Spawner;
 extern crate alloc;
 
@@ -51,13 +53,16 @@ async fn main(_spawner: Spawner) {
 
     let mut filesystem: fs::WeirdoFileSystem<FlashStorage>  = fs::WeirdoFileSystem::new(storage, 0x00220000, 0x100000);
 
-    let len =  filesystem.read_key_value(&[0,1],&mut *data_buffer).unwrap();
+    for i in 0..5 {
+  let len =  filesystem.read_key_value(&[0,i],&mut *data_buffer).unwrap();
     esp_println::println!("{:?}", len);
-    
-   // esp_println::println!("{:?}", data_buffer);
-
      let patch: little_weirdo::synth::patch::Patch = postcard::from_bytes(&mut *data_buffer).unwrap();
-    esp_println::println!("{:?}", patch.synth_config);
+    esp_println::println!("{:?}", patch.name);
 
+    }
+
+    esp_println::println!("-:= > \n{}-:= >", esp_alloc::HEAP.stats());
+
+  
 
 }
