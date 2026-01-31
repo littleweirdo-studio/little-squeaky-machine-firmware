@@ -17,11 +17,13 @@ use esp_println::println;
 use esp_storage::FlashStorage;
 
 use embedded_storage::{ReadStorage, Storage};
+use little_weirdo::fs;
 
 const MAP_FLASH_RANGE: Range<u32> = 0x00220000..(0x00220000 + 262144);
 
 #[esp_rtos::main]
 async fn main(_spawner: Spawner) {
+   
     // init CPU
     let mut config = esp_hal::Config::default();
     let peripherals = esp_hal::init(config);
@@ -42,25 +44,20 @@ async fn main(_spawner: Spawner) {
             esp_hal::peripherals::Peripherals::steal();
         storage = FlashStorage::new(peripherals.FLASH);
     }
-    let storage = embassy_embedded_hal::adapter::BlockingAsync::new(storage);
-
-    let mut data_buffer: alloc::boxed::Box<[u8; 2048]> = alloc::boxed::Box::new([0u8; 2048]);
+   
+    let mut data_buffer: alloc::boxed::Box<[u8; 2042]> = alloc::boxed::Box::new([0u8; 2042]);
 
     esp_println::println!("-:= > \n{}-:= >", esp_alloc::HEAP.stats());
 
+    let mut filesystem: fs::WeirdoFileSystem<FlashStorage>  = fs::WeirdoFileSystem::new(storage, 0x00220000, 0x100000);
 
-    let mut map_storage = sequential_storage::map::MapStorage::<u16, _, _>::new(
-        storage,
-        const { sequential_storage::map::MapConfig::new(MAP_FLASH_RANGE) },
-        sequential_storage::cache::NoCache,
-    );
+    let len =  filesystem.read_key_value(&[0,1],&mut *data_buffer).unwrap();
+    esp_println::println!("{:?}", len);
     
-   
-    println!("store item fetch");
-    let result = map_storage
-        .fetch_item::<u8>(&mut *data_buffer, &1)
-        .await
-        .unwrap();
-    println!("store item fetch done");
-    println!("{:?}", result);
+   // esp_println::println!("{:?}", data_buffer);
+
+     let patch: little_weirdo::synth::patch::Patch = postcard::from_bytes(&mut *data_buffer).unwrap();
+    esp_println::println!("{:?}", patch.synth_config);
+
+
 }
