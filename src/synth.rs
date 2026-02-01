@@ -12,7 +12,7 @@ use esp_hal::{
 };
 use esp_println::println;
 use esp_storage::FlashStorage;
-use little_weirdo::synth::{data::wavetables::{BoxedWavetable, BoxedWavetables}, sampler::{BoxedSample, BoxedSamples}};
+use little_weirdo::{fs, synth::{data::wavetables::{BoxedWavetable, BoxedWavetables}, sampler::{BoxedSample, BoxedSamples}}};
 use little_weirdo::synth::{self, patch::Patch};
 
 use crate::MIDI_MESSAGE_CHANNEL;
@@ -33,22 +33,26 @@ pub fn synth_loop() {
         let peripherals: Peripherals = Peripherals::steal();
         storage = FlashStorage::new(peripherals.FLASH);
       }
+
+
+    let mut filesystem: fs::WeirdoFileSystem<FlashStorage>  = fs::WeirdoFileSystem::new(storage, 0x00220000, 0x100000);
+
     let mut wt_on_heap = BoxedWavetables::new();
     let mut wt_read_buffer = [0u8; 1200];
     for wt in 0..10 {
-        let _ = storage.read(0x00220000 + wt * 1200, &mut wt_read_buffer);
+        let _ = filesystem.read_key_value(700 + wt, &mut wt_read_buffer).unwrap();
         wt_on_heap.add(BoxedWavetable::new(&wt_read_buffer));
     }
     let wt = Arc::new(wt_on_heap);
 
     let mut samples_on_heap = BoxedSamples::new();
     let mut sample_read_buffer = [0u8; 16458];
-    let _ = storage.read(0x00220000 + 10 * 1200, &mut sample_read_buffer);
-    samples_on_heap.add(BoxedSample::new(&sample_read_buffer));
+    let mut length_of_sample =  filesystem.read_key_value(800, &mut sample_read_buffer).unwrap();
+    samples_on_heap.add(BoxedSample::new(&sample_read_buffer[..length_of_sample as usize]));
     
 
-    let _ = storage.read(0x00220000 + 10 * 1200 + 16458, &mut sample_read_buffer[..11118]);
-    samples_on_heap.add(BoxedSample::new(&sample_read_buffer));
+    length_of_sample  =  filesystem.read_key_value(801, &mut sample_read_buffer).unwrap();
+    samples_on_heap.add(BoxedSample::new(&sample_read_buffer[..length_of_sample as usize]));
    
 
     let sp = Arc::new(samples_on_heap);
@@ -59,8 +63,11 @@ pub fn synth_loop() {
 
 
 
-    let patch_bytes: &[u8] = include_bytes!("patches/bass.lwp");
-    let patch: Patch = postcard::from_bytes(patch_bytes).unwrap();
+    let mut patch_bytes = [0u8; 256];
+  
+    let _ =  filesystem.read_key_value(102, &mut patch_bytes).unwrap();
+
+    let patch: Patch = postcard::from_bytes(&patch_bytes).unwrap();
 
     let mut synth: synth::Synth = synth::Synth::new(SAMPLE_RATE as u16, &patch, Arc::clone(&wt), Arc::clone(&sp));
 
