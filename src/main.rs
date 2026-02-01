@@ -96,7 +96,7 @@ async fn main(spawner: Spawner) {
         })
         .unwrap();
 
-    Timer::after(Duration::from_millis(100)).await;
+    Timer::after(Duration::from_millis(500)).await;
 
     // Create MIDI USB device
     if USB_MIDI_ENABLED {
