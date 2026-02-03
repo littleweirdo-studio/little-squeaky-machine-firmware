@@ -6,34 +6,34 @@ use std::fs::{self, read_dir};
 use little_weirdo_filesystem::WeirdoFileSystem;
 use little_weirdo_filesystem::memory_storage::MemoryStorage;
 
+mod patch;
+mod wav_to_raw;
 
 fn main() {
+    //generating optimized files for Little Weirdo
+    println!("Generate optimized data for Little Weirdo using original sources.\n");
+     patch::generate_patches();
+     wav_to_raw::generate_waveforms("soundbank/data/waveforms/src","soundbank/data/waveforms");
+    wav_to_raw::generate_waveforms("soundbank/data/samples/src","soundbank/data/samples");
+    
+
+    println!("\nCreate filesystem en store generated optimized data. \n");
+
     let storage = MemoryStorage::new(0x100000);
     let mut filesystem: WeirdoFileSystem<MemoryStorage> =
         WeirdoFileSystem::new(storage, 0, 0x100000);
     filesystem.format();
 
-    store_items(
-        &mut filesystem,
-        "data/patches".to_string(),
-        100,
-    );
-    store_items(
-        &mut filesystem,
-        "data/waveforms".to_string(),
-        700,
-    );
-    store_items(
-        &mut filesystem,
-        "data/samples".to_string(),
-        900,
-    );
+    store_items(&mut filesystem, "soundbank/data/patches".to_string(), 100);
+    store_items(&mut filesystem, "soundbank/data/waveforms".to_string(), 700);
+    store_items(&mut filesystem, "soundbank/data/samples".to_string(), 900);
 
     // export to disk
     let mut data = filesystem.storage;
     let mut file =
         File::create("little_squeaky_machine_data_image.bin").expect("Unable to create file");
     file.write_all(data.dump()).expect("Unable to write data");
+    
 }
 
 fn store_items(filesystem: &mut WeirdoFileSystem<MemoryStorage>, path: String, key: u16) {
@@ -48,11 +48,11 @@ fn store_items(filesystem: &mut WeirdoFileSystem<MemoryStorage>, path: String, k
         let mut buffer: [u8; 32000] = [0; 32000];
         let path = entry.path();
         if path.is_file() {
-            println!("file {:?} stored with key {:?}", path.file_name(), key);
+           // println!("file {:?} stored with key {:?}", path.file_name(), key);
 
             let mut file = fs::File::open(path).unwrap();
             let len = file.read(&mut buffer).unwrap();
-            println!("file size = {:?}", len);
+           // println!("file size = {:?}", len);
             filesystem.write_key_value(key, &buffer[0..len]);
             key = key + 1;
         }
