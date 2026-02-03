@@ -25,6 +25,7 @@ esp-println = { version = "0.16.1", features = ["esp32s3", "log-04"] }
 
 #log = { version = "0.4.28" }
 little_weirdo = { path = "../little-weirdo" }
+little_weirdo_filesystem = { path = "../little-weirdo-filesystem" }
 
 usb-device = "0.3.2"
 usbd-midi = { version = "0.5.1" }

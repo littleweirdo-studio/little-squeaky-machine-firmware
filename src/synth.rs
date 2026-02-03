@@ -1,7 +1,6 @@
 extern crate alloc;
 
 use alloc::{sync::Arc, vec};
-use embedded_storage::ReadStorage;
 use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::{
@@ -15,13 +14,13 @@ use esp_println::println;
 use esp_storage::FlashStorage;
 use little_weirdo::synth::{self, patch::Patch};
 use little_weirdo::{
-    fs,
     sampler::{
         self,
         audio_sampler::{BoxedSample, BoxedSamples},
     },
     synth::data::wavetables::{BoxedWavetable, BoxedWavetables},
 };
+use little_weirdo_filesystem::WeirdoFileSystem;
 use midi_msg::Channel;
 
 use crate::MIDI_MESSAGE_CHANNEL;
@@ -37,14 +36,14 @@ pub fn synth_loop() {
     );
 
     esp_println::println!("-:= > Starting Little Weirdo @ 16bits / {} Hz", SAMPLE_RATE);
-    let mut storage;
+    let storage;
     unsafe {
         let peripherals: Peripherals = Peripherals::steal();
         storage = FlashStorage::new(peripherals.FLASH);
     }
 
-    let mut filesystem: fs::WeirdoFileSystem<FlashStorage> =
-        fs::WeirdoFileSystem::new(storage, 0x00220000, 0x100000);
+    let mut filesystem: WeirdoFileSystem<FlashStorage> =
+        WeirdoFileSystem::new(storage, 0x00220000, 0x100000);
 
     let mut wt_on_heap = BoxedWavetables::new();
     let mut wt_read_buffer = vec![0u8; 1200];
@@ -59,7 +58,7 @@ pub fn synth_loop() {
     let mut samples_on_heap = BoxedSamples::new();
     let mut sample_read_buffer = vec![0u8; 48_000];
     for wt in 0..5 {
-        let mut length_of_sample = filesystem
+        let length_of_sample = filesystem
             .read_key_value(900 + wt, &mut sample_read_buffer)
             .unwrap();
         samples_on_heap.add(BoxedSample::new(

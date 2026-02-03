@@ -1,5 +1,4 @@
 extern crate alloc;
-use core::ptr::read;
 
 use driver_sgtl5000::SGTL5000;
 use embassy_time::{Duration, Timer};

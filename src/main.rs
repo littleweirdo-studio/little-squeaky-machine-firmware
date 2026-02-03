@@ -31,11 +31,10 @@ use crate::touch_input::touch_input_task;
 use embassy_executor::Spawner;
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
 use embassy_time::{Duration, Timer};
-use esp_alloc::{heap_allocator, psram_allocator};
+use esp_alloc::heap_allocator;
 use esp_backtrace as _;
 use esp_hal::{
-    clock::CpuClock,
-    psram, ram,
+    clock::CpuClock, ram,
     system::{Cpu, CpuControl, Stack},
 };
 //

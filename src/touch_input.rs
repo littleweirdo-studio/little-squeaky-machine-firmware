@@ -4,7 +4,6 @@ use esp_hal::{
     gpio::{Input, InputConfig, Pull},
     peripherals::Peripherals,
 };
-use esp_println::println;
 
 use crate::{MIDI_MESSAGE_CHANNEL, MIDI_OUT_MESSAGE_CHANNEL};
 extern crate alloc;

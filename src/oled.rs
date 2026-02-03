@@ -12,10 +12,9 @@ use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::i2c::master::{Config, I2c};
 use esp_hal::peripherals::Peripherals;
-use ssd1306::mode::DisplayConfig;
 use ssd1306::prelude::DisplayRotation;
 use ssd1306::size::DisplaySize128x64;
-use ssd1306::{I2CDisplayInterface, Ssd1306, Ssd1306Async};
+use ssd1306::{I2CDisplayInterface, Ssd1306Async};
 
 use crate::potmeter::{
     POT1_MESSAGE_CHANNEL, POT2_MESSAGE_CHANNEL, POT3_MESSAGE_CHANNEL, POT4_MESSAGE_CHANNEL,
@@ -49,9 +48,9 @@ pub async fn oled_task() {
         .into_buffered_graphics_mode();
      //display.init().await.unwrap();
    
-     display.init_with_addr_mode(ssd1306::command::AddrMode::Horizontal).await;
+   let _ =  display.init_with_addr_mode(ssd1306::command::AddrMode::Horizontal).await;
 
-    display.flush().await;
+    let _ = display.flush().await;
 
     let character_style = MonoTextStyleBuilder::new()
         .font(&FONT_7X14_BOLD)
@@ -81,7 +80,7 @@ pub async fn oled_task() {
         let value_pot_4 = receiver_pot4.changed().await;
         let usb_power = receiver_usb.changed().await;
 
-        display.clear(BinaryColor::Off);
+        let _ = display.clear(BinaryColor::Off);
 
         Text::with_alignment(
             format!("p={}", usb_power).as_str(),
