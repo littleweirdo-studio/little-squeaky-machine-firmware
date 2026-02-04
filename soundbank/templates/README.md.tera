@@ -1,0 +1,9 @@
+# Soundbank 
+
+| Index | Original | Output | Samples | Size | 
+|-|-|-|-|-|
+{% for entry in entries -%}
+| {{ entry.index }} | {{ entry.original }} | "wav{{ entry.index }}.raw" | {{ entry.size }}  | {{ (entry.size * 2)/1000 }} KB |
+{% endfor -%}
+| | | | **Total** | **{{ total_size }} KB** |
+ 

@@ -8,6 +8,7 @@ use std::{
 
 // Import the Hound crate for WAV file handling
 use hound::WavReader;
+use tera::{Context, Tera};
 
 // Main function - entry point of the program
 pub fn generate_waveforms(source: &str, destination: &str) {
@@ -29,38 +30,32 @@ pub fn generate_waveforms(source: &str, destination: &str) {
     // Sort directory entries by filename for consistent processing
     paths.sort_by_key(|dir| dir.file_name());
 
-    // Create a README.md file to document the soundbank
-    let soundbank_reference_file_name = Path::new(soundbank_source_path).join("README.md");
-    let mut soundbank_reference_file =
-        File::create(soundbank_reference_file_name).expect("Failed to open file");
 
     // Get current timestamp for documentation
     let now = SystemTime::now();
     let _since_unix_epoch = now.duration_since(UNIX_EPOCH).unwrap();
 
-    // Write initial markdown header to README
-    let _ = soundbank_reference_file.write(format!("# Soundbank \n\n").as_bytes());
+     let mut tera = Tera::new("soundbank/templates/**/*").expect("Failed to load templates");
+    let mut context = Context::new();
+    let mut entries = Vec::new();
 
-    // Write table header for the soundbank documentation
-    let _ = soundbank_reference_file
-        .write("| Index | Original | Output | Samples | Size | \n|-|-|-|-|-|\n".as_bytes());
+     let soundbank_reference_file_name = Path::new(soundbank_source_path).join("README.md");
+    
 
     // Process each file in the directory
     for entry in paths {
+        println!(":: Processing file {:?}", entry.path());
         // Open the WAV file for reading
         let mut open = WavReader::open(entry.path()).unwrap();
         if open.spec().channels == 1 && open.spec().bits_per_sample == 16 && open.spec().sample_rate == 44100 {
-            // Format the original source name for the README table
-            let orginal_src_name = format!(
-                "| {} | {:?} | \"wav{:?}.lwt\" | 600 | 1200 |\n",
-                counter,
-                entry.file_name(),
-                counter
-            );
+    
+             entries.push(serde_json::json!({
+                "index": counter,
+                "original": entry.file_name().to_string_lossy(),
+                "size":  open.samples::<i16>().len(),
+            }));
 
-            // Write the formatted line to the README file
-            let _ = soundbank_reference_file.write(orginal_src_name.as_bytes());
-
+          
             // Create the output filename for the raw audio data
             let soundbank_source_file_name = format!("wav{:?}.raw", counter);
             let soundbank_source =
@@ -69,14 +64,6 @@ pub fn generate_waveforms(source: &str, destination: &str) {
             // Create the output file for raw audio data
             let mut soundbank_source_file =
                 File::create(soundbank_source).expect("Failed to open file");
-
-            // Print debug information about the current file being processed
-//            println!("Process file = {:?}", entry);
-
-            //println!("spec = {:?}", open.spec());
-
-            // Print the duration of the WAV file
-           // println!("Amount of sample = {:?}", open.duration());
 
             // Iterate through all samples in the WAV file
             for sample in open.samples::<i16>().into_iter() {
@@ -92,4 +79,16 @@ pub fn generate_waveforms(source: &str, destination: &str) {
              println!("spec = {:?}", open.spec());
         }
     }
+
+    context.insert("entries", &entries);
+    let total_size: i64 = entries.iter().map(|e| e["size"].as_i64().unwrap_or(0)).sum();
+    context.insert("total_size", &((total_size * 2) / 1000));
+
+
+    let rendered = tera.render("README.md.tera", &context).expect("Failed to render template");
+    
+    let mut readme_file = File::create(soundbank_reference_file_name).expect("Failed to open file");
+    let _ = readme_file.write(rendered.as_bytes());
+
+
 }
