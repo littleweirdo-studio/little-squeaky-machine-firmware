@@ -16,6 +16,12 @@ use esp_hal::{
 use esp_hal::timer::timg::TimerGroup;
 //
 
+use esp_hal::{
+    gpio::{Output, Input, InputConfig, OutputConfig, Pull},
+    peripherals::Peripherals,
+};
+
+
 esp_bootloader_esp_idf::esp_app_desc!();
 
 #[esp_rtos::main]
@@ -41,6 +47,21 @@ async fn main(_spawner: Spawner) {
     let timg0 = TimerGroup::new(peripherals.TIMG0);
 
     esp_rtos::start(timg0.timer0);
+    
+
+    // configure key matrix
+
+    let input_config = InputConfig::default().with_pull(Pull::Up);
+    let output_config = OutputConfig::default();
+
+
+
+    let  pin0 = Input::new(peripherals.GPIO0, input_config);
+    let  pin3 = Output::new(peripherals.GPIO10, output_config);
+
+
+    
+        
 
     loop {
         Timer::after(Duration::from_millis(10)).await;

@@ -8,8 +8,8 @@ pub fn generate_patches() {
    
 
     // Load a synth patch from a JSON file
-    let patch_dir = "soundbank/data/patches/src";
-    let patch_dir_dst = "soundbank/data/patches";
+    let patch_dir = "data/patches/src";
+    let patch_dir_dst = "data/patches";
 
     // Read all files from the patches directory
     let mut paths: Vec<_> = read_dir(patch_dir)

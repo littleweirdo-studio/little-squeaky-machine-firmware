@@ -35,7 +35,7 @@ pub fn generate_waveforms(source: &str, destination: &str) {
     let now = SystemTime::now();
     let _since_unix_epoch = now.duration_since(UNIX_EPOCH).unwrap();
 
-     let mut tera = Tera::new("soundbank/templates/**/*").expect("Failed to load templates");
+     let mut tera = Tera::new("templates/**/*").expect("Failed to load templates");
     let mut context = Context::new();
     let mut entries = Vec::new();
 

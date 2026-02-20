@@ -1,6 +1,6 @@
 extern crate alloc;
 
-use alloc::{sync::Arc, vec};
+use alloc::{string::ToString, sync::Arc, vec};
 use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::{
@@ -12,7 +12,8 @@ use esp_hal::{
 };
 use esp_println::println;
 use esp_storage::FlashStorage;
-use little_weirdo::synth::{self, patch::Patch};
+use little_weirdo::{effects::{bitcrunch::BitcrunchConfiguration, delay::DelayConfiguration, overdrive::{KindOfOverdrive, OverdriveConfiguration}}, synth::{self, Synth}};
+
 use little_weirdo::{
     sampler::{
         self,
@@ -48,6 +49,7 @@ pub fn synth_loop() {
     let mut wt_on_heap = BoxedWavetables::new();
     let mut wt_read_buffer = vec![0u8; 1200];
     for wt in 0..10 {
+        println!("ket = {:?}", wt);
         let _ = filesystem
             .read_key_value(700 + wt, &mut wt_read_buffer)
             .unwrap();
@@ -74,10 +76,18 @@ pub fn synth_loop() {
 
     let _ = filesystem.read_key_value(102, &mut patch_bytes).unwrap();
 
-    let patch: Patch = postcard::from_bytes(&patch_bytes).unwrap();
+    let patch: little_weirdo::synth::patch::Patch = postcard::from_bytes(&patch_bytes).unwrap();
 
-    let mut synth: synth::Synth = synth::Synth::new(SAMPLE_RATE as u16, &patch, Arc::clone(&wt));
-    let mut sampler: sampler::Sampler = sampler::Sampler::new(SAMPLE_RATE as u16, Arc::clone(&sp));
+    let mut synth: synth::Synth = Synth::new(SAMPLE_RATE as u16, &patch, Arc::clone(&wt));
+
+    let sampler_patch = little_weirdo::sampler::patch::Patch {
+        name: "Sampler patch".to_string(),
+        overdrive_config: OverdriveConfiguration { threshold: 100, kind: KindOfOverdrive::Hard , enabled: false },
+        bitcrunch_config: BitcrunchConfiguration { enabled: false},
+        delay_config: DelayConfiguration {enabled: false, delay_time: 100, mix_percentage: 50, feedback: true, feedback_percentage: 50 },
+    };
+
+    let mut sampler: sampler::Sampler = sampler::Sampler::new(SAMPLE_RATE as u16, &sampler_patch, Arc::clone(&sp));
 
     let (_, _rx_descriptors, tx_buffer, tx_descriptors) = dma_circular_buffers!(0, BUFFER_SIZE);
 
