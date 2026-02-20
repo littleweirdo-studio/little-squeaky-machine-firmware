@@ -27,6 +27,9 @@ use crate::potmeter::potmeter_task;
 mod touch_input;
 use crate::touch_input::touch_input_task;
 
+mod sequence;
+use crate::sequence::sequence_task;
+
 //
 use embassy_executor::Spawner;
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
@@ -46,10 +49,10 @@ use esp_hal::timer::timg::TimerGroup;
 //
 
 // channel for sharing midi message between tasks and processes running on different cores.
-static MIDI_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, midi_msg::MidiMsg, 30> =
+static MIDI_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, midi_msg::MidiMsg, 50> =
     Channel::new();
 
-static MIDI_OUT_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, midi_msg::MidiMsg, 30> =
+static MIDI_OUT_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, midi_msg::MidiMsg, 50> =
     Channel::new();
 
 // create stack for second core (running the Synth tasks, 220KB stack reserved)
@@ -114,17 +117,13 @@ async fn main(spawner: Spawner) {
     Timer::after(Duration::from_millis(10)).await;
     let _ = spawner.spawn(potmeter_task());
 
-    Timer::after(Duration::from_millis(10)).await;
+    Timer::after(Duration::from_millis(500)).await;
     let _ = spawner.spawn(codec_task());
 
     Timer::after(Duration::from_millis(10)).await;
-    let _ = spawner.spawn(touch_input_task());
+   let _ = spawner.spawn(sequence_task());
 
     loop {
         Timer::after(Duration::from_millis(10)).await;
-        //     Timer::after(Duration::from_millis(10)).await;
-        //    MIDI_MESSAGE_CHANNEL.send(midi_msg::MidiMsg::ChannelVoice { channel: midi_msg::Channel::Ch1, msg: midi_msg::ChannelVoiceMsg::NoteOn { note: 60, velocity: 100} }).await;
-        //     Timer::after(Duration::from_millis(10)).await;
-        //     MIDI_MESSAGE_CHANNEL.send(midi_msg::MidiMsg::ChannelVoice { channel: midi_msg::Channel::Ch1, msg: midi_msg::ChannelVoiceMsg::NoteOff { note: 60, velocity: 100} }).await;
     }
 }

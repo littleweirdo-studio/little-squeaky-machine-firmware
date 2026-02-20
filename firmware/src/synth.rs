@@ -12,7 +12,14 @@ use esp_hal::{
 };
 use esp_println::println;
 use esp_storage::FlashStorage;
-use little_weirdo::{effects::{bitcrunch::BitcrunchConfiguration, delay::DelayConfiguration, overdrive::{KindOfOverdrive, OverdriveConfiguration}}, synth::{self, Synth}};
+use little_weirdo::{
+    effects::{
+        bitcrunch::BitcrunchConfiguration,
+        delay::DelayConfiguration,
+        overdrive::{KindOfOverdrive, OverdriveConfiguration},
+    },
+    synth::{self, Synth},
+};
 
 use little_weirdo::{
     sampler::{
@@ -82,12 +89,26 @@ pub fn synth_loop() {
 
     let sampler_patch = little_weirdo::sampler::patch::Patch {
         name: "Sampler patch".to_string(),
-        overdrive_config: OverdriveConfiguration { threshold: 100, kind: KindOfOverdrive::Hard , enabled: false },
-        bitcrunch_config: BitcrunchConfiguration { enabled: false},
-        delay_config: DelayConfiguration {enabled: false, delay_time: 100, mix_percentage: 50, feedback: true, feedback_percentage: 50 },
+        overdrive_config: OverdriveConfiguration {
+            threshold: 2000,
+            kind: KindOfOverdrive::Softer,
+            enabled: false,
+        },
+        bitcrunch_config: BitcrunchConfiguration { enabled: false },
+        delay_config: DelayConfiguration {
+            enabled: true,
+            delay_time: 300,
+            mix_percentage: 75,
+            feedback: true,
+            feedback_percentage: 75,
+        },
     };
 
-    let mut sampler: sampler::Sampler = sampler::Sampler::new(SAMPLE_RATE as u16, &sampler_patch, Arc::clone(&sp));
+    let mut sampler: sampler::Sampler =
+        sampler::Sampler::new(SAMPLE_RATE as u16, &sampler_patch, Arc::clone(&sp));
+
+
+
 
     let (_, _rx_descriptors, tx_buffer, tx_descriptors) = dma_circular_buffers!(0, BUFFER_SIZE);
 
@@ -127,6 +148,15 @@ pub fn synth_loop() {
                 Ok(message) => match message {
                     midi_msg::MidiMsg::ChannelVoice { channel, msg } => {
                         match channel {
+                            Channel::Ch2 => {
+                                match msg {
+                                    midi_msg::ChannelVoiceMsg::NoteOn { note, velocity } => {
+                                        //           println!("note on");
+                                        sampler.note_on(note, velocity);
+                                    }
+                                    _ => {}
+                                }
+                            }
                             Channel::Ch1 => {
                                 match msg {
                                     midi_msg::ChannelVoiceMsg::NoteOn { note, velocity } => {
