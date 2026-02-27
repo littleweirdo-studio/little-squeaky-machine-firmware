@@ -1,9 +1,12 @@
 extern crate alloc;
 use embassy_time::{Duration, Timer};
+use embedded_graphics::pixelcolor::BinaryColor;
+use embedded_graphics::prelude::DrawTarget;
 use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::i2c::master::{Config, I2c};
 use esp_hal::peripherals::Peripherals;
+use esp_println::println;
 use little_weirdo_gui::about::About;
 use little_weirdo_gui::menu::{Menu, MenuIcon};
 use little_weirdo_gui::{ActiveItem, DrawItem, EventType, Navigatable, SHARED};
@@ -53,50 +56,52 @@ pub async fn oled_task() {
     main_menu.add("STATUS", MenuIcon::Status, EventType::NoMenu);
     main_menu.add("ABOUT", MenuIcon::Information, EventType::LttLMenuAbout);
 
+   let mut drum_menu = Menu::new(EventType::MainMenu, MenuIcon::Music);
+    drum_menu.add("PATCHES", MenuIcon::Patch, EventType::DrumPatchMenu);
+    drum_menu.add("SETTINGS", MenuIcon::Tune, EventType::NoMenu);
+    drum_menu.add("ABOUT", MenuIcon::Information, EventType::DrumAbout);
+
+    let mut seq_menu = Menu::new(EventType::MainMenu, MenuIcon::Piano);
+    seq_menu.add("PATCHES", MenuIcon::Patch, EventType::DrumPatchMenu);
+    seq_menu.add("SETTINGS", MenuIcon::Tune, EventType::NoMenu);
+    seq_menu.add("ABOUT", MenuIcon::Information, EventType::DrumAbout);
+
+    let mut drum_patch_menu = Menu::new(EventType::DrumMenu, MenuIcon::Patch);
+    drum_patch_menu.add("TR 808", MenuIcon::Drum, EventType::NoMenu);
+    drum_patch_menu.add("TR 909", MenuIcon::Drum, EventType::NoMenu);
+    drum_patch_menu.add("WEIRD", MenuIcon::Drum, EventType::NoMenu);
+
+    let mut about_drums_menu = About::new(
+        "LTTL Weirdo Drums is a collection of drum sounds for the LTTL Weirdo synthesizer.",
+        EventType::DrumMenu,
+    );
+
     let mut about_lttl_menu = About::new(
         "LttL Hi SQυεΛκY Things Machine v1.0 ♫ §QυεΛΛΛΛκκ Cαη ħαρρεη α⊥ αηψ тıмε! ©'26 HST∞LAB ♥♪♥",
         EventType::MainMenu,
     );
+    
 
     let mut active_item = ActiveItem::Menu(&mut main_menu);
 
-    let mut receiver = MIDI_MESSAGE_CHANNEL.subscriber().unwrap();
-
+    
     loop {
+        let _ = display.clear(BinaryColor::Off);
         let _ = active_item.draw(&mut display);
         let _ = display.flush().await;
-
-        match SHARED.wait().await {
-            EventType::MainMenu => active_item = ActiveItem::Menu(&mut main_menu),
-            EventType::LttLMenuAbout => active_item = ActiveItem::About(&mut about_lttl_menu),
+        match SHARED.receive().await {
+                 EventType::DrumMenu => active_item = ActiveItem::Menu(&mut drum_menu),
+                EventType::NoMenu => {}
+                EventType::MainMenu => active_item = ActiveItem::Menu(&mut main_menu),
+                EventType::DrumPatchMenu => active_item = ActiveItem::Menu(&mut drum_patch_menu),
+                EventType::DrumAbout => active_item = ActiveItem::About(&mut about_drums_menu),
+                EventType::SeqMenu => active_item = ActiveItem::Menu(&mut seq_menu),
+                EventType::LttLMenuAbout => active_item = ActiveItem::About(&mut about_lttl_menu),
+                EventType::KeypadUp => active_item.next(),
+                EventType::KeypadDown => active_item.prev(),
+                EventType::KeypadLeft => active_item.back(),
+                EventType::KeypadRight => active_item.select(),
             _ => {}
         }
-
-        match receiver.next_message_pure().await {
-            midi_msg::MidiMsg::ChannelVoice { channel, msg } => {
-                if channel == Channel::Ch3 {
-                    match msg {
-                        midi_msg::ChannelVoiceMsg::NoteOn { note, velocity } => match note {
-                            31 => {
-                                active_item.next();
-                            }
-                            32 => {
-                                active_item.prev();
-                            }
-                            33 => {
-                                active_item.back();
-                            }
-                            34 => {
-                                active_item.select();
-                            }
-                            _ => {}
-                        },
-                        _ => {}
-                    }
-                }
-            }
-            _ => {}
-        }
-        Timer::after(Duration::from_millis(50)).await;
     }
 }

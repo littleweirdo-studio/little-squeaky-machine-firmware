@@ -123,6 +123,7 @@ pub async fn potmeter_task() {
                 id: 18,
             })
             .await;
+      /* 
         sender
             .publish(midi_msg::MidiMsg::ChannelVoice {
                 channel: midi_msg::Channel::Ch1,
@@ -136,6 +137,6 @@ pub async fn potmeter_task() {
                 msg: midi_msg::ChannelVoiceMsg::ControlChange {
                     control: midi_msg::ControlChange::SoundControl1((pin_value_pot_2 / 32) as u8),
                 },
-            }).await;
+            }).await;*/
     }
 }

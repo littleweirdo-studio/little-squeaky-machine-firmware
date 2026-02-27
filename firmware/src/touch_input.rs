@@ -1,9 +1,12 @@
+use embassy_time::{Duration, Timer};
 use esp_backtrace as _;
 //use embassy_time::{Duration, Timer};
 use esp_hal::{
     gpio::{Input, InputConfig, Pull},
     peripherals::Peripherals,
 };
+use esp_println::println;
+use little_weirdo_gui::{EventType, SHARED};
 
 use crate::{MIDI_MESSAGE_CHANNEL, MIDI_OUT_MESSAGE_CHANNEL};
 extern crate alloc;
@@ -18,11 +21,15 @@ pub async fn touch_input_task() {
     }
      let sender = MIDI_MESSAGE_CHANNEL.publisher().unwrap();
 
+     
+
     loop {
-        pin.wait_for_low().await;
+        pin.wait_for_rising_edge().await;
+       
+     /* 
         sender
             .publish(midi_msg::MidiMsg::ChannelVoice {
-                channel: midi_msg::Channel::Ch1,
+                channel: midi_msg::Channel::Ch3,
                 msg: midi_msg::ChannelVoiceMsg::NoteOn {
                     note: 60,
                     velocity: 100,
@@ -32,15 +39,17 @@ pub async fn touch_input_task() {
 
         MIDI_OUT_MESSAGE_CHANNEL
             .send(midi_msg::MidiMsg::ChannelVoice {
-                channel: midi_msg::Channel::Ch1,
+                channel: midi_msg::Channel::Ch3,
                 msg: midi_msg::ChannelVoiceMsg::NoteOn {
                     note: 60,
                     velocity: 100,
                 },
             })
             .await;
-
-        pin.wait_for_high().await;
+*/
+    //    pin.wait_for_high().await;
+         SHARED.try_send(EventType::KeypadDown);
+        /* 
          sender
             .publish(midi_msg::MidiMsg::ChannelVoice {
                 channel: midi_msg::Channel::Ch1,
@@ -60,5 +69,7 @@ pub async fn touch_input_task() {
                 },
             })
             .await;
+        */
+        Timer::after(Duration::from_millis(10)).await;
     }
 }

@@ -6,7 +6,7 @@ use esp_backtrace as _;
 use esp_hal::{
     dma_circular_buffers,
     i2s::master::{Channels, Config, DataFormat, I2s},
-    peripherals::Peripherals,
+    peripherals::{Peripherals, SHA},
     system::Cpu,
     time::Rate,
 };
@@ -29,6 +29,7 @@ use little_weirdo::{
     synth::data::wavetables::{BoxedWavetable, BoxedWavetables},
 };
 use little_weirdo_filesystem::WeirdoFileSystem;
+use little_weirdo_gui::{EventType, SHARED};
 use midi_msg::Channel;
 
 use crate::MIDI_MESSAGE_CHANNEL;
@@ -107,9 +108,6 @@ pub fn synth_loop() {
     let mut sampler: sampler::Sampler =
         sampler::Sampler::new(SAMPLE_RATE as u16, &sampler_patch, Arc::clone(&sp));
 
-
-
-
     let (_, _rx_descriptors, tx_buffer, tx_descriptors) = dma_circular_buffers!(0, BUFFER_SIZE);
 
     unsafe {
@@ -142,11 +140,12 @@ pub fn synth_loop() {
 
         let mut transfer = i2s_tx.write_dma_circular(tx_buffer).unwrap();
         let mut buffer = [0u8; BUFFER_SIZE];
-let mut receiver = MIDI_MESSAGE_CHANNEL.subscriber().unwrap();
+        let mut receiver = MIDI_MESSAGE_CHANNEL.subscriber().unwrap();
 
         loop {
-            match receiver.try_next_message_pure() {
-                Some(message) => match message {
+            //TODO fix this hack
+            if receiver.available() > 0 {
+                match receiver.try_next_message_pure().unwrap() {
                     midi_msg::MidiMsg::ChannelVoice { channel, msg } => {
                         match channel {
                             Channel::Ch2 => {
@@ -196,10 +195,11 @@ let mut receiver = MIDI_MESSAGE_CHANNEL.subscriber().unwrap();
                         }
                     }
                     _ => {}
-                },
-                _error => {}
-            };
-
+                }
+                if receiver.available() == 0 {
+                    receiver.clear();
+                }
+            }
             match transfer.available() {
                 Ok(num_bytes) => {
                     let avail = usize::min(BUFFER_SIZE, num_bytes);

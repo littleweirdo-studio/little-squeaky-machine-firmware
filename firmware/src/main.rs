@@ -58,7 +58,7 @@ static MIDI_OUT_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, midi_msg::Midi
 // create stack for second core (running the Synth tasks, 220KB stack reserved)
 static mut APP_CORE_STACK: Stack<220_000> = Stack::new();
 
-const USB_MIDI_ENABLED: bool = false;
+const USB_MIDI_ENABLED: bool = true;
 const UART_MIDI_ENABLED: bool = false;
 
 esp_bootloader_esp_idf::esp_app_desc!();
@@ -121,7 +121,8 @@ async fn main(spawner: Spawner) {
     let _ = spawner.spawn(codec_task());
 
     Timer::after(Duration::from_millis(10)).await;
-   let _ = spawner.spawn(sequence_task());
+    let _ = spawner.spawn(touch_input_task());
+    let _ = spawner.spawn(sequence_task());
 
     loop {
         Timer::after(Duration::from_millis(10)).await;
