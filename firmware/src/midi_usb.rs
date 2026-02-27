@@ -115,6 +115,7 @@ pub async fn midi_read<'d>(class: &mut MidiClass<'d, Driver<'d>>) -> Result<(), 
 
     // Context for MIDI message parsing
     let mut context = ReceiverContext::new();
+  let sender = MIDI_MESSAGE_CHANNEL.publisher().unwrap();
 
     loop {
         // Read a single MIDI packet from USB
@@ -136,7 +137,7 @@ pub async fn midi_read<'d>(class: &mut MidiClass<'d, Driver<'d>>) -> Result<(), 
                 Ok((message, _size_of_processed_bytes)) =>
                 // Send valid MIDI message to main channel
                 {
-                    MIDI_MESSAGE_CHANNEL.send(message).await
+                    sender.publish(message);
                 }
                 Err(e) => println!("Error = {:?}", e),
             }

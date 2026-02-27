@@ -142,10 +142,11 @@ pub fn synth_loop() {
 
         let mut transfer = i2s_tx.write_dma_circular(tx_buffer).unwrap();
         let mut buffer = [0u8; BUFFER_SIZE];
+let mut receiver = MIDI_MESSAGE_CHANNEL.subscriber().unwrap();
 
         loop {
-            match MIDI_MESSAGE_CHANNEL.try_receive() {
-                Ok(message) => match message {
+            match receiver.try_next_message_pure() {
+                Some(message) => match message {
                     midi_msg::MidiMsg::ChannelVoice { channel, msg } => {
                         match channel {
                             Channel::Ch2 => {

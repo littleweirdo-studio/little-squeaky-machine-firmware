@@ -61,6 +61,9 @@ pub async fn midi_uart_task() {
     // Context for MIDI message parsing
     let mut context = ReceiverContext::new();
 
+    //
+    let sender = MIDI_MESSAGE_CHANNEL.publisher().unwrap();
+
     loop {
         // Create futures for reading MIDI data and receiving outgoing messages
         let midi_in_future = midi_uart.read_async(&mut buffer);
@@ -83,8 +86,8 @@ pub async fn midi_uart_task() {
                             &mut context,
                         )
                     {
-                        // Send parsed MIDI message to the main processing channel
-                        MIDI_MESSAGE_CHANNEL.send(message).await;
+                        // Send parsed MIDI message to the main processing channels
+                        sender.publish(message).await;
                         offset += size_of_processed_bytes;
                     }
                     // Remove processed bytes from the buffer

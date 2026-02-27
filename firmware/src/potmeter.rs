@@ -59,6 +59,9 @@ pub async fn potmeter_task() {
         adc1 = Adc::new(peripherals.ADC1, adc1_config);
         adc2 = Adc::new(peripherals.ADC2, adc2_config);
     }
+
+        let sender = MIDI_MESSAGE_CHANNEL.publisher().unwrap();
+
     loop {
         let usb_power_value: u16 = adc1.read_blocking(&mut usb_power);
         USB_POWER_MESSAGE_CHANNEL.sender().send(usb_power_value);
@@ -120,21 +123,19 @@ pub async fn potmeter_task() {
                 id: 18,
             })
             .await;
-        MIDI_MESSAGE_CHANNEL
-            .send(midi_msg::MidiMsg::ChannelVoice {
+        sender
+            .publish(midi_msg::MidiMsg::ChannelVoice {
                 channel: midi_msg::Channel::Ch1,
                 msg: midi_msg::ChannelVoiceMsg::ControlChange {
                     control: midi_msg::ControlChange::Volume(pin_value_pot_1 / 32),
                 },
-            })
-            .await;
-        MIDI_MESSAGE_CHANNEL
-            .send(midi_msg::MidiMsg::ChannelVoice {
+            }).await;
+        sender
+            .publish(midi_msg::MidiMsg::ChannelVoice {
                 channel: midi_msg::Channel::Ch1,
                 msg: midi_msg::ChannelVoiceMsg::ControlChange {
                     control: midi_msg::ControlChange::SoundControl1((pin_value_pot_2 / 32) as u8),
                 },
-            })
-            .await;
+            }).await;
     }
 }

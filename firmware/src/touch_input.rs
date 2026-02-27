@@ -16,10 +16,12 @@ pub async fn touch_input_task() {
         let config = InputConfig::default().with_pull(Pull::Up);
         pin = Input::new(peripherals.GPIO0, config);
     }
+     let sender = MIDI_MESSAGE_CHANNEL.publisher().unwrap();
+
     loop {
         pin.wait_for_low().await;
-        MIDI_MESSAGE_CHANNEL
-            .send(midi_msg::MidiMsg::ChannelVoice {
+        sender
+            .publish(midi_msg::MidiMsg::ChannelVoice {
                 channel: midi_msg::Channel::Ch1,
                 msg: midi_msg::ChannelVoiceMsg::NoteOn {
                     note: 60,
@@ -39,8 +41,8 @@ pub async fn touch_input_task() {
             .await;
 
         pin.wait_for_high().await;
-        MIDI_MESSAGE_CHANNEL
-            .send(midi_msg::MidiMsg::ChannelVoice {
+         sender
+            .publish(midi_msg::MidiMsg::ChannelVoice {
                 channel: midi_msg::Channel::Ch1,
                 msg: midi_msg::ChannelVoiceMsg::NoteOff {
                     note: 60,

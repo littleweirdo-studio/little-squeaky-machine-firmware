@@ -51,6 +51,9 @@ pub async fn sequence_task() {
 
     sequencer_1.start();
     let mut last_id = sequencer_1.counter;
+
+
+       let sender = MIDI_MESSAGE_CHANNEL.publisher().unwrap();
     loop {
         Timer::after(Duration::from_millis(CLOCK_TICK as u64)).await;
 
@@ -82,7 +85,7 @@ pub async fn sequence_task() {
                         velocity: 127,
                     },
                 };
-                let _ = MIDI_MESSAGE_CHANNEL.try_send(message);
+                let _ = sender.publish(message).await;
             }
         }
 

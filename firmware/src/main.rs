@@ -32,7 +32,7 @@ use crate::sequence::sequence_task;
 
 //
 use embassy_executor::Spawner;
-use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel, pubsub::PubSubChannel, watch::Watch};
 use embassy_time::{Duration, Timer};
 use esp_alloc::heap_allocator;
 use esp_backtrace as _;
@@ -49,8 +49,8 @@ use esp_hal::timer::timg::TimerGroup;
 //
 
 // channel for sharing midi message between tasks and processes running on different cores.
-static MIDI_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, midi_msg::MidiMsg, 50> =
-    Channel::new();
+static MIDI_MESSAGE_CHANNEL: PubSubChannel<CriticalSectionRawMutex, midi_msg::MidiMsg, 50, 5 ,5> =
+    PubSubChannel::new();
 
 static MIDI_OUT_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, midi_msg::MidiMsg, 50> =
     Channel::new();
