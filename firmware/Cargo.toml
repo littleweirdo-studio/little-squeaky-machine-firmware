@@ -22,6 +22,7 @@ esp-println = { version = "0.16.1", features = ["esp32s3", "log-04"] }
 #log = { version = "0.4.28" }
 little_weirdo = { path = "../../little-weirdo" }
 little_weirdo_filesystem = { path = "../../little-weirdo-filesystem" }
+little_weirdo_gui = { path = "../../little_weirdo_gui" }
 
 usb-device = "0.3.2"
 usbd-midi = { version = "0.5.1" }
@@ -40,6 +41,11 @@ sequential-storage = "7.1.0"
 midi-msg = { version = "0.8.0", default-features = false, features=["sysex"] }
 postcard = "1.1.3"
 embassy-embedded-hal = "0.5.0"
+embedded-graphics-unicodefonts = "0.2.0"
+embedded-icon = { version = "0.0.1", features=["12px"] }
+embedded-picofont = "0.2.1"
+
+
 
 [profile.dev]
 opt-level = "s"

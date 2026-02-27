@@ -56,9 +56,9 @@ static MIDI_OUT_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, midi_msg::Midi
     Channel::new();
 
 // create stack for second core (running the Synth tasks, 220KB stack reserved)
-static mut APP_CORE_STACK: Stack<250_000> = Stack::new();
+static mut APP_CORE_STACK: Stack<220_000> = Stack::new();
 
-const USB_MIDI_ENABLED: bool = true;
+const USB_MIDI_ENABLED: bool = false;
 const UART_MIDI_ENABLED: bool = false;
 
 esp_bootloader_esp_idf::esp_app_desc!();
@@ -111,13 +111,13 @@ async fn main(spawner: Spawner) {
         let _ = spawner.spawn(midi_uart_task());
     }
 
-    Timer::after(Duration::from_millis(10)).await;
+    Timer::after(Duration::from_millis(100)).await;
     let _ = spawner.spawn(oled_task());
 
-    Timer::after(Duration::from_millis(10)).await;
+    Timer::after(Duration::from_millis(100)).await;
     let _ = spawner.spawn(potmeter_task());
 
-    Timer::after(Duration::from_millis(500)).await;
+    Timer::after(Duration::from_millis(100)).await;
     let _ = spawner.spawn(codec_task());
 
     Timer::after(Duration::from_millis(10)).await;

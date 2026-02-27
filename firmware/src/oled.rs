@@ -5,16 +5,33 @@ use embedded_graphics::image::{Image, ImageRaw};
 use embedded_graphics::mono_font::ascii::FONT_7X14_BOLD;
 use embedded_graphics::pixelcolor::BinaryColor;
 use embedded_graphics::prelude::Point;
-use embedded_graphics::primitives::{PrimitiveStyle, Rectangle, RoundedRectangle};
+use embedded_graphics::primitives::{PrimitiveStyle, Rectangle, RoundedRectangle, StyledDrawable};
 use embedded_graphics::text::{Alignment, Text};
+use embedded_graphics::{
+    mono_font::MonoTextStyle,
+    prelude::*,
+    primitives::{Circle, Line, Polyline},
+};
 use embedded_graphics::{mono_font::MonoTextStyleBuilder, prelude::*};
+use embedded_icon::{
+    NewIcon,
+    mdi::{
+        self,
+        size24px::{ArrowRightBoldHexagonOutline, Knob, MidiPort, Piano, SineWave},
+    },
+};
 use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::i2c::master::{Config, I2c};
 use esp_hal::peripherals::Peripherals;
+use little_weirdo_gui::{DrawItem, EventType};
+use little_weirdo_gui::menu::{Menu, MenuIcon};
 use ssd1306::prelude::DisplayRotation;
 use ssd1306::size::DisplaySize128x64;
 use ssd1306::{I2CDisplayInterface, Ssd1306Async};
+
+use embedded_graphics_unicodefonts::MONO_5X8;
+use embedded_graphics_unicodefonts::MONO_6X10;
 
 use crate::potmeter::{
     POT1_MESSAGE_CHANNEL, POT2_MESSAGE_CHANNEL, POT3_MESSAGE_CHANNEL, POT4_MESSAGE_CHANNEL,
@@ -40,96 +57,34 @@ pub async fn oled_task() {
         i2c = I2c::new(peripherals.I2C0, config)
             .unwrap()
             .with_sda(peripherals.GPIO47)
-            .with_scl(peripherals.GPIO48).into_async();
+            .with_scl(peripherals.GPIO48)
+            .into_async();
     }
 
     let interface = I2CDisplayInterface::new(i2c);
-    let mut display: Ssd1306Async<ssd1306::prelude::I2CInterface<I2c<'_, esp_hal::Async>>, DisplaySize128x64, ssd1306::mode::BufferedGraphicsModeAsync<DisplaySize128x64>> = Ssd1306Async::new(interface, DisplaySize128x64, DisplayRotation::Rotate180)
+    let mut display: Ssd1306Async<
+        ssd1306::prelude::I2CInterface<I2c<'_, esp_hal::Async>>,
+        DisplaySize128x64,
+        ssd1306::mode::BufferedGraphicsModeAsync<DisplaySize128x64>,
+    > = Ssd1306Async::new(interface, DisplaySize128x64, DisplayRotation::Rotate180)
         .into_buffered_graphics_mode();
-     //display.init().await.unwrap();
-   
-   let _ =  display.init_with_addr_mode(ssd1306::command::AddrMode::Horizontal).await;
+
+    let _ = display
+        .init_with_addr_mode(ssd1306::command::AddrMode::Horizontal)
+        .await;
 
     let _ = display.flush().await;
 
-    let character_style = MonoTextStyleBuilder::new()
-        .font(&FONT_7X14_BOLD)
-        .background_color(BinaryColor::On)
-        .text_color(BinaryColor::Off)
-        .build();
-    let image_raw = ImageRaw::<BinaryColor>::new(DATA, 12);
-    Image::new(&image_raw, Point::new(0, 0))
-        .draw(&mut display)
-        .unwrap();
-    Text::with_alignment("LttL", Point::new(0, 24), character_style, Alignment::Left)
-        .draw(&mut display)
-        .unwrap();
-    let _ = display.flush();
     Timer::after(Duration::from_millis(1000)).await;
 
-    let mut receiver_pot1 = POT1_MESSAGE_CHANNEL.receiver().unwrap();
-    let mut receiver_pot2 = POT2_MESSAGE_CHANNEL.receiver().unwrap();
-    let mut receiver_pot3 = POT3_MESSAGE_CHANNEL.receiver().unwrap();
-    let mut receiver_pot4 = POT4_MESSAGE_CHANNEL.receiver().unwrap();
-    let mut receiver_usb = USB_POWER_MESSAGE_CHANNEL.receiver().unwrap();
+    let mut menu = Menu::new(EventType::DrumAbout, MenuIcon::Piano);
+    menu.add("test1", MenuIcon::Music, EventType::NoMenu);
+    menu.add("test2", MenuIcon::Music, EventType::NoMenu);
+    menu.add("test3", MenuIcon::Music, EventType::NoMenu);
+    
 
     loop {
-        let value_pot_1 = receiver_pot1.changed().await;
-        let value_pot_2 = receiver_pot2.changed().await;
-        let value_pot_3 = receiver_pot3.changed().await;
-        let value_pot_4 = receiver_pot4.changed().await;
-        let usb_power = receiver_usb.changed().await;
-
-        let _ = display.clear(BinaryColor::Off);
-
-        Text::with_alignment(
-            format!("p={}", usb_power).as_str(),
-            Point::new(70, 10),
-            character_style,
-            Alignment::Left,
-        )
-        .draw(&mut display).unwrap();
-
-        RoundedRectangle::with_equal_corners(
-            Rectangle::new(Point::new(0, 2), Size::new(value_pot_1 as u32 / 4, 10)),
-            Size {
-                width: 2,
-                height: 2,
-            },
-        )
-        .into_styled(PrimitiveStyle::with_fill(BinaryColor::On))
-        .draw(&mut display)
-        .unwrap();
-        RoundedRectangle::with_equal_corners(
-            Rectangle::new(Point::new(0, 19), Size::new(value_pot_2 as u32 / 4, 10)),
-            Size {
-                width: 2,
-                height: 2,
-            },
-        )
-        .into_styled(PrimitiveStyle::with_stroke(BinaryColor::On, 2))
-        .draw(&mut display)
-        .unwrap();
-        Rectangle::new(Point::new(0, 34), Size::new(value_pot_3 as u32 / 4, 10))
-            .into_styled(PrimitiveStyle::with_fill(BinaryColor::On))
-            .draw(&mut display)
-            .unwrap();
-        Rectangle::new(Point::new(0, 51), Size::new(value_pot_4 as u32 / 4, 10))
-            .into_styled(PrimitiveStyle::with_stroke(BinaryColor::On, 2))
-            .draw(&mut display)
-            .unwrap();
-
-        Rectangle::new(Point::new(0, 0), Size::new(20, 64))
-            .into_styled(PrimitiveStyle::with_stroke(BinaryColor::On, 1))
-            .draw(&mut display)
-            .unwrap();
-
-        Rectangle::new(Point::new(0, 0), Size::new(64, 64))
-            .into_styled(PrimitiveStyle::with_stroke(BinaryColor::On, 4))
-            .draw(&mut display)
-            .unwrap();
-
-     
+        let _ = menu.draw(&mut display);
         let _ = display.flush().await;
         Timer::after(Duration::from_millis(50)).await;
     }
