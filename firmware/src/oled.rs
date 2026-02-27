@@ -1,25 +1,5 @@
 extern crate alloc;
-use alloc::format;
 use embassy_time::{Duration, Timer};
-use embedded_graphics::image::{Image, ImageRaw};
-use embedded_graphics::mono_font::ascii::FONT_7X14_BOLD;
-use embedded_graphics::pixelcolor::BinaryColor;
-use embedded_graphics::prelude::Point;
-use embedded_graphics::primitives::{PrimitiveStyle, Rectangle, RoundedRectangle, StyledDrawable};
-use embedded_graphics::text::{Alignment, Text};
-use embedded_graphics::{
-    mono_font::MonoTextStyle,
-    prelude::*,
-    primitives::{Circle, Line, Polyline},
-};
-use embedded_graphics::{mono_font::MonoTextStyleBuilder, prelude::*};
-use embedded_icon::{
-    NewIcon,
-    mdi::{
-        self,
-        size24px::{ArrowRightBoldHexagonOutline, Knob, MidiPort, Piano, SineWave},
-    },
-};
 use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::i2c::master::{Config, I2c};
@@ -30,22 +10,6 @@ use ssd1306::prelude::DisplayRotation;
 use ssd1306::size::DisplaySize128x64;
 use ssd1306::{I2CDisplayInterface, Ssd1306Async};
 
-use embedded_graphics_unicodefonts::MONO_5X8;
-use embedded_graphics_unicodefonts::MONO_6X10;
-
-use crate::potmeter::{
-    POT1_MESSAGE_CHANNEL, POT2_MESSAGE_CHANNEL, POT3_MESSAGE_CHANNEL, POT4_MESSAGE_CHANNEL,
-    USB_POWER_MESSAGE_CHANNEL,
-};
-
-#[rustfmt::skip]
-const DATA: &[u8] = &[
-    0b11101111, 0b0101_0000,
-    0b10001000, 0b0101_0000,
-    0b11101011, 0b0101_0000,
-    0b10001001, 0b0101_0000,
-    0b11101111, 0b0101_0000,
-];
 
 #[embassy_executor::task]
 pub async fn oled_task() {
@@ -77,14 +41,17 @@ pub async fn oled_task() {
 
     Timer::after(Duration::from_millis(1000)).await;
 
-    let mut menu = Menu::new(EventType::DrumAbout, MenuIcon::Piano);
-    menu.add("test1", MenuIcon::Music, EventType::NoMenu);
-    menu.add("test2", MenuIcon::Music, EventType::NoMenu);
-    menu.add("test3", MenuIcon::Music, EventType::NoMenu);
-    
+    let mut main_menu =Menu::new(EventType::NoMenu, MenuIcon::Sine);
+    main_menu.add("DRUMS", MenuIcon::Music, EventType::DrumMenu);
+    main_menu.add("SEQUENCER", MenuIcon::Piano, EventType::SeqMenu);
+    main_menu.add("SYNTH", MenuIcon::Sine, EventType::NoMenu);
+    main_menu.add("MIDI", MenuIcon::Midi, EventType::NoMenu);
+    main_menu.add("SETTINGS", MenuIcon::Tune, EventType::NoMenu);
+    main_menu.add("STATUS", MenuIcon::Status, EventType::NoMenu);
+    main_menu.add("ABOUT", MenuIcon::Information, EventType::LttLMenuAbout);
 
     loop {
-        let _ = menu.draw(&mut display);
+        let _ = main_menu.draw(&mut display);
         let _ = display.flush().await;
         Timer::after(Duration::from_millis(50)).await;
     }
