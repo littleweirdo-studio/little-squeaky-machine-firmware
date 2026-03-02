@@ -12,5 +12,7 @@
 | 7 | 07_AKWF_eorgan_0001.wav | "wav7.raw" | 600  | 1.2 KB |
 | 8 | 08_AKWF_epiano_0001.wav | "wav8.raw" | 600  | 1.2 KB |
 | 9 | 09_AKWF_overtone_0001.wav | "wav9.raw" | 600  | 1.2 KB |
-| | | | **Total** | **12 KB** |
+| 10 | 10_CONTRA_BASS.wav | "wav10.raw" | 600  | 1.2 KB |
+| 11 | 11_SLAP_BASS.wav | "wav11.raw" | 601  | 1.202 KB |
+| | | | **Total** | **14 KB** |
  

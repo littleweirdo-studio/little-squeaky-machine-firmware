@@ -33,7 +33,6 @@ fn main() {
     let mut file =
         File::create("little_squeaky_machine_data_image.bin").expect("Unable to create file");
     file.write_all(data.dump()).expect("Unable to write data");
-    
 }
 
 fn store_items(filesystem: &mut WeirdoFileSystem<MemoryStorage>, path: String, extension: String, key: u16) {

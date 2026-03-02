@@ -82,7 +82,7 @@ pub fn synth_loop() {
 
     let mut patch_bytes = [0u8; 256];
 
-    let _ = filesystem.read_key_value(102, &mut patch_bytes).unwrap();
+    let _ = filesystem.read_key_value(104, &mut patch_bytes).unwrap();
 
     let patch: little_weirdo::synth::patch::Patch = postcard::from_bytes(&patch_bytes).unwrap();
 

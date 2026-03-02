@@ -57,7 +57,7 @@ pub fn generate_waveforms(source: &str, destination: &str) {
 
           
             // Create the output filename for the raw audio data
-            let soundbank_source_file_name = format!("wav{:?}.raw", counter);
+            let soundbank_source_file_name = format!("{:03}_sample.raw", counter);
             let soundbank_source =
                 Path::new(soundbank_source_path).join(soundbank_source_file_name);
 

@@ -21,7 +21,7 @@ use little_weirdo_gui::{EventType, SHARED};
 use midi_msg::{Channel, ReceiverContext};
 
 // Custom module imports
-use crate::MIDI_MESSAGE_CHANNEL;
+use crate::{MIDI_MESSAGE_CHANNEL, sequence::SEQUENCE_KEY_CHANNEL};
 use usbd_midi::packet::reader::UsbMidiPacketReader;
 
 /// Main task for handling MIDI communication over USB
@@ -144,6 +144,12 @@ pub async fn midi_read<'d>(class: &mut MidiClass<'d, Driver<'d>>) -> Result<(), 
                             if channel == Channel::Ch3 {
                                 match msg.clone() {
                                     midi_msg::ChannelVoiceMsg::NoteOn { note, velocity } => {
+
+                                        if (note == 30) { SEQUENCE_KEY_CHANNEL.try_send(EventType::Keypad1); }    
+                                        if (note == 31) { SEQUENCE_KEY_CHANNEL.try_send(EventType::Keypad2); }    
+                                        if (note == 32) { SEQUENCE_KEY_CHANNEL.try_send(EventType::Keypad3); }    
+                                        if (note == 33) { SEQUENCE_KEY_CHANNEL.try_send(EventType::Keypad4); }    
+
                                         if (note == 60) { SHARED.try_send(EventType::KeypadLeft); }
                                         if (note == 61) { SHARED.try_send(EventType::KeypadUp); }
                                         if (note == 62) { SHARED.try_send(EventType::KeypadDown); }
