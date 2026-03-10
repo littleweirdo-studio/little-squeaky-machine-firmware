@@ -91,6 +91,7 @@ pub async fn potmeter_task() {
                     r: (pin_value_pot_1 / 16) as u8,
                 },
                 id: 21,
+                   brightness: 10,
             })
             .await;
         let _ = led::LED_MESSAGE_CHANNEL
@@ -101,6 +102,7 @@ pub async fn potmeter_task() {
                     r: 0,
                 },
                 id: 20,
+                   brightness: 10,
             })
             .await;
         let _ = led::LED_MESSAGE_CHANNEL
@@ -111,6 +113,7 @@ pub async fn potmeter_task() {
                     r: 0,
                 },
                 id: 19,
+                   brightness: 10,
             })
             .await;
         let _ = led::LED_MESSAGE_CHANNEL
@@ -121,6 +124,7 @@ pub async fn potmeter_task() {
                     r: 0,
                 },
                 id: 18,
+                brightness: 10,
             })
             .await;
       /* 

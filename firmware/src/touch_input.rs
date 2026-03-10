@@ -1,75 +1,75 @@
+use alloc::vec;
+use driver_cy8cmbr3108::CY8CMBR3108;
+use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 use embassy_time::{Duration, Timer};
 use esp_backtrace as _;
-//use embassy_time::{Duration, Timer};
 use esp_hal::{
-    gpio::{Input, InputConfig, Pull},
+    delay::Delay,
+    gpio::{Input, InputConfig, Level, Output, OutputConfig, Pull},
+    i2c::master::{Config, I2c},
     peripherals::Peripherals,
 };
 use esp_println::println;
-use little_weirdo_gui::{EventType, SHARED};
+use little_weirdo_gui::{EventType, KeyEvent, MAPPING_SIGNAL};
 
-use crate::{MIDI_MESSAGE_CHANNEL, MIDI_OUT_MESSAGE_CHANNEL};
+use crate::{I2c1Bus, keyboard_input::KeyStatus};
 extern crate alloc;
 
 #[embassy_executor::task]
-pub async fn touch_input_task() {
-    let mut pin;
-    unsafe {
-        let peripherals: Peripherals = Peripherals::steal();
-        let config = InputConfig::default().with_pull(Pull::Up);
-        pin = Input::new(peripherals.GPIO0, config);
-    }
-     let sender = MIDI_MESSAGE_CHANNEL.publisher().unwrap();
+pub async fn touch_input_task(i2c_bus: &'static I2c1Bus) {
+    
+     let i2c_dev = I2cDevice::new(i2c_bus);
+  
+    let delay = Delay::new();
 
-     
+    let mut touch = CY8CMBR3108::new(i2c_dev, delay);
+    let _ = touch.wake_up();
+
+    //device id = 2563
+    println!(
+        "CY8CMBR3108 Device Identifier : {:?} (=2563)",
+        touch.get_device_id().await.unwrap()
+    );
+    // revision = 0001
+    println!(
+        "CY8CMBR3108 Device Revision   : {:04} (=0001)",
+        touch.get_device_revision().await.unwrap()
+    );
+
+    let is_config_ready = touch.write_configuration().await;
+    match is_config_ready {
+        Ok(true) => {
+            println!("CY8CMBR3108 Configuration successful!");
+        }
+        Ok(false) => {
+            println!("CY8CMBR3108 Configuration failed.")
+        }
+        Err(e) => println!("CY8CMBR3108 Configuration failed with error: {:?}", e),
+    }
+    let mut key_status_array: [KeyStatus; 8] = [KeyStatus::default(); 8];
 
     loop {
-        pin.wait_for_rising_edge().await;
-       
-     /* 
-        sender
-            .publish(midi_msg::MidiMsg::ChannelVoice {
-                channel: midi_msg::Channel::Ch3,
-                msg: midi_msg::ChannelVoiceMsg::NoteOn {
-                    note: 60,
-                    velocity: 100,
-                },
-            })
-            .await;
-
-        MIDI_OUT_MESSAGE_CHANNEL
-            .send(midi_msg::MidiMsg::ChannelVoice {
-                channel: midi_msg::Channel::Ch3,
-                msg: midi_msg::ChannelVoiceMsg::NoteOn {
-                    note: 60,
-                    velocity: 100,
-                },
-            })
-            .await;
-*/
-    //    pin.wait_for_high().await;
-         SHARED.try_send(EventType::KeypadDown);
-        /* 
-         sender
-            .publish(midi_msg::MidiMsg::ChannelVoice {
-                channel: midi_msg::Channel::Ch1,
-                msg: midi_msg::ChannelVoiceMsg::NoteOff {
-                    note: 60,
-                    velocity: 100,
-                },
-            })
-            .await;
-
-        MIDI_OUT_MESSAGE_CHANNEL
-            .send(midi_msg::MidiMsg::ChannelVoice {
-                channel: midi_msg::Channel::Ch1,
-                msg: midi_msg::ChannelVoiceMsg::NoteOff {
-                    note: 60,
-                    velocity: 100,
-                },
-            })
-            .await;
-        */
         Timer::after(Duration::from_millis(10)).await;
+
+        let status = touch.get_button_status().await.unwrap();
+
+        // Check each bit individually
+        for i in 0..8 {
+            if (status & (1 << i)) != 0 {
+                if !key_status_array[i].key_down_trigger {
+                    key_status_array[i].key_down_trigger = true;
+                    let _ = MAPPING_SIGNAL.try_send(KeyEvent {
+                        event: EventType::KeypadDown,
+                        id: i as u8,
+                    });
+                }
+            } else if key_status_array[i].key_down_trigger {
+                key_status_array[i].key_down_trigger = false;
+                let _ = MAPPING_SIGNAL.try_send(KeyEvent {
+                    event: EventType::KeypadUp,
+                    id: i as u8,
+                });
+            }
+        }
     }
 }

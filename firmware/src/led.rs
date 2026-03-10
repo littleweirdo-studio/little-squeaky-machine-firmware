@@ -12,6 +12,7 @@ use smart_leds::{RGB8, SmartLedsWrite, brightness, colors, gamma};
 pub struct LedMessage {
     pub color: RGB8,
     pub id: u8,
+    pub brightness: u8,
 }
 
 pub static LED_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, LedMessage, 10> = Channel::new();
@@ -30,18 +31,18 @@ pub async fn led_task() {
         led_pin = peripherals.GPIO21;
     }
 
-    let rmt_buffer = smart_led_buffer!(22);
+    let rmt_buffer = smart_led_buffer!(27);
     let mut led = SmartLedsAdapter::new(rmt.channel0, led_pin, rmt_buffer);
-    let mut data: [RGB8; 22] = [colors::YELLOW; 22];
+    let mut data: [RGB8; 27] = [colors::BLACK; 27];
 
-    led.write(brightness(gamma(data.iter().cloned()), 2))
+    led.write(brightness(gamma(data.iter().cloned()), 20))
         .unwrap();
 
     loop {
         let message = LED_MESSAGE_CHANNEL.receive().await;
         data[message.id as usize] = message.color;
 
-        led.write(brightness(gamma(data.iter().cloned()), 20))
+        led.write(brightness(gamma(data.iter().cloned()), message.brightness))
             .unwrap();
     }
 }

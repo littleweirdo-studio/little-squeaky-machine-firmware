@@ -29,7 +29,7 @@ use little_weirdo::{
     synth::data::wavetables::{BoxedWavetable, BoxedWavetables},
 };
 use little_weirdo_filesystem::WeirdoFileSystem;
-use little_weirdo_gui::{EventType, SHARED};
+use little_weirdo_gui::{EventType};
 use midi_msg::Channel;
 
 use crate::MIDI_MESSAGE_CHANNEL;
@@ -56,8 +56,8 @@ pub fn synth_loop() {
 
     let mut wt_on_heap = BoxedWavetables::new();
     let mut wt_read_buffer = vec![0u8; 1200];
-    for wt in 0..10 {
-        println!("ket = {:?}", wt);
+    for wt in 0..11 {
+       // println!("ket = {:?}", wt);
         let _ = filesystem
             .read_key_value(700 + wt, &mut wt_read_buffer)
             .unwrap();
@@ -82,7 +82,7 @@ pub fn synth_loop() {
 
     let mut patch_bytes = [0u8; 256];
 
-    let _ = filesystem.read_key_value(104, &mut patch_bytes).unwrap();
+    let _ = filesystem.read_key_value(102, &mut patch_bytes).unwrap();
 
     let patch: little_weirdo::synth::patch::Patch = postcard::from_bytes(&patch_bytes).unwrap();
 
@@ -124,13 +124,13 @@ pub fn synth_loop() {
         )
         .unwrap();
 
-        i2s = i2s.with_mclk(peripherals.GPIO38);
+        i2s = i2s.with_mclk(peripherals.GPIO42);
 
         let mut i2s_tx = i2s
             .i2s_tx
             .with_bclk(peripherals.GPIO40)
-            .with_ws(peripherals.GPIO39)
-            .with_dout(peripherals.GPIO42)
+            .with_ws(peripherals.GPIO41)
+            .with_dout(peripherals.GPIO38)
             .build(tx_descriptors);
 
         esp_println::println!(

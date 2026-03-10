@@ -1,4 +1,5 @@
 extern crate alloc;
+use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 use embassy_time::{Duration, Timer};
 use embedded_graphics::pixelcolor::BinaryColor;
 use embedded_graphics::prelude::DrawTarget;
@@ -9,34 +10,20 @@ use esp_hal::peripherals::Peripherals;
 use esp_println::println;
 use little_weirdo_gui::about::About;
 use little_weirdo_gui::menu::{Menu, MenuIcon};
-use little_weirdo_gui::{ActiveItem, DrawItem, EventType, Navigatable, SHARED};
+use little_weirdo_gui::{ActiveItem, DrawItem, EventType, NAVIGATION_SIGNAL, Navigatable};
 use midi_msg::Channel;
 use ssd1306::prelude::DisplayRotation;
 use ssd1306::size::DisplaySize128x64;
 use ssd1306::{I2CDisplayInterface, Ssd1306Async};
 
-use crate::MIDI_MESSAGE_CHANNEL;
+use crate::{I2c1Bus, MIDI_MESSAGE_CHANNEL};
 
 #[embassy_executor::task]
-pub async fn oled_task() {
-    let i2c;
-    unsafe {
-        let peripherals: Peripherals = Peripherals::steal();
-        let config = Config::default();
+pub async fn oled_task(i2c_bus: &'static I2c1Bus ) {
+    let i2c_dev = I2cDevice::new(i2c_bus);
 
-        i2c = I2c::new(peripherals.I2C0, config)
-            .unwrap()
-            .with_sda(peripherals.GPIO47)
-            .with_scl(peripherals.GPIO48)
-            .into_async();
-    }
-
-    let interface = I2CDisplayInterface::new(i2c);
-    let mut display: Ssd1306Async<
-        ssd1306::prelude::I2CInterface<I2c<'_, esp_hal::Async>>,
-        DisplaySize128x64,
-        ssd1306::mode::BufferedGraphicsModeAsync<DisplaySize128x64>,
-    > = Ssd1306Async::new(interface, DisplaySize128x64, DisplayRotation::Rotate180)
+    let interface = I2CDisplayInterface::new(i2c_dev);
+    let mut display = Ssd1306Async::new(interface, DisplaySize128x64, DisplayRotation::Rotate180)
         .into_buffered_graphics_mode();
 
     let _ = display
@@ -89,7 +76,7 @@ pub async fn oled_task() {
         let _ = display.clear(BinaryColor::Off);
         let _ = active_item.draw(&mut display);
         let _ = display.flush().await;
-        match SHARED.receive().await {
+        match NAVIGATION_SIGNAL.receive().await {
                  EventType::DrumMenu => active_item = ActiveItem::Menu(&mut drum_menu),
                 EventType::NoMenu => {}
                 EventType::MainMenu => active_item = ActiveItem::Menu(&mut main_menu),
@@ -97,10 +84,10 @@ pub async fn oled_task() {
                 EventType::DrumAbout => active_item = ActiveItem::About(&mut about_drums_menu),
                 EventType::SeqMenu => active_item = ActiveItem::Menu(&mut seq_menu),
                 EventType::LttLMenuAbout => active_item = ActiveItem::About(&mut about_lttl_menu),
-                EventType::KeypadUp => active_item.next(),
-                EventType::KeypadDown => active_item.prev(),
-                EventType::KeypadLeft => active_item.back(),
-                EventType::KeypadRight => active_item.select(),
+                EventType::MenuDown => active_item.next(),
+                EventType::MenuUp => active_item.prev(),
+               // EventType::KeypadLeft => active_item.back(),
+               // EventType::KeypadRight => active_item.select(),
             _ => {}
         }
     }

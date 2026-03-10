@@ -24,22 +24,32 @@ use crate::oled::oled_task;
 mod potmeter;
 use crate::potmeter::potmeter_task;
 
-mod touch_input;
-use crate::touch_input::touch_input_task;
+mod keyboard_input;
+use crate::keyboard_input::keyboard_input_task;
 
 mod sequence;
 use crate::sequence::sequence_task;
 
+mod mapping;
+use crate::mapping::mapping_task;
+
+mod touch_input;
+use crate::touch_input::touch_input_task;
+
+
+mod tilt;
+use crate::tilt::tilt_task;
+
 //
 use embassy_executor::Spawner;
-use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel, pubsub::PubSubChannel, watch::Watch};
+use embassy_sync::{blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex}, channel::Channel, mutex::Mutex, pubsub::PubSubChannel, watch::Watch};
 use embassy_time::{Duration, Timer};
 use esp_alloc::heap_allocator;
 use esp_backtrace as _;
 use esp_hal::{
-    clock::CpuClock, ram,
-    system::{Cpu, CpuControl, Stack},
+    Async, clock::CpuClock, ram, system::{Cpu, CpuControl, Stack}
 };
+use static_cell::StaticCell;
 //
 
 extern crate alloc;
@@ -58,10 +68,12 @@ static MIDI_OUT_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, midi_msg::Midi
 // create stack for second core (running the Synth tasks, 220KB stack reserved)
 static mut APP_CORE_STACK: Stack<220_000> = Stack::new();
 
-const USB_MIDI_ENABLED: bool = true;
+const USB_MIDI_ENABLED: bool = false;
 const UART_MIDI_ENABLED: bool = false;
 
 esp_bootloader_esp_idf::esp_app_desc!();
+type I2c1Bus = Mutex<NoopRawMutex, esp_hal::i2c::master::I2c<'static, Async>>;
+
 
 #[esp_rtos::main]
 async fn main(spawner: Spawner) {
@@ -76,6 +88,17 @@ async fn main(spawner: Spawner) {
         Cpu::current() as usize
     );
     let peripherals = esp_hal::init(config);
+
+    let config = esp_hal::i2c::master::Config::default();
+    let i2c = esp_hal::i2c::master::I2c::new(peripherals.I2C0, config)
+        .unwrap()
+        .with_sda(peripherals.GPIO47)
+        .with_scl(peripherals.GPIO48)
+        .into_async();
+
+    static I2C_BUS: StaticCell<I2c1Bus> = StaticCell::new();
+    let i2c_bus = I2C_BUS.init(Mutex::new(i2c));
+
 
     // Use 64kB in dram2_seg for the heap, which is otherwise unused.
     heap_allocator!(#[ram(reclaimed)] size: 64000);
@@ -112,17 +135,24 @@ async fn main(spawner: Spawner) {
     }
 
     Timer::after(Duration::from_millis(100)).await;
-    let _ = spawner.spawn(oled_task());
+    let _ = spawner.spawn(oled_task(i2c_bus));
 
     Timer::after(Duration::from_millis(100)).await;
-    let _ = spawner.spawn(potmeter_task());
+    //let _ = spawner.spawn(potmeter_task());
 
     Timer::after(Duration::from_millis(100)).await;
-    let _ = spawner.spawn(codec_task());
+
+    let _ = spawner.spawn(codec_task(i2c_bus));
 
     Timer::after(Duration::from_millis(10)).await;
-    let _ = spawner.spawn(touch_input_task());
-    let _ = spawner.spawn(sequence_task());
+   let _ = spawner.spawn(keyboard_input_task());
+    //let _ = spawner.spawn(sequence_task());
+    let _ = spawner.spawn(mapping_task());
+
+   let _ = spawner.spawn(touch_input_task(i2c_bus));
+
+    let _ = spawner.spawn(tilt_task(i2c_bus));
+
 
     loop {
         Timer::after(Duration::from_millis(10)).await;

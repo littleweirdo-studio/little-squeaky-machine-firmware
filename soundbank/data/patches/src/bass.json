@@ -3,7 +3,7 @@
     "name": "bass",
     "voices": [
         {
-            "soundbank_index": 0,
+            "soundbank_index": 2,
             "glide": false,
             "glide_rate": 200,
             "detune": 0,
@@ -236,17 +236,17 @@
     },
     "overdrive_config": {
         "threshold": 2000,
-        "kind": "Hard",
+        "kind": "Softer",
         "enabled": false
     },
     "bitcrunch_config": {
         "enabled": false
     },
     "delay_config": {
-        "enabled": true,
-        "delay_time": 5000,
+        "enabled": false,
+        "delay_time": 10000,
         "mix_percentage": 70,
-        "feedback": false,
+        "feedback": true,
         "feedback_percentage": 70
     },
     "routering_config": {
@@ -290,7 +290,7 @@
                 "enable": false
             }
         ],
-        "lfo_to_filter": false,
+        "lfo_to_filter": true,
         "lfo_to_freq": true,
         "lfo_to_freq_amount": 5
     },

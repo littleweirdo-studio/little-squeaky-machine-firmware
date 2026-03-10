@@ -3,7 +3,7 @@ use embassy_sync::channel::Channel;
 
 use embassy_time::{Duration, Instant, Timer};
 use esp_backtrace as _;
-use little_weirdo_gui::{EventType, SHARED};
+use little_weirdo_gui::{EventType};
 //use embassy_time::{Duration, Timer};
 use crate::{
     MIDI_MESSAGE_CHANNEL,
@@ -34,12 +34,14 @@ pub async fn sequence_task() {
 
 
     sequencer_1.start();
+    //sequencer_1.set_step(0, 0);
     let mut last_id = sequencer_1.counter;
 
     let sender = MIDI_MESSAGE_CHANNEL.publisher().unwrap();
     loop {
         Timer::after(Duration::from_millis(CLOCK_TICK as u64)).await;
 
+        /* 
         match SEQUENCE_KEY_CHANNEL.try_receive() {
             Ok(event) => {
                 match event {
@@ -51,13 +53,14 @@ pub async fn sequence_task() {
                 }
             },
             Err(_) => {},
-        }
+        }*/
 
         let trigger_1 = sequencer_1.clock(); // Update the sequencer state (not currently used to trigger anything)
         LED_MESSAGE_CHANNEL
             .send(LedMessage {
                 color: smart_leds::RGB { r: 0, g: 0, b: 150 },
-                id: sequencer_1.counter,
+                id: sequencer_1.counter + 2,
+                   brightness: 10,
             })
             .await;
         for (i, &hit) in trigger_1.iter().enumerate() {
@@ -67,6 +70,7 @@ pub async fn sequence_task() {
                         .send(LedMessage {
                             color: smart_leds::RGB { r: 255, g: 0, b: 0 },
                             id: last_id,
+                               brightness: 10,
                         })
                         .await;
                     LED_MESSAGE_CHANNEL
@@ -76,10 +80,11 @@ pub async fn sequence_task() {
                                 g: 255,
                                 b: 100,
                             },
-                            id: sequencer_1.counter,
+                            id: sequencer_1.counter + 2,
+                               brightness: 10,
                         })
                         .await;
-                    last_id = sequencer_1.counter;
+                    last_id = sequencer_1.counter + 2;
                 }
 
                 //                 LED_MESSAGE_CHANNEL.send(LedMessage{ color: smart_leds::RGB { r: 255, g: 0, b: 0 }, id: 0 }).await;

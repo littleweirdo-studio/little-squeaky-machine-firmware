@@ -26,7 +26,7 @@ little_weirdo_gui = { path = "../../little_weirdo_gui" }
 
 usb-device = "0.3.2"
 usbd-midi = { version = "0.5.1" }
-embedded-graphics = { version = "0.8.1" }
+embedded-graphics = { version = "0.8.2" }
 ssd1306 = { version = "0.10.0", features=["async"] }
 embassy-futures = "0.1.2"
 embassy-usb = "0.5.1"
@@ -35,6 +35,8 @@ esp-storage ={ version="0.8.1", features = ["esp32s3"]}
 embedded-storage = { version= "0.3.1", features = []}
 esp-partition-table = "0.1.2"
 driver_sgtl5000 = { path = "../../driver-sgtl5000"}
+driver_cy8cmbr3108 = { path = "../../driver-cy8cmbr3108"}
+driver_stk8321 = { path = "../../driver-stk8321"}
 esp-hal-smartled = {git = "https://github.com/esp-rs/esp-hal-community.git", rev = "728f276", features = ["esp32s3"] }
 smart-leds = "0.4.0"
 sequential-storage = "7.1.0"
@@ -44,6 +46,8 @@ embassy-embedded-hal = "0.5.0"
 embedded-graphics-unicodefonts = "0.2.0"
 embedded-icon = { version = "0.0.1", features=["12px"] }
 embedded-picofont = "0.2.1"
+keypad = "0.2.2"
+embedded-hal-bus = "0.3.0"
 
 
 
