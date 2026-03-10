@@ -5,7 +5,7 @@ use smart_leds::{RGB8, colors};
 
 use crate::{
     MIDI_MESSAGE_CHANNEL,
-    led::{LED_MESSAGE_CHANNEL, LedMessage},
+    led::{LED_MESSAGE_CHANNEL, LedMessage}, tilt::TILT_SIGNAL,
 };
 
 
@@ -18,7 +18,7 @@ const REMAP_MIDI: [u8; 25] = [
     255, 255, 255, 255, 255,
 ];
 
-const VEL: u8 = 100;
+const VEL: u8 = 70;
 const BRIGTHNESS: u8 = 255;
 #[embassy_executor::task]
 pub async fn mapping_task() {
@@ -44,6 +44,9 @@ pub async fn mapping_task() {
                 } else {
                     println!("event {:?}", event.id);
                     match event.id {
+                        21 => {
+                             TILT_SIGNAL.send(EventType::TiltNoteDown).await;
+                        }
                         //C2
                         20 => {
                             base = 36;
@@ -80,6 +83,14 @@ pub async fn mapping_task() {
                         },
                     };
                     sender.publish(message).await;
+                } else {
+                    println!("event {:?}", event.id);
+                    match event.id {
+                        21 => {
+                             TILT_SIGNAL.send(EventType::TiltNoteUp).await;
+                        }
+                        _ => {}
+                    }
                 };
                 LED_MESSAGE_CHANNEL
                     .send(LedMessage {
