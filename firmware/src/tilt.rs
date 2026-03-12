@@ -1,21 +1,12 @@
-use alloc::vec;
-use driver_cy8cmbr3108::CY8CMBR3108;
 use driver_stk8321::STK8321;
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex};
-use embassy_time::{Duration, Timer};
 use esp_backtrace as _;
-use esp_hal::{
-    delay::Delay,
-    gpio::{Input, InputConfig, Level, Output, OutputConfig, Pull},
-    i2c::master::{Config, I2c},
-    peripherals::Peripherals,
-};
 use esp_println::println;
-use little_weirdo_gui::{EventType, KeyEvent, MAPPING_SIGNAL, NAVIGATION_SIGNAL};
+use little_weirdo_gui::EventType;
 use midi_msg::Channel;
 
-use crate::{I2c1Bus, MIDI_MESSAGE_CHANNEL, keyboard_input::KeyStatus, led::{LED_MESSAGE_CHANNEL, LedMessage}};
+use crate::{I2c1Bus, MIDI_MESSAGE_CHANNEL};
 extern crate alloc;
 
 pub static TILT_SIGNAL: embassy_sync::channel::Channel<CriticalSectionRawMutex, EventType, 50> = embassy_sync::channel::Channel::new();

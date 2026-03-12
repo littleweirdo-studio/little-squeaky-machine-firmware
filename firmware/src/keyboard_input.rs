@@ -44,7 +44,7 @@ where
 #[embassy_executor::task]
 pub async fn keyboard_input_task() {
     let mut cols: [Output; 5];
-    let mut rows: [esp_hal::gpio::Input; 5];
+    let rows: [esp_hal::gpio::Input; 5];
 
     let keymap_down: [KeyEvent; 25] = [
         // 0 -- 9

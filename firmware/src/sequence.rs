@@ -1,7 +1,7 @@
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::Channel;
 
-use embassy_time::{Duration, Instant, Timer};
+use embassy_time::{Duration, Timer};
 use esp_backtrace as _;
 use little_weirdo_gui::{EventType};
 //use embassy_time::{Duration, Timer};
@@ -10,8 +10,6 @@ use crate::{
     led::{LED_MESSAGE_CHANNEL, LedMessage},
 };
 
-use esp_hal::peripherals::Peripherals;
-use esp_println::println;
 use midi_msg::MidiMsg;
 
 const BPM: u16 = 120;

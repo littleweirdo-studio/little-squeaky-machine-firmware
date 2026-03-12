@@ -1,14 +1,8 @@
-use alloc::vec;
 use driver_cy8cmbr3108::CY8CMBR3108;
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 use embassy_time::{Duration, Timer};
 use esp_backtrace as _;
-use esp_hal::{
-    delay::Delay,
-    gpio::{Input, InputConfig, Level, Output, OutputConfig, Pull},
-    i2c::master::{Config, I2c},
-    peripherals::Peripherals,
-};
+use esp_hal::delay::Delay;
 use esp_println::println;
 use little_weirdo_gui::{EventType, KeyEvent, MAPPING_SIGNAL};
 

@@ -3,7 +3,7 @@ use std::{fs::File, io::Write};
 
 use std::fs::{self, read_dir};
 
-use little_weirdo_filesystem::WeirdoFileSystem;
+use little_weirdo_filesystem::{BLOCK_SIZE, WeirdoFileSystem};
 use little_weirdo_filesystem::memory_storage::MemoryStorage;
 
 mod patch;
@@ -24,9 +24,13 @@ fn main() {
         WeirdoFileSystem::new(storage, 0, 0x100000);
     filesystem.format();
 
+    println!("total block ({}) = {} B", filesystem.total_blocks(),filesystem.total_blocks() * BLOCK_SIZE as u32 );
+
     store_items(&mut filesystem, "data/patches".to_string(), "lwp".to_string(), 100);
     store_items(&mut filesystem, "data/waveforms".to_string(), "raw".to_string(),  700);
     store_items(&mut filesystem, "data/samples".to_string(), "raw".to_string(), 900);
+
+    println!(":: Image blocks free ({}) = {} B, used ({}) = {} B", filesystem.amount_of_free_blocks(), filesystem.amount_of_free_blocks() * BLOCK_SIZE as u32 , filesystem.amount_of_used_blocks(),filesystem.amount_of_used_blocks() * BLOCK_SIZE as u32 );
 
     // export to disk
     let mut data = filesystem.storage;
@@ -43,6 +47,7 @@ fn store_items(filesystem: &mut WeirdoFileSystem<MemoryStorage>, path: String, e
     paths.sort_by_key(|dir| dir.file_name());
 
     let mut key: u16 = key;
+    println!("");
     for entry in paths {
         let mut buffer: [u8; 32000] = [0; 32000];
         let path = entry.path();
@@ -50,11 +55,11 @@ fn store_items(filesystem: &mut WeirdoFileSystem<MemoryStorage>, path: String, e
             // Check if the file has the desired extension
             if let Some(file_extension) = path.extension() {
                 if file_extension.to_str().unwrap() == extension {
-                    println!("file {:?} stored with key {:?}", path.file_name(), key);
+                    print!(":: File {:?} stored with key {:?}", path.file_name().unwrap(), key);
 
                     let mut file = fs::File::open(path).unwrap();
                     let len = file.read(&mut buffer).unwrap();
-                    println!("file size = {:?}", len);
+                    println!(", file size = {:?}", len);
                     filesystem.write_key_value(key, &buffer[0..len]);
                     key = key + 1;
                 }

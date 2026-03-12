@@ -22,13 +22,11 @@ mod oled;
 use crate::oled::oled_task;
 
 mod potmeter;
-use crate::potmeter::potmeter_task;
 
 mod keyboard_input;
 use crate::keyboard_input::keyboard_input_task;
 
 mod sequence;
-use crate::sequence::sequence_task;
 
 mod mapping;
 use crate::mapping::mapping_task;
@@ -42,7 +40,7 @@ use crate::tilt::tilt_task;
 
 //
 use embassy_executor::Spawner;
-use embassy_sync::{blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex}, channel::Channel, mutex::Mutex, pubsub::PubSubChannel, watch::Watch};
+use embassy_sync::{blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex}, channel::Channel, mutex::Mutex, pubsub::PubSubChannel};
 use embassy_time::{Duration, Timer};
 use esp_alloc::heap_allocator;
 use esp_backtrace as _;

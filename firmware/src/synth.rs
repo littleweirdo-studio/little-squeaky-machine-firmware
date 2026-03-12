@@ -6,7 +6,7 @@ use esp_backtrace as _;
 use esp_hal::{
     dma_circular_buffers,
     i2s::master::{Channels, Config, DataFormat, I2s},
-    peripherals::{Peripherals, SHA},
+    peripherals::Peripherals,
     system::Cpu,
     time::Rate,
 };
@@ -18,7 +18,7 @@ use little_weirdo::{
         delay::DelayConfiguration,
         overdrive::{KindOfOverdrive, OverdriveConfiguration},
     },
-    synth::{self, Synth},
+    synth::{self, Synth, data::patches::{BoxedPatch, BoxedPatches}, patch::Patch},
 };
 
 use little_weirdo::{
@@ -29,14 +29,13 @@ use little_weirdo::{
     synth::data::wavetables::{BoxedWavetable, BoxedWavetables},
 };
 use little_weirdo_filesystem::WeirdoFileSystem;
-use little_weirdo_gui::{EventType};
 use midi_msg::Channel;
 
 use crate::MIDI_MESSAGE_CHANNEL;
 
 pub fn synth_loop() {
     const SAMPLE_RATE: u32 = 44100;
-    const AMOUNT_OF_SAMPLES_BUFFERING: usize = 110;
+    const AMOUNT_OF_SAMPLES_BUFFERING: usize = 1100;
     const BUFFER_SIZE: usize = 4 * AMOUNT_OF_SAMPLES_BUFFERING;
 
     esp_println::println!(
@@ -56,14 +55,15 @@ pub fn synth_loop() {
 
     let mut wt_on_heap = BoxedWavetables::new();
     let mut wt_read_buffer = vec![0u8; 1200];
-    for wt in 0..11 {
-       // println!("ket = {:?}", wt);
+    for wt in 0..12 {
+        println!("ket = {:?}", wt);
         let _ = filesystem
             .read_key_value(700 + wt, &mut wt_read_buffer)
             .unwrap();
         wt_on_heap.add(BoxedWavetable::new(&wt_read_buffer));
     }
     let wt = Arc::new(wt_on_heap);
+esp_println::println!("-:= > \n{}-:= >", esp_alloc::HEAP.stats());
 
     let mut samples_on_heap = BoxedSamples::new();
     let mut sample_read_buffer = vec![0u8; 48_000];
@@ -77,16 +77,29 @@ pub fn synth_loop() {
     }
 
     let sp = Arc::new(samples_on_heap);
+esp_println::println!("-:= > \n{}-:= >", esp_alloc::HEAP.stats());
 
-    esp_println::println!("-:= > \n{}-:= >", esp_alloc::HEAP.stats());
+      let mut patches_on_heap = BoxedPatches::new();
+    let mut patch_read_buffer = vec![0u8; 512];
+    for pt in 0..5 {
+        let length_of_patch = filesystem
+            .read_key_value(100 + pt, &mut patch_read_buffer)
+            .unwrap();
+        let patch:Patch = postcard::from_bytes(&patch_read_buffer[..length_of_patch as usize]).unwrap();
+        println!("patch {}", patch.name );
+        patches_on_heap.add(BoxedPatch::new(
+            patch
+        ));
+    }
 
-    let mut patch_bytes = [0u8; 256];
 
-    let _ = filesystem.read_key_value(102, &mut patch_bytes).unwrap();
+    let patches = Arc::new (patches_on_heap);
+esp_println::println!("-:= > \n{}-:= >", esp_alloc::HEAP.stats());
 
-    let patch: little_weirdo::synth::patch::Patch = postcard::from_bytes(&patch_bytes).unwrap();
 
-    let mut synth: synth::Synth = Synth::new(SAMPLE_RATE as u16, &patch, Arc::clone(&wt));
+    
+
+    let mut synth: synth::Synth = Synth::new(SAMPLE_RATE as u16, 2,Arc::clone(&patches), Arc::clone(&wt));
 
     let sampler_patch = little_weirdo::sampler::patch::Patch {
         name: "Sampler patch".to_string(),
@@ -141,7 +154,7 @@ pub fn synth_loop() {
         let mut transfer = i2s_tx.write_dma_circular(tx_buffer).unwrap();
         let mut buffer = [0u8; BUFFER_SIZE];
         let mut receiver = MIDI_MESSAGE_CHANNEL.subscriber().unwrap();
-
+        
         loop {
             //TODO fix this hack
             if receiver.available() > 0 {
@@ -159,8 +172,10 @@ pub fn synth_loop() {
                             }
                             Channel::Ch1 => {
                                 match msg {
+                                    midi_msg::ChannelVoiceMsg::ProgramChange { program } => {
+                                       synth.load_patch(program);
+                                    }
                                     midi_msg::ChannelVoiceMsg::NoteOn { note, velocity } => {
-                                        //           println!("note on");
                                         synth.note_on(note, velocity);
                                     }
                                     midi_msg::ChannelVoiceMsg::NoteOff { note, velocity: _ } => {
@@ -175,6 +190,8 @@ pub fn synth_loop() {
                                             midi_msg::ControlChange::SoundControl1(value) => {
                                                 synth.change_cutoff(value);
                                             }
+
+                                         
 
                                             _ => {}
                                         }
@@ -200,6 +217,7 @@ pub fn synth_loop() {
                     receiver.clear();
                 }
             }
+            let mut reload = false;
             match transfer.available() {
                 Ok(num_bytes) => {
                     let avail = usize::min(BUFFER_SIZE, num_bytes);
@@ -224,6 +242,8 @@ pub fn synth_loop() {
                     println!("Error: {:?}", error);
                 }
             }
+
+           
         }
     }
 }

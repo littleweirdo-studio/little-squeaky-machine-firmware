@@ -4,8 +4,6 @@ use driver_sgtl5000::SGTL5000;
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 use embassy_time::{Duration, Timer};
 use esp_alloc as _;
-use esp_hal::i2c::master::{Config, I2c};
-use esp_hal::peripherals::Peripherals;
 use esp_println::println;
 
 use crate::I2c1Bus;

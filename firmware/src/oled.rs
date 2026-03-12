@@ -5,18 +5,14 @@ use embedded_graphics::pixelcolor::BinaryColor;
 use embedded_graphics::prelude::DrawTarget;
 use esp_alloc as _;
 use esp_backtrace as _;
-use esp_hal::i2c::master::{Config, I2c};
-use esp_hal::peripherals::Peripherals;
-use esp_println::println;
 use little_weirdo_gui::about::About;
-use little_weirdo_gui::menu::{Menu, MenuIcon};
+use little_weirdo_gui::menu::{self, MenuIcon};
 use little_weirdo_gui::{ActiveItem, DrawItem, EventType, NAVIGATION_SIGNAL, Navigatable};
-use midi_msg::Channel;
 use ssd1306::prelude::DisplayRotation;
 use ssd1306::size::DisplaySize128x64;
 use ssd1306::{I2CDisplayInterface, Ssd1306Async};
 
-use crate::{I2c1Bus, MIDI_MESSAGE_CHANNEL};
+use crate::I2c1Bus;
 
 #[embassy_executor::task]
 pub async fn oled_task(i2c_bus: &'static I2c1Bus ) {
@@ -34,29 +30,41 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus ) {
 
     Timer::after(Duration::from_millis(1000)).await;
 
-    let mut main_menu = Menu::new(EventType::NoMenu, MenuIcon::Sine);
-    main_menu.add("DRUMS", MenuIcon::Music, EventType::DrumMenu);
-    main_menu.add("SEQUENCER", MenuIcon::Piano, EventType::SeqMenu);
-    main_menu.add("SYNTH", MenuIcon::Sine, EventType::NoMenu);
-    main_menu.add("MIDI", MenuIcon::Midi, EventType::NoMenu);
-    main_menu.add("SETTINGS", MenuIcon::Tune, EventType::NoMenu);
-    main_menu.add("STATUS", MenuIcon::Status, EventType::NoMenu);
-    main_menu.add("ABOUT", MenuIcon::Information, EventType::LttLMenuAbout);
+let mut main_menu = menu::Menu::new(EventType::NoMenu, EventType::NoActive, MenuIcon::Sine);
+    main_menu.add("DRUMS", MenuIcon::Music, EventType::DrumMenu,EventType::NoActive);
+    main_menu.add("SEQUENCER", MenuIcon::Piano, EventType::SeqMenu, EventType::NoActive);
+    main_menu.add("SYNTH", MenuIcon::Sine, EventType::SynthMenu, EventType::NoActive);
+    main_menu.add("MIDI", MenuIcon::Midi, EventType::NoMenu, EventType::NoActive);
+    main_menu.add("SETTINGS", MenuIcon::Tune, EventType::NoMenu, EventType::NoActive);
+    main_menu.add("STATUS", MenuIcon::Status, EventType::NoMenu, EventType::NoActive);
+    main_menu.add("ABOUT", MenuIcon::Information, EventType::LttLMenuAbout, EventType::NoActive);
 
-   let mut drum_menu = Menu::new(EventType::MainMenu, MenuIcon::Music);
-    drum_menu.add("PATCHES", MenuIcon::Patch, EventType::DrumPatchMenu);
-    drum_menu.add("SETTINGS", MenuIcon::Tune, EventType::NoMenu);
-    drum_menu.add("ABOUT", MenuIcon::Information, EventType::DrumAbout);
 
-    let mut seq_menu = Menu::new(EventType::MainMenu, MenuIcon::Piano);
-    seq_menu.add("PATCHES", MenuIcon::Patch, EventType::DrumPatchMenu);
-    seq_menu.add("SETTINGS", MenuIcon::Tune, EventType::NoMenu);
-    seq_menu.add("ABOUT", MenuIcon::Information, EventType::DrumAbout);
+    let mut synth_menu =  menu::Menu::new(EventType::MainMenu, EventType::SynthModeActive,MenuIcon::Sine);
+    synth_menu.add("PATCHES", MenuIcon::Patch, EventType::SynthPatchMenu, EventType::NoActive);
+   
+    let mut synth_patch_menu = menu::Menu::new(EventType::SynthMenu, EventType::NoActive,MenuIcon::Patch);
+    synth_patch_menu.add("BASS", MenuIcon::Sine, EventType::NoMenu, EventType::PatchSelect);
+    synth_patch_menu.add("E-BASS", MenuIcon::Sine, EventType::NoMenu, EventType::PatchSelect);
+    synth_patch_menu.add("WEIRD", MenuIcon::Sine, EventType::NoMenu, EventType::PatchSelect);
+ synth_patch_menu.add("X", MenuIcon::Sine, EventType::NoMenu, EventType::PatchSelect);
+    synth_patch_menu.add("Y", MenuIcon::Sine, EventType::NoMenu, EventType::PatchSelect);
 
-    let mut drum_patch_menu = Menu::new(EventType::DrumMenu, MenuIcon::Patch);
-    drum_patch_menu.add("TR 808", MenuIcon::Drum, EventType::NoMenu);
-    drum_patch_menu.add("TR 909", MenuIcon::Drum, EventType::NoMenu);
-    drum_patch_menu.add("WEIRD", MenuIcon::Drum, EventType::NoMenu);
+
+    let mut drum_menu = menu::Menu::new(EventType::MainMenu, EventType::DrumModeActive,MenuIcon::Music);
+    drum_menu.add("PATCHES", MenuIcon::Patch, EventType::DrumPatchMenu, EventType::NoActive);
+    drum_menu.add("SETTINGS", MenuIcon::Tune, EventType::NoMenu, EventType::NoActive);
+    drum_menu.add("ABOUT", MenuIcon::Information, EventType::DrumAbout, EventType::NoActive);
+    
+    let mut seq_menu = menu::Menu::new(EventType::MainMenu, EventType::NoActive,MenuIcon::Piano);
+    seq_menu.add("PATCHES", MenuIcon::Patch, EventType::DrumPatchMenu, EventType::NoActive);
+    seq_menu.add("SETTINGS", MenuIcon::Tune, EventType::NoMenu, EventType::NoActive);
+    seq_menu.add("ABOUT", MenuIcon::Information, EventType::DrumAbout, EventType::NoActive);
+
+    let mut drum_patch_menu = menu::Menu::new(EventType::DrumMenu, EventType::NoActive,MenuIcon::Patch);
+    drum_patch_menu.add("TR 808", MenuIcon::Drum, EventType::NoMenu, EventType::PatchSelect);
+    drum_patch_menu.add("TR 909", MenuIcon::Drum, EventType::NoMenu, EventType::PatchSelect);
+    drum_patch_menu.add("WEIRD", MenuIcon::Drum, EventType::NoMenu, EventType::PatchSelect);
 
     let mut about_drums_menu = About::new(
         "LTTL Weirdo Drums is a collection of drum sounds for the LTTL Weirdo synthesizer.",
@@ -77,17 +85,31 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus ) {
         let _ = active_item.draw(&mut display);
         let _ = display.flush().await;
         match NAVIGATION_SIGNAL.receive().await {
-                 EventType::DrumMenu => active_item = ActiveItem::Menu(&mut drum_menu),
-                EventType::NoMenu => {}
-                EventType::MainMenu => active_item = ActiveItem::Menu(&mut main_menu),
-                EventType::DrumPatchMenu => active_item = ActiveItem::Menu(&mut drum_patch_menu),
-                EventType::DrumAbout => active_item = ActiveItem::About(&mut about_drums_menu),
-                EventType::SeqMenu => active_item = ActiveItem::Menu(&mut seq_menu),
-                EventType::LttLMenuAbout => active_item = ActiveItem::About(&mut about_lttl_menu),
-                EventType::MenuDown => active_item.next(),
-                EventType::MenuUp => active_item.prev(),
-               // EventType::KeypadLeft => active_item.back(),
-               // EventType::KeypadRight => active_item.select(),
+                   EventType::DrumMenu => {
+                    active_item = ActiveItem::Menu(&mut drum_menu);
+                    active_item.activate();
+                    },
+                    EventType::NoMenu => {}
+                    EventType::MainMenu => active_item = ActiveItem::Menu(&mut main_menu),
+                    EventType::DrumPatchMenu => {
+                        active_item = ActiveItem::Menu(&mut drum_patch_menu)
+                    },
+                     EventType::SynthPatchMenu => {
+                        active_item = ActiveItem::Menu(&mut synth_patch_menu)
+                    }
+                    EventType::SynthMenu => {
+                        active_item = ActiveItem::Menu(&mut synth_menu);
+                        active_item.activate();
+                    }
+                    EventType::DrumAbout => active_item = ActiveItem::About(&mut about_drums_menu),
+                    EventType::SeqMenu => active_item = ActiveItem::Menu(&mut seq_menu),
+                    EventType::LttLMenuAbout => {
+                        active_item = ActiveItem::About(&mut about_lttl_menu)
+                    }
+                    EventType::MenuUp => active_item.prev(),
+                    EventType::MenuDown => active_item.next(),
+                     EventType::MenuLeft=> active_item.back(),
+                    EventType::MenuRight=> active_item.select(),
             _ => {}
         }
     }

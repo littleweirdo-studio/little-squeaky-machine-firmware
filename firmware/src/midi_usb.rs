@@ -17,11 +17,10 @@ use esp_hal::otg_fs::Usb;
 use esp_hal::otg_fs::asynch::Driver;
 use esp_hal::peripherals::Peripherals;
 use esp_println::println;
-use little_weirdo_gui::{EventType};
 use midi_msg::{Channel, ReceiverContext};
 
 // Custom module imports
-use crate::{MIDI_MESSAGE_CHANNEL, sequence::SEQUENCE_KEY_CHANNEL};
+use crate::MIDI_MESSAGE_CHANNEL;
 use usbd_midi::packet::reader::UsbMidiPacketReader;
 
 /// Main task for handling MIDI communication over USB
@@ -139,19 +138,6 @@ pub async fn midi_read<'d>(class: &mut MidiClass<'d, Driver<'d>>) -> Result<(), 
                 // Send valid MIDI message to main channel
                 {
                     sender.publish(message.clone()).await;
-                    match message {
-                        midi_msg::MidiMsg::ChannelVoice { channel, msg } => {
-                            if channel == Channel::Ch3 {
-                                match msg.clone() {
-                                    midi_msg::ChannelVoiceMsg::NoteOn { note, velocity } => {
-
-                                    },
-                                  _ => {}
-                                }
-                            }
-                        },
-                        _ => {}
-                    }
                 }
                 Err(e) => println!("Error = {:?}", e),
             }
