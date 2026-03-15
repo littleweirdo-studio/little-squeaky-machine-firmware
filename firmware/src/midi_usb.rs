@@ -1,5 +1,8 @@
 // Import required crates and modules
-use embassy_futures::join::join;
+use embassy_futures::{
+    join::join,
+    select::{Either, select},
+};
 use embassy_time::{Duration, Timer};
 
 // USB and MIDI related imports
@@ -20,7 +23,7 @@ use esp_println::println;
 use midi_msg::{Channel, ReceiverContext};
 
 // Custom module imports
-use crate::MIDI_MESSAGE_CHANNEL;
+use crate::{MIDI_MESSAGE_CHANNEL, MIDI_OUT_MESSAGE_CHANNEL};
 use usbd_midi::packet::reader::UsbMidiPacketReader;
 
 /// Main task for handling MIDI communication over USB
@@ -115,32 +118,44 @@ pub async fn midi_read<'d>(class: &mut MidiClass<'d, Driver<'d>>) -> Result<(), 
 
     // Context for MIDI message parsing
     let mut context = ReceiverContext::new();
-  let sender = MIDI_MESSAGE_CHANNEL.publisher().unwrap();
+    let sender = MIDI_MESSAGE_CHANNEL.publisher().unwrap();
 
     loop {
         // Read a single MIDI packet from USB
-        let n = class.read_packet(&mut buf).await?;
+        let midi_out_future = MIDI_OUT_MESSAGE_CHANNEL.receive();
+        let midi_in_future = class.read_packet(&mut buf);
 
-        // Create a reader for USB MIDI packets
-        let buffer_reader = UsbMidiPacketReader::new(&buf, n);
+        match select(midi_in_future, midi_out_future).await {
+            Either::First(res) => match res {
+                Ok(len) => {
+                    // Create a reader for USB MIDI packets
+                    let buffer_reader = UsbMidiPacketReader::new(&buf, len);
 
-        // Process each MIDI packet in the buffer
-        for packet in buffer_reader.into_iter().flatten() {
-            // Parse the MIDI message with context
-            let parsed_message = midi_msg::MidiMsg::from_midi_with_context_no_extensions(
-                packet.payload_bytes(), // Get payload bytes from packet
-                &mut context,           // Use the context for parsing
-            );
+                    // Process each MIDI packet in the buffer
+                    for packet in buffer_reader.into_iter().flatten() {
+                        // Parse the MIDI message with context
+                        let parsed_message =
+                            midi_msg::MidiMsg::from_midi_with_context_no_extensions(
+                                packet.payload_bytes(), // Get payload bytes from packet
+                                &mut context,           // Use the context for parsing
+                            );
 
-            // Handle parsed message or error
-            match parsed_message {
-                Ok((message, _size_of_processed_bytes)) =>
-                // Send valid MIDI message to main channel
-                {
-                    sender.publish(message.clone()).await;
+                        // Handle parsed message or error
+                        match parsed_message {
+                            Ok((message, _size_of_processed_bytes)) =>
+                            // Send valid MIDI message to main channel
+                            {
+                                sender.publish(message.clone()).await;
+                            }
+                            Err(e) => println!("Error = {:?}", e),
+                        }
+                    }
                 }
-                Err(e) => println!("Error = {:?}", e),
-            }
+                Err(_) => todo!(),
+            },
+            Either::Second(res) => match res {
+                _ => { class.write_packet(res.to_midi().as_slice()).await; }
+            },
         }
     }
 }

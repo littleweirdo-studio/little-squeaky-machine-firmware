@@ -1,6 +1,11 @@
 extern crate alloc;
 
-use alloc::{string::ToString, sync::Arc, vec};
+use alloc::{
+    boxed::Box,
+    string::{String, ToString},
+    sync::Arc,
+    vec,
+};
 use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::{
@@ -18,7 +23,12 @@ use little_weirdo::{
         delay::DelayConfiguration,
         overdrive::{KindOfOverdrive, OverdriveConfiguration},
     },
-    synth::{self, Synth, data::patches::{BoxedPatch, BoxedPatches}, patch::Patch},
+    sampler::data::patches::{BoxedSamplerPatch, BoxedSamplerPatches},
+    synth::{
+        self, Synth,
+        data::patches::{BoxedPatch, BoxedPatches},
+        patch::Patch,
+    },
 };
 
 use little_weirdo::{
@@ -32,6 +42,17 @@ use little_weirdo_filesystem::WeirdoFileSystem;
 use midi_msg::Channel;
 
 use crate::MIDI_MESSAGE_CHANNEL;
+
+use serde::Deserialize;
+use serde::Serialize;
+#[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
+pub struct SoundBank {
+    pub name: String,
+    pub amount_of_patches: u16,
+    pub amount_of_waveforms: u16,
+    pub amount_of_samples: u16,
+    pub amound_of_sampler_patches: u16,
+}
 
 pub fn synth_loop() {
     const SAMPLE_RATE: u32 = 44100;
@@ -53,73 +74,82 @@ pub fn synth_loop() {
     let mut filesystem: WeirdoFileSystem<FlashStorage> =
         WeirdoFileSystem::new(storage, 0x00220000, 0x100000);
 
+    //get settings
+
+    let mut buf = vec![0u8; 256];
+
+    filesystem.read_key_value(000, buf.as_mut_slice());
+    let sound_bank: SoundBank = postcard::from_bytes(&buf).unwrap();
+
+    println!("Soundbank Loaded = {}", sound_bank.name);
+
     let mut wt_on_heap = BoxedWavetables::new();
     let mut wt_read_buffer = vec![0u8; 1200];
-    for wt in 0..12 {
-        println!("ket = {:?}", wt);
+    for wt in 0..sound_bank.amount_of_waveforms as u32 {
+        //        println!("key = {:?}", wt);
         let _ = filesystem
-            .read_key_value(700 + wt, &mut wt_read_buffer)
+            .read_key_value(700 + wt, wt_read_buffer.as_mut_slice())
             .unwrap();
         wt_on_heap.add(BoxedWavetable::new(&wt_read_buffer));
     }
     let wt = Arc::new(wt_on_heap);
-esp_println::println!("-:= > \n{}-:= >", esp_alloc::HEAP.stats());
 
     let mut samples_on_heap = BoxedSamples::new();
-    let mut sample_read_buffer = vec![0u8; 48_000];
-    for wt in 0..5 {
+
+    for wt in 0..sound_bank.amount_of_samples as u32 {
+        //   println!("Load Sample from flash and create it with ID {}", wt);
+        let size_of_value = filesystem.size_of_key_value(900 + wt).unwrap();
+        let mut sample: vec::Vec<u8> = vec![0u8; size_of_value as usize]; //vec::Vec::with_capacity(size_of_value as usize);
+
         let length_of_sample = filesystem
-            .read_key_value(900 + wt, &mut sample_read_buffer)
+            .read_key_value(900 + wt, sample.as_mut_slice())
             .unwrap();
-        samples_on_heap.add(BoxedSample::new(
-            &sample_read_buffer[..length_of_sample as usize],
-        ));
+        samples_on_heap.add(BoxedSample::new(sample));
     }
 
     let sp = Arc::new(samples_on_heap);
-esp_println::println!("-:= > \n{}-:= >", esp_alloc::HEAP.stats());
 
-      let mut patches_on_heap = BoxedPatches::new();
+    let mut patches_on_heap = BoxedPatches::new();
     let mut patch_read_buffer = vec![0u8; 512];
-    for pt in 0..5 {
+    for pt in 0..sound_bank.amount_of_patches as u32 {
         let length_of_patch = filesystem
             .read_key_value(100 + pt, &mut patch_read_buffer)
             .unwrap();
-        let patch:Patch = postcard::from_bytes(&patch_read_buffer[..length_of_patch as usize]).unwrap();
-        println!("patch {}", patch.name );
-        patches_on_heap.add(BoxedPatch::new(
-            patch
-        ));
+        let patch: Patch =
+            postcard::from_bytes(&patch_read_buffer[..length_of_patch as usize]).unwrap();
+        println!("patch {}", patch.name);
+        patches_on_heap.add(BoxedPatch::new(patch));
     }
 
+    let patches = Arc::new(patches_on_heap);
 
-    let patches = Arc::new (patches_on_heap);
-esp_println::println!("-:= > \n{}-:= >", esp_alloc::HEAP.stats());
+    //
 
+    let mut sampler_patches_on_heap = BoxedSamplerPatches::new();
+    let mut sampler_patch_read_buffer = vec![0u8; 50];
+    for pt in 0..sound_bank.amound_of_sampler_patches as u32 {
+        let length_of_patch = filesystem
+            .read_key_value(200 + pt, &mut sampler_patch_read_buffer)
+            .unwrap();
+        let patch: sampler::patch::Patch =
+            postcard::from_bytes(&sampler_patch_read_buffer[..length_of_patch as usize]).unwrap();
+        println!("sampler patch {}", patch.name);
+        sampler_patches_on_heap.add(BoxedSamplerPatch::new(patch));
+    }
 
-    
+    let sampler_patches = Arc::new(sampler_patches_on_heap);
 
-    let mut synth: synth::Synth = Synth::new(SAMPLE_RATE as u16, 2,Arc::clone(&patches), Arc::clone(&wt));
+    esp_println::println!("-:= > \n{}-:= >", esp_alloc::HEAP.stats());
 
-    let sampler_patch = little_weirdo::sampler::patch::Patch {
-        name: "Sampler patch".to_string(),
-        overdrive_config: OverdriveConfiguration {
-            threshold: 2000,
-            kind: KindOfOverdrive::Softer,
-            enabled: false,
-        },
-        bitcrunch_config: BitcrunchConfiguration { enabled: false },
-        delay_config: DelayConfiguration {
-            enabled: true,
-            delay_time: 300,
-            mix_percentage: 75,
-            feedback: true,
-            feedback_percentage: 75,
-        },
-    };
+    let mut synth: synth::Synth =
+        Synth::new(SAMPLE_RATE as u16, 2, Arc::clone(&patches), Arc::clone(&wt));
 
-    let mut sampler: sampler::Sampler =
-        sampler::Sampler::new(SAMPLE_RATE as u16, &sampler_patch, Arc::clone(&sp));
+    let mut sampler: sampler::Sampler = sampler::Sampler::new(
+        SAMPLE_RATE as u16,
+        0,
+        Arc::clone(&sampler_patches),
+        Arc::clone(&sp),
+    );
 
     let (_, _rx_descriptors, tx_buffer, tx_descriptors) = dma_circular_buffers!(0, BUFFER_SIZE);
 
@@ -154,64 +184,74 @@ esp_println::println!("-:= > \n{}-:= >", esp_alloc::HEAP.stats());
         let mut transfer = i2s_tx.write_dma_circular(tx_buffer).unwrap();
         let mut buffer = [0u8; BUFFER_SIZE];
         let mut receiver = MIDI_MESSAGE_CHANNEL.subscriber().unwrap();
-        
+
         loop {
             //TODO fix this hack
             if receiver.available() > 0 {
-                match receiver.try_next_message_pure().unwrap() {
-                    midi_msg::MidiMsg::ChannelVoice { channel, msg } => {
-                        match channel {
-                            Channel::Ch2 => {
-                                match msg {
-                                    midi_msg::ChannelVoiceMsg::NoteOn { note, velocity } => {
-                                        //           println!("note on");
-                                        sampler.note_on(note, velocity);
-                                    }
-                                    _ => {}
-                                }
-                            }
-                            Channel::Ch1 => {
-                                match msg {
-                                    midi_msg::ChannelVoiceMsg::ProgramChange { program } => {
-                                       synth.load_patch(program);
-                                    }
-                                    midi_msg::ChannelVoiceMsg::NoteOn { note, velocity } => {
-                                        synth.note_on(note, velocity);
-                                    }
-                                    midi_msg::ChannelVoiceMsg::NoteOff { note, velocity: _ } => {
-                                        synth.note_off(note);
-                                    }
-                                    midi_msg::ChannelVoiceMsg::ControlChange { control } => {
-                                        match control {
-                                            midi_msg::ControlChange::Volume(volume) => {
-                                                synth.change_main_volume(volume as u8);
+                match receiver.try_next_message_pure() {
+                    Some(msg) => {
+                        match msg {
+                            midi_msg::MidiMsg::ChannelVoice { channel, msg } => {
+                                match channel {
+                                    Channel::Ch2 => {
+                                        match msg {
+                                            midi_msg::ChannelVoiceMsg::ProgramChange {
+                                                program,
+                                            } => {
+                                                sampler.load_patch(program);
                                             }
 
-                                            midi_msg::ControlChange::SoundControl1(value) => {
-                                                synth.change_cutoff(value);
+                                            midi_msg::ChannelVoiceMsg::NoteOn {
+                                                note,
+                                                velocity,
+                                            } => {
+                                                //           println!("note on");
+                                                sampler.note_on(note, velocity);
                                             }
-
-                                         
-
+                                            midi_msg::ChannelVoiceMsg::NoteOff {
+                                                note,
+                                                velocity: _,
+                                            } => {
+                                                sampler.note_off(note);
+                                            }
                                             _ => {}
                                         }
                                     }
+                                    Channel::Ch1 => match msg {
+                                        midi_msg::ChannelVoiceMsg::ProgramChange { program } => {
+                                            synth.load_patch(program);
+                                        }
+                                        midi_msg::ChannelVoiceMsg::NoteOn { note, velocity } => {
+                                            synth.note_on(note, velocity);
+                                        }
+                                        midi_msg::ChannelVoiceMsg::NoteOff {
+                                            note,
+                                            velocity: _,
+                                        } => {
+                                            synth.note_off(note);
+                                        }
+                                        midi_msg::ChannelVoiceMsg::ControlChange { control } => {
+                                            match control {
+                                                midi_msg::ControlChange::Volume(volume) => {
+                                                    synth.change_main_volume(volume as u8);
+                                                }
+
+                                                midi_msg::ControlChange::SoundControl1(value) => {
+                                                    synth.change_cutoff(value);
+                                                }
+
+                                                _ => {}
+                                            }
+                                        }
+                                        _ => {}
+                                    },
                                     _ => {}
                                 }
                             }
-                            Channel::Ch2 => match msg {
-                                midi_msg::ChannelVoiceMsg::NoteOn { note, velocity } => {
-                                    sampler.note_on(note, velocity);
-                                }
-                                midi_msg::ChannelVoiceMsg::NoteOff { note, velocity: _ } => {
-                                    sampler.note_off(note);
-                                }
-                                _ => {}
-                            },
                             _ => {}
                         }
                     }
-                    _ => {}
+                    None => {}
                 }
                 if receiver.available() == 0 {
                     receiver.clear();
@@ -242,8 +282,6 @@ esp_println::println!("-:= > \n{}-:= >", esp_alloc::HEAP.stats());
                     println!("Error: {:?}", error);
                 }
             }
-
-           
         }
     }
 }

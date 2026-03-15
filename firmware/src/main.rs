@@ -67,11 +67,11 @@ static MIDI_OUT_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, midi_msg::Midi
 static mut APP_CORE_STACK: Stack<220_000> = Stack::new();
 
 const USB_MIDI_ENABLED: bool = false;
-const UART_MIDI_ENABLED: bool = false;
+const UART_MIDI_ENABLED: bool = true;
 
-esp_bootloader_esp_idf::esp_app_desc!();
 type I2c1Bus = Mutex<NoopRawMutex, esp_hal::i2c::master::I2c<'static, Async>>;
 
+esp_bootloader_esp_idf::esp_app_desc!();
 
 #[esp_rtos::main]
 async fn main(spawner: Spawner) {
@@ -119,7 +119,6 @@ async fn main(spawner: Spawner) {
         })
         .unwrap();
 
-    Timer::after(Duration::from_millis(500)).await;
 
     // Create MIDI USB device
     if USB_MIDI_ENABLED {
@@ -147,9 +146,9 @@ async fn main(spawner: Spawner) {
     //let _ = spawner.spawn(sequence_task());
     let _ = spawner.spawn(mapping_task());
 
-   let _ = spawner.spawn(touch_input_task(i2c_bus));
+   //let _ = spawner.spawn(touch_input_task(i2c_bus));
 
-    let _ = spawner.spawn(tilt_task(i2c_bus));
+   // let _ = spawner.spawn(tilt_task(i2c_bus));
 
 
     loop {

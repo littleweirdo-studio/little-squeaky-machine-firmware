@@ -4,12 +4,10 @@ use midi_msg::Channel;
 use smart_leds::{RGB8, colors};
 
 use crate::{
-    MIDI_MESSAGE_CHANNEL,
-    led::{LED_MESSAGE_CHANNEL, LedMessage},
-    tilt::TILT_SIGNAL,
+    MIDI_MESSAGE_CHANNEL, MIDI_OUT_MESSAGE_CHANNEL, led::{LED_MESSAGE_CHANNEL, LedMessage}, tilt::TILT_SIGNAL
 };
 
-const COLOR: RGB8 = colors::LIGHT_PINK;
+const COLOR: RGB8 = colors::DEEP_PINK;
 const REMAP_MIDI: [u8; 25] = [
     255, 2, 4, 255, 7, 1, 3, 5, 6, 8, 9, 11, 255, 255, 255, 10, 12, 13, 15, 255, 255, 255, 255, 255,
     255,
@@ -65,19 +63,19 @@ pub async fn mapping_task() {
                             velocity: VEL,
                         },
                     };
-
+                    MIDI_OUT_MESSAGE_CHANNEL.send(message.clone()).await;
                     sender.publish(message).await;
                 } else {
                     println!("no node {}", event.id);
                     match event.id {
                         13 => {
-                            if synth_active { 
+                          //  if synth_active { 
                                 base -= 12; 
-                            }
+                           // }
                         },
                         14 => {
-                            if synth_active { base += 12; }
-                            
+                            //if synth_active { base += 12; }
+                            base += 12;
                         },
                         23 => {
                             TILT_SIGNAL.send(EventType::TiltNoteDown).await;
@@ -89,7 +87,7 @@ pub async fn mapping_task() {
                         //C2
                         20 => {
                          //   base = 36;
-                            NAVIGATION_SIGNAL.send(EventType::MenuDown).await;
+                            NAVIGATION_SIGNAL.send(EventType::MenuUp).await;
                         }
                         //C3
                         21 => {
@@ -99,7 +97,7 @@ pub async fn mapping_task() {
                         //C4
                         22 => {
                            // base = 60;
-                            NAVIGATION_SIGNAL.send(EventType::MenuUp).await;
+                            NAVIGATION_SIGNAL.send(EventType::MenuDown).await;
                         }
                         _ => {}
                     }
@@ -126,6 +124,7 @@ pub async fn mapping_task() {
                             velocity: VEL,
                         },
                     };
+                    MIDI_OUT_MESSAGE_CHANNEL.send(message.clone()).await;
                     sender.publish(message).await;
                 } else {
                     println!("event {:?}", event.id);

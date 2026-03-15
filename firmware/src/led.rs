@@ -31,18 +31,31 @@ pub async fn led_task() {
         led_pin = peripherals.GPIO21;
     }
 
-    let rmt_buffer = smart_led_buffer!(27);
+    let rmt_buffer = smart_led_buffer!(31);
     let mut led = SmartLedsAdapter::new(rmt.channel0, led_pin, rmt_buffer);
-    let mut data: [RGB8; 27] = [colors::BLACK; 27];
+    let mut data: [RGB8; 31] = [colors::BLACK; 31];
+    data[0] = colors::LIGHT_SKY_BLUE;
+    data[1] = colors::DEEP_PINK;
+
+    data[27] = colors::DEEP_PINK;
+    data[28] = colors::LIGHT_SKY_BLUE;
+    data[29] = colors::DEEP_PINK;
+    data[30] = colors::LIGHT_SKY_BLUE;
+    
+    
+
+    //
+    data[26] = colors::RED;
 
     led.write(brightness(gamma(data.iter().cloned()), 20))
         .unwrap();
 
+   
     loop {
         let message = LED_MESSAGE_CHANNEL.receive().await;
         data[message.id as usize] = message.color;
 
-        led.write(brightness(gamma(data.iter().cloned()), message.brightness))
+        led.write(brightness(gamma(data.iter().cloned()), 20))
             .unwrap();
     }
 }
