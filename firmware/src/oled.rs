@@ -120,9 +120,8 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
             .unwrap();
         let patch: Patch =
             postcard::from_bytes(&patch_read_buffer[..length_of_patch as usize]).unwrap();
-        println!("patch = {}", patch.name);
         synth_patch_menu.add(
-            format!("{}", patch.name),
+            format!("{} [{}]", patch.name, i),
             MenuIcon::Sine,
             EventType::NoMenu,
             EventType::PatchSelect,
@@ -181,7 +180,6 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
             .unwrap();
         let patch: little_weirdo::sampler::patch::Patch =
             postcard::from_bytes(&patch_read_buffer[..length_of_patch as usize]).unwrap();
-        println!("patch = {}", patch.name);
         drum_patch_menu.add(
             format!("{}", patch.name),
             MenuIcon::Drum,
