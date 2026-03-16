@@ -53,19 +53,19 @@ pub async fn potmeter_task() {
     
         let pin_value_pot_1: u16 = adc1.read_blocking(&mut pot_in1);
         MAPPING_SIGNAL.send(KeyEvent { event: little_weirdo_gui::EventType::PotMeterChange, id: 0, value: pin_value_pot_1 / 16  }).await;
-        Timer::after(Duration::from_millis(25)).await;
+        Timer::after(Duration::from_millis(50)).await;
 
         let pin_value_pot_2: u16 = adc2.read_blocking(&mut pot_in2);
         MAPPING_SIGNAL.send(KeyEvent { event: little_weirdo_gui::EventType::PotMeterChange, id: 1, value: pin_value_pot_2 / 16  }).await;
-        Timer::after(Duration::from_millis(25)).await;
+        Timer::after(Duration::from_millis(50)).await;
 
         let pin_value_pot_3: u16 = adc1.read_blocking(&mut pot_in3);
         MAPPING_SIGNAL.send(KeyEvent { event: little_weirdo_gui::EventType::PotMeterChange, id: 2, value: pin_value_pot_3 / 16  }).await;
-        Timer::after(Duration::from_millis(25)).await;
+        Timer::after(Duration::from_millis(50)).await;
 
         let pin_value_pot_4: u16 = adc1.read_blocking(&mut pot_in4);
         MAPPING_SIGNAL.send(KeyEvent { event: little_weirdo_gui::EventType::PotMeterChange, id: 3, value: pin_value_pot_4 / 16  }).await;
-        Timer::after(Duration::from_millis(25)).await;
+        Timer::after(Duration::from_millis(50)).await;
 
    
     }

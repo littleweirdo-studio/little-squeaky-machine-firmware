@@ -4,7 +4,7 @@ use midi_msg::Channel;
 use smart_leds::{RGB8, colors};
 
 use crate::{
-    MIDI_MESSAGE_CHANNEL, MIDI_OUT_MESSAGE_CHANNEL, led::{LED_MESSAGE_CHANNEL, LedMessage}, tilt::TILT_SIGNAL
+    MIDI_MESSAGE_CHANNEL, MIDI_OUT_MESSAGE_CHANNEL, codec::{CODEC_SIGNAL, CodecEvent, CodecEventType}, led::{LED_MESSAGE_CHANNEL, LedMessage}, tilt::TILT_SIGNAL
 };
 
 const COLOR: RGB8 = colors::DEEP_PINK;
@@ -28,6 +28,9 @@ pub async fn mapping_task() {
         match event.event {
             EventType::PotMeterChange => {
                  //println!("potmeter changed = {}, {}", event.id, event.value );
+                 if event.id == 0 {
+                    CODEC_SIGNAL.send(CodecEvent {event:CodecEventType::ChangeVolume, value: event.value}).await;
+                 }
             }
             EventType::DrumModeActive => {
                 //println!("drum activated");
