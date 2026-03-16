@@ -27,19 +27,19 @@ pub async fn mapping_task() {
         let event = MAPPING_SIGNAL.receive().await;
         match event.event {
             EventType::PotMeterChange => {
-                 println!("potmeter changed = {}, {}", event.id, event.value );
+                 //println!("potmeter changed = {}, {}", event.id, event.value );
             }
             EventType::DrumModeActive => {
-                println!("drum activated");
+                //println!("drum activated");
                 synth_active = false;
                 base = 35;
             }
             EventType::SynthModeActive => {
-                println!("synth activated");
+                //println!("synth activated");
                 synth_active = true;
             }
             EventType::PatchSelect => {
-                println!("patch activated = {}", event.id);
+                //println!("patch activated = {}", event.id);
                 let message = midi_msg::MidiMsg::ChannelVoice {
                     channel: if synth_active {
                         Channel::Ch1
@@ -69,7 +69,7 @@ pub async fn mapping_task() {
                     MIDI_OUT_MESSAGE_CHANNEL.send(message.clone()).await;
                     sender.publish(message).await;
                 } else {
-                    println!("no node {}", event.id);
+                    //println!("no node {}", event.id);
                     match event.id {
                         13 => {
                           //  if synth_active { 
