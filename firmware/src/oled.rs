@@ -88,7 +88,7 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
     main_menu.add(
         "STATUS".to_string(),
         MenuIcon::Status,
-        EventType::NoMenu,
+        EventType::LttlStatus,
         EventType::NoActive,
     );
     main_menu.add(
@@ -191,12 +191,17 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
     }
   
     let mut about_drums_menu = About::new(
-        "LTTL Weirdo Drums is a collection of drum sounds for the LTTL Weirdo synthesizer.",
+        "LTTL Weirdo Drums is a collection of drum sounds for the LTTL Weirdo synthesizer.".to_string(),
         EventType::DrumMenu,
     );
 
     let mut about_lttl_menu = About::new(
-        "LttL Hi SQυεΛκY Things Machine v1.0 ♫ §QυεΛΛΛΛκκ Cαη ħαρρεη α⊥ αηψ тıмε! ©'26 HST∞LAB ♥♪♥",
+        "LttL Hi SQυεΛκY Things Machine v1.0 ♫ §QυεΛΛΛΛκκ Cαη ħαρρεη α⊥ αηψ тıмε! ©'26 HST∞LAB ♥♪♥".to_string(),
+        EventType::MainMenu,
+    );
+
+    let mut main_status_menu = About::new(
+        format!("§TΛTU§ \n♫ SynthPatches {}x\n♫ SamplerPatches {}x", sound_bank.amount_of_patches, sound_bank.amound_of_sampler_patches).to_string(),
         EventType::MainMenu,
     );
 
@@ -222,6 +227,7 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
             EventType::DrumAbout => active_item = ActiveItem::About(&mut about_drums_menu),
             EventType::SeqMenu => active_item = ActiveItem::Menu(&mut seq_menu),
             EventType::LttLMenuAbout => active_item = ActiveItem::About(&mut about_lttl_menu),
+            EventType::LttlStatus => active_item = ActiveItem::About(&mut main_status_menu),
             EventType::MenuUp => active_item.prev(),
             EventType::MenuDown => active_item.next(),
             EventType::MenuLeft => active_item.back(),
