@@ -22,6 +22,7 @@ mod oled;
 use crate::oled::oled_task;
 
 mod potmeter;
+use crate::potmeter::potmeter_task;
 
 mod keyboard_input;
 use crate::keyboard_input::keyboard_input_task;
@@ -135,7 +136,7 @@ async fn main(spawner: Spawner) {
     let _ = spawner.spawn(oled_task(i2c_bus));
 
     Timer::after(Duration::from_millis(100)).await;
-    //let _ = spawner.spawn(potmeter_task());
+    let _ = spawner.spawn(potmeter_task());
 
     Timer::after(Duration::from_millis(100)).await;
 

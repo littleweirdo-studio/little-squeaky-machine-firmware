@@ -3,17 +3,10 @@ use embassy_time::{Duration, Timer};
 use esp_backtrace as _;
 use esp_hal::{
     analog::adc::{Adc, AdcCalBasic, AdcConfig, Attenuation},
-    peripherals::{ADC1, ADC2, GPIO1, GPIO2, GPIO8, GPIO15, GPIO16, Peripherals},
+    peripherals::{ADC1, ADC2, GPIO1, GPIO2, GPIO3, GPIO8, GPIO15, GPIO16, Peripherals},
 };
+use little_weirdo_gui::{KeyEvent, MAPPING_SIGNAL};
 use smart_leds::RGB8;
-
-use crate::{MIDI_MESSAGE_CHANNEL, led};
-
-pub static POT1_MESSAGE_CHANNEL: Watch<CriticalSectionRawMutex, u16, 10> = Watch::new();
-pub static POT2_MESSAGE_CHANNEL: Watch<CriticalSectionRawMutex, u16, 10> = Watch::new();
-pub static POT3_MESSAGE_CHANNEL: Watch<CriticalSectionRawMutex, u16, 10> = Watch::new();
-pub static POT4_MESSAGE_CHANNEL: Watch<CriticalSectionRawMutex, u16, 10> = Watch::new();
-pub static USB_POWER_MESSAGE_CHANNEL: Watch<CriticalSectionRawMutex, u16, 10> = Watch::new();
 
 #[embassy_executor::task]
 pub async fn potmeter_task() {
@@ -21,27 +14,23 @@ pub async fn potmeter_task() {
     let mut pot_in2;
     let mut pot_in3;
     let mut pot_in4;
-    let mut usb_power;
     let mut adc1;
     let mut adc2;
 
     unsafe {
         /*
-        | Pin | 15 |  ADC2_CH4   | 🎛️ Potmeter 1 |
-        | Pin | 16 |  ADC2_CH5   | 🎛️ Potmeter 2 |
-        | Pin | 01 |  ADC1_CH0   | 🎛️ Potmeter 3 |
-        | Pin | 02 |  ADC1_CH1   | 🎛️ Potmeter 4 |
-        | Pin | 08 |  ADC1_CH7 | 🔌 USB power management |
+        |   | 15 | 03 |  ADC1_CH2 | 🎛️ Potmeter 1 |
+            | 09 | 16 |  ADC2_CH5 | 🎛️ Potmeter 2 |
+            | 39 | 01 |  ADC1_CH0 | 🎛️ Potmeter 3 |
+            | 38 | 02 |  ADC1_CH1 | 🎛️ Potmeter 4 |
         */
         let peripherals: Peripherals = Peripherals::steal();
         let mut adc1_config = AdcConfig::default();
         let mut adc2_config = AdcConfig::default();
 
-        usb_power = adc1_config
-            .enable_pin_with_cal::<GPIO8, AdcCalBasic<ADC1>>(peripherals.GPIO8, Attenuation::_11dB);
-
-        pot_in1 = adc2_config.enable_pin_with_cal::<GPIO15, AdcCalBasic<ADC2>>(
-            peripherals.GPIO15,
+       
+        pot_in1 = adc1_config.enable_pin_with_cal::<GPIO3, AdcCalBasic<ADC1>>(
+            peripherals.GPIO3,
             Attenuation::_11dB,
         );
 
@@ -60,87 +49,24 @@ pub async fn potmeter_task() {
         adc2 = Adc::new(peripherals.ADC2, adc2_config);
     }
 
-        let sender = MIDI_MESSAGE_CHANNEL.publisher().unwrap();
-
     loop {
-        let usb_power_value: u16 = adc1.read_blocking(&mut usb_power);
-        USB_POWER_MESSAGE_CHANNEL.sender().send(usb_power_value);
-        Timer::after(Duration::from_millis(1)).await;
-
-        let pin_value_pot_1: u16 = adc2.read_blocking(&mut pot_in1);
-        POT1_MESSAGE_CHANNEL.sender().send(pin_value_pot_1 / 16);
-        Timer::after(Duration::from_millis(1)).await;
+    
+        let pin_value_pot_1: u16 = adc1.read_blocking(&mut pot_in1);
+        MAPPING_SIGNAL.send(KeyEvent { event: little_weirdo_gui::EventType::PotMeterChange, id: 0, value: pin_value_pot_1 / 16  }).await;
+        Timer::after(Duration::from_millis(25)).await;
 
         let pin_value_pot_2: u16 = adc2.read_blocking(&mut pot_in2);
-        POT2_MESSAGE_CHANNEL.sender().send(pin_value_pot_2 / 16);
-        Timer::after(Duration::from_millis(1)).await;
+        MAPPING_SIGNAL.send(KeyEvent { event: little_weirdo_gui::EventType::PotMeterChange, id: 1, value: pin_value_pot_2 / 16  }).await;
+        Timer::after(Duration::from_millis(25)).await;
 
         let pin_value_pot_3: u16 = adc1.read_blocking(&mut pot_in3);
-        POT3_MESSAGE_CHANNEL.sender().send(pin_value_pot_3 / 16);
-        Timer::after(Duration::from_millis(1)).await;
+        MAPPING_SIGNAL.send(KeyEvent { event: little_weirdo_gui::EventType::PotMeterChange, id: 2, value: pin_value_pot_3 / 16  }).await;
+        Timer::after(Duration::from_millis(25)).await;
 
         let pin_value_pot_4: u16 = adc1.read_blocking(&mut pot_in4);
-        POT4_MESSAGE_CHANNEL.sender().send(pin_value_pot_4 / 16);
-        Timer::after(Duration::from_millis(10)).await;
+        MAPPING_SIGNAL.send(KeyEvent { event: little_weirdo_gui::EventType::PotMeterChange, id: 3, value: pin_value_pot_4 / 16  }).await;
+        Timer::after(Duration::from_millis(25)).await;
 
-        let _ = led::LED_MESSAGE_CHANNEL
-            .send(led::LedMessage {
-                color: RGB8 {
-                    b: 0,
-                    g: 0,
-                    r: (pin_value_pot_1 / 16) as u8,
-                },
-                id: 21,
-                   brightness: 10,
-            })
-            .await;
-        let _ = led::LED_MESSAGE_CHANNEL
-            .send(led::LedMessage {
-                color: RGB8 {
-                    b: (pin_value_pot_2 / 16) as u8,
-                    g: 0,
-                    r: 0,
-                },
-                id: 20,
-                   brightness: 10,
-            })
-            .await;
-        let _ = led::LED_MESSAGE_CHANNEL
-            .send(led::LedMessage {
-                color: RGB8 {
-                    b: (pin_value_pot_3 / 16) as u8,
-                    g: 0,
-                    r: 0,
-                },
-                id: 19,
-                   brightness: 10,
-            })
-            .await;
-        let _ = led::LED_MESSAGE_CHANNEL
-            .send(led::LedMessage {
-                color: RGB8 {
-                    b: (pin_value_pot_4 / 16) as u8,
-                    g: 0,
-                    r: 0,
-                },
-                id: 18,
-                brightness: 10,
-            })
-            .await;
-      /* 
-        sender
-            .publish(midi_msg::MidiMsg::ChannelVoice {
-                channel: midi_msg::Channel::Ch1,
-                msg: midi_msg::ChannelVoiceMsg::ControlChange {
-                    control: midi_msg::ControlChange::Volume(pin_value_pot_1 / 32),
-                },
-            }).await;
-        sender
-            .publish(midi_msg::MidiMsg::ChannelVoice {
-                channel: midi_msg::Channel::Ch1,
-                msg: midi_msg::ChannelVoiceMsg::ControlChange {
-                    control: midi_msg::ControlChange::SoundControl1((pin_value_pot_2 / 32) as u8),
-                },
-            }).await;*/
+   
     }
 }

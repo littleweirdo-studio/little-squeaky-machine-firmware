@@ -55,6 +55,7 @@ pub async fn touch_input_task(i2c_bus: &'static I2c1Bus) {
                     let _ = MAPPING_SIGNAL.try_send(KeyEvent {
                         event: EventType::KeypadDown,
                         id: i as u8,
+                        value: 0,
                     });
                 }
             } else if key_status_array[i].key_down_trigger {
@@ -62,6 +63,7 @@ pub async fn touch_input_task(i2c_bus: &'static I2c1Bus) {
                 let _ = MAPPING_SIGNAL.try_send(KeyEvent {
                     event: EventType::KeypadUp,
                     id: i as u8,
+                    value: 0,
                 });
             }
         }

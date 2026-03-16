@@ -26,6 +26,9 @@ pub async fn mapping_task() {
     loop {
         let event = MAPPING_SIGNAL.receive().await;
         match event.event {
+            EventType::PotMeterChange => {
+                 println!("potmeter changed = {}, {}", event.id, event.value );
+            }
             EventType::DrumModeActive => {
                 println!("drum activated");
                 synth_active = false;
