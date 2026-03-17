@@ -4,17 +4,21 @@ use midi_msg::Channel;
 use smart_leds::{RGB8, colors};
 
 use crate::{
-    MIDI_MESSAGE_CHANNEL, MIDI_OUT_MESSAGE_CHANNEL, codec::{CODEC_SIGNAL, CodecEvent, CodecEventType}, led::{LED_MESSAGE_CHANNEL, LedMessage}, tilt::TILT_SIGNAL
+    MIDI_MESSAGE_CHANNEL, MIDI_OUT_MESSAGE_CHANNEL,
+    codec::{CODEC_SIGNAL, CodecEvent, CodecEventType},
+    led::{LED_MESSAGE_CHANNEL, LedMessage},
+    tilt::TILT_SIGNAL,
 };
 
 const COLOR: RGB8 = colors::DEEP_PINK;
 const REMAP_MIDI: [u8; 25] = [
-    255, 2, 4, 255, 7, 1, 3, 5, 6, 8, 9, 11, 255, 255, 255, 10, 12, 13, 15, 255, 255, 255, 255, 255,
-    255,
+    255, 2, 4, 255, 7, 1, 3, 5, 6, 8, 9, 11, 255, 255, 255, 10, 12, 13, 15, 255, 255, 255, 255,
+    255, 255,
 ];
 
 const VEL: u8 = 70;
 const BRIGTHNESS: u8 = 255;
+const MARGIN: i16 = 2;
 
 #[embassy_executor::task]
 pub async fn mapping_task() {
@@ -22,15 +26,73 @@ pub async fn mapping_task() {
     //C4
     let mut base = 35;
     let mut synth_active = true;
+    let mut last_value_pot1: u16 = 300;
+    let mut last_value_pot2: u16 = 300;
+    let mut last_value_pot3: u16 = 300;
+    
 
     loop {
         let event = MAPPING_SIGNAL.receive().await;
         match event.event {
             EventType::PotMeterChange => {
-                 //println!("potmeter changed = {}, {}", event.id, event.value );
-                 if event.id == 0 {
-                    CODEC_SIGNAL.send(CodecEvent {event:CodecEventType::ChangeVolume, value: event.value}).await;
-                 }
+                //println!("potmeter changed = {}, {}", event.id, event.value );
+                if event.id == 0 {
+                    CODEC_SIGNAL
+                        .send(CodecEvent {
+                            event: CodecEventType::ChangeVolume,
+                            value: event.value,
+                        })
+                        .await;
+                }
+                if (event.id == 1) {
+                    if last_value_pot1 != event.value && (event.value as i16 - last_value_pot1 as i16).abs() > MARGIN {
+                        last_value_pot1 = event.value;
+                        println!("change last_value_pot1 = {}", event.value);
+                        let message = midi_msg::MidiMsg::ChannelVoice {
+                            channel: if synth_active {
+                                Channel::Ch1
+                            } else {
+                                Channel::Ch2
+                            },
+                            msg: midi_msg::ChannelVoiceMsg::ControlChange { control: midi_msg::ControlChange::AttackTime(event.value as u8) }
+                        };
+
+                        sender.publish(message).await;
+                    }
+                }
+                if (event.id == 2) {
+                   if last_value_pot2 != event.value && (event.value as i16 - last_value_pot2 as i16).abs() > MARGIN {
+                        last_value_pot2 = event.value;
+                        println!("change last_value_pot2 = {}", event.value);
+                        let message = midi_msg::MidiMsg::ChannelVoice {
+                            channel: if synth_active {
+                                Channel::Ch1
+                            } else {
+                                Channel::Ch2
+                            },
+                            msg: midi_msg::ChannelVoiceMsg::ControlChange { control: midi_msg::ControlChange::DecayTime(event.value as u8) }
+                        };
+
+                        sender.publish(message).await;
+                    }
+              
+                }
+                if (event.id == 3) {
+           if last_value_pot3 != event.value && (event.value as i16 - last_value_pot3 as i16).abs() > MARGIN {
+                        last_value_pot3 = event.value;
+                        println!("change last_value_pot3 = {}", event.value);
+                        let message = midi_msg::MidiMsg::ChannelVoice {
+                            channel: if synth_active {
+                                Channel::Ch1
+                            } else {
+                                Channel::Ch2
+                            },
+                            msg: midi_msg::ChannelVoiceMsg::ControlChange { control: midi_msg::ControlChange::ReleaseTime(event.value as u8) }
+                        };
+
+                        sender.publish(message).await;
+                    }
+                }
             }
             EventType::DrumModeActive => {
                 //println!("drum activated");
@@ -75,14 +137,14 @@ pub async fn mapping_task() {
                     //println!("no node {}", event.id);
                     match event.id {
                         13 => {
-                          //  if synth_active { 
-                                base -= 12; 
-                           // }
-                        },
+                            //  if synth_active {
+                            base -= 12;
+                            // }
+                        }
                         14 => {
                             //if synth_active { base += 12; }
                             base += 12;
-                        },
+                        }
                         23 => {
                             TILT_SIGNAL.send(EventType::TiltNoteDown).await;
                         }
@@ -92,17 +154,17 @@ pub async fn mapping_task() {
                         }
                         //C2
                         20 => {
-                         //   base = 36;
+                            //   base = 36;
                             NAVIGATION_SIGNAL.send(EventType::MenuUp).await;
                         }
                         //C3
                         21 => {
-                        //    base = 48;
+                            //    base = 48;
                             NAVIGATION_SIGNAL.send(EventType::MenuRight).await;
                         }
                         //C4
                         22 => {
-                           // base = 60;
+                            // base = 60;
                             NAVIGATION_SIGNAL.send(EventType::MenuDown).await;
                         }
                         _ => {}

@@ -3,9 +3,9 @@
     "name": "piano",
     "drums": false,
     "sample_map": 12,
-    "loop_start": 0,
-    "loop_end": 0,
-    "one_shot": true,
+    "loop_start": 14068,
+    "loop_end": 14236,
+    "one_shot": false,
      "base_key": 48,
     "overdrive_config": {
         "threshold": 1000,
@@ -24,8 +24,8 @@
     },
     "env_config": {
             "attack_time": 5,
-            "decay_time": 10,
-            "release_time": 500,
-            "sustain_level": 80
+            "decay_time": 200,
+            "release_time": 300,
+            "sustain_level": 60
     }
 }

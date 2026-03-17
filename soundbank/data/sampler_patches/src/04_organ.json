@@ -3,9 +3,9 @@
     "name": "organ",
     "drums": false,
     "sample_map": 13,
-    "loop_start": 0,
-    "loop_end": 0,
-    "one_shot": true,
+    "loop_start": 9903,
+    "loop_end": 10405,
+    "one_shot": false,
     "base_key": 48,
     "overdrive_config": {
         "threshold": 1000,
