@@ -241,19 +241,46 @@ pub fn synth_loop() {
                                                 }
 
                                                 midi_msg::ControlChange::AttackTime(value) => {
-                                                     let attack_time = if value == 0 { 5 } else { value as i16 * 5 };
-                                                    synth.change_all_envelopes(Some(attack_time), None, None, None);
+                                                    let attack_time = if value == 0 {
+                                                        5
+                                                    } else {
+                                                        value as i16 * 5
+                                                    };
+                                                    synth.change_all_envelopes(
+                                                        Some(attack_time),
+                                                        None,
+                                                        None,
+                                                        None,
+                                                    );
                                                 }
 
-                                                 midi_msg::ControlChange::DecayTime(value) => {
-                                                          let decay_time = if value == 0 { 5 } else { value as i16 * 5 };
-                                                    synth.change_all_envelopes(None,Some(decay_time), None, None);
+                                                midi_msg::ControlChange::DecayTime(value) => {
+                                                    let decay_time = if value == 0 {
+                                                        5
+                                                    } else {
+                                                        value as i16 * 5
+                                                    };
+                                                    synth.change_all_envelopes(
+                                                        None,
+                                                        Some(decay_time),
+                                                        None,
+                                                        None,
+                                                    );
                                                 }
 
-                                                 midi_msg::ControlChange::ReleaseTime(value) => {
-                                                            let release_time = if value == 0 { 5 } else { value as i16 * 5 };
-                                                  
-                                                    synth.change_all_envelopes(None, None, None, Some(release_time));
+                                                midi_msg::ControlChange::ReleaseTime(value) => {
+                                                    let release_time = if value == 0 {
+                                                        5
+                                                    } else {
+                                                        value as i16 * 5
+                                                    };
+
+                                                    synth.change_all_envelopes(
+                                                        None,
+                                                        None,
+                                                        None,
+                                                        Some(release_time),
+                                                    );
                                                 }
 
                                                 _ => {}

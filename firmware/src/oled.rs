@@ -2,6 +2,8 @@ extern crate alloc;
 use alloc::string::ToString;
 use alloc::{format, vec};
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
+use embassy_futures::join::join;
+use embassy_futures::select::{Either, select};
 use embassy_time::{Duration, Timer};
 use embedded_graphics::pixelcolor::BinaryColor;
 use embedded_graphics::prelude::DrawTarget;
@@ -14,7 +16,10 @@ use little_weirdo::synth::patch::Patch;
 use little_weirdo_filesystem::WeirdoFileSystem;
 use little_weirdo_gui::about::About;
 use little_weirdo_gui::menu::{self, MenuIcon};
-use little_weirdo_gui::{ActiveItem, DrawItem, EventType, NAVIGATION_SIGNAL, Navigatable};
+use little_weirdo_gui::settings::Settings;
+use little_weirdo_gui::{
+    ActiveItem, DrawItem, EventType, NAVIGATION_SIGNAL, Navigatable, settings,
+};
 use ssd1306::prelude::DisplayRotation;
 use ssd1306::size::DisplaySize128x64;
 use ssd1306::{I2CDisplayInterface, Ssd1306Async};
@@ -80,11 +85,18 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
         EventType::NoActive,
     );
     main_menu.add(
-        "SETTINGS".to_string(),
+        "CONTROLS".to_string(),
         MenuIcon::Tune,
-        EventType::NoMenu,
+        EventType::ControlSettings,
         EventType::NoActive,
     );
+
+    let mut control_settings = Settings::new(EventType::MainMenu);
+    control_settings.add("Vol".to_string());
+    control_settings.add("Attack".to_string());
+    control_settings.add("Decay".to_string());
+    control_settings.add("Release".to_string());
+
     main_menu.add(
         "STATUS".to_string(),
         MenuIcon::Status,
@@ -127,7 +139,7 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
             EventType::PatchSelect,
         );
     }
- 
+
     let mut drum_menu = menu::Menu::new(
         EventType::MainMenu,
         EventType::DrumModeActive,
@@ -187,50 +199,73 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
             EventType::PatchSelect,
         );
     }
-  
+
     let mut about_drums_menu = About::new(
-        "LTTL Weirdo Drums is a collection of drum sounds for the LTTL Weirdo synthesizer.".to_string(),
+        "LTTL Weirdo Drums is a collection of drum sounds for the LTTL Weirdo synthesizer."
+            .to_string(),
         EventType::DrumMenu,
     );
 
     let mut about_lttl_menu = About::new(
-        "LttL Hi SQυεΛκY Things Machine v1.0 ♫ §QυεΛΛΛΛκκ Cαη ħαρρεη α⊥ αηψ тıмε! ©'26 HST∞LAB ♥♪♥".to_string(),
+        "LttL Hi SQυεΛκY Things Machine v1.0 ♫ §QυεΛΛΛΛκκ Cαη ħαρρεη α⊥ αηψ тıмε! ©'26 HST∞LAB ♥♪♥"
+            .to_string(),
         EventType::MainMenu,
     );
 
     let mut main_status_menu = About::new(
-        format!("§TΛTU§ \n♫ SynthPatches {}x\n♫ SamplerPatches {}x", sound_bank.amount_of_patches, sound_bank.amound_of_sampler_patches).to_string(),
+        format!(
+            "§TΛTU§ \n♫ SynthPatches {}x\n♫ SamplerPatches {}x",
+            sound_bank.amount_of_patches, sound_bank.amound_of_sampler_patches
+        )
+        .to_string(),
         EventType::MainMenu,
     );
+
+    let mut control_menu_active = false;
 
     let mut active_item = ActiveItem::Menu(&mut main_menu);
 
     loop {
-        let _ = display.clear(BinaryColor::Off);
+         let _ = display.clear(BinaryColor::Off);
         let _ = active_item.draw(&mut display);
         let _ = display.flush().await;
-        match NAVIGATION_SIGNAL.receive().await {
-            EventType::DrumMenu => {
-                active_item = ActiveItem::Menu(&mut drum_menu);
-                active_item.activate();
-            }
-            EventType::NoMenu => {}
-            EventType::MainMenu => active_item = ActiveItem::Menu(&mut main_menu),
-            EventType::DrumPatchMenu => active_item = ActiveItem::Menu(&mut drum_patch_menu),
-            EventType::SynthPatchMenu => active_item = ActiveItem::Menu(&mut synth_patch_menu),
-            EventType::SynthMenu => {
-                active_item = ActiveItem::Menu(&mut synth_menu);
-                active_item.activate();
-            }
-            EventType::DrumAbout => active_item = ActiveItem::About(&mut about_drums_menu),
-            EventType::SeqMenu => active_item = ActiveItem::Menu(&mut seq_menu),
-            EventType::LttLMenuAbout => active_item = ActiveItem::About(&mut about_lttl_menu),
-            EventType::LttlStatus => active_item = ActiveItem::About(&mut main_status_menu),
-            EventType::MenuUp => active_item.prev(),
-            EventType::MenuDown => active_item.next(),
-            EventType::MenuLeft => active_item.back(),
-            EventType::MenuRight => active_item.select(),
-            _ => {}
+        let event = NAVIGATION_SIGNAL.receive().await;
+        match event.event {
+
+
+                EventType::ControlSettings => {
+                    active_item = ActiveItem::Settings(&mut control_settings);
+                    control_menu_active = true;
+                }
+                EventType::DrumMenu => {
+                    active_item = ActiveItem::Menu(&mut drum_menu);
+                    active_item.activate();
+                }
+                EventType::NoMenu => {}
+                EventType::MainMenu => {
+                    active_item = ActiveItem::Menu(&mut main_menu);
+                    control_menu_active = false;
+                }
+                EventType::DrumPatchMenu => active_item = ActiveItem::Menu(&mut drum_patch_menu),
+                EventType::SynthPatchMenu => active_item = ActiveItem::Menu(&mut synth_patch_menu),
+                EventType::SynthMenu => {
+                    active_item = ActiveItem::Menu(&mut synth_menu);
+                    active_item.activate();
+                }
+                EventType::DrumAbout => active_item = ActiveItem::About(&mut about_drums_menu),
+                EventType::SeqMenu => active_item = ActiveItem::Menu(&mut seq_menu),
+                EventType::LttLMenuAbout => active_item = ActiveItem::About(&mut about_lttl_menu),
+                EventType::LttlStatus => active_item = ActiveItem::About(&mut main_status_menu),
+                EventType::MenuUp => active_item.prev(),
+                EventType::MenuDown => active_item.next(),
+                EventType::MenuLeft => active_item.back(),
+                EventType::MenuRight => active_item.select(),
+                EventType::PotMeterChange => {
+                    if control_menu_active {
+                       active_item.update_bar(event.id, (event.value * 100 / 255) as u8);
+                    }
+                }
+                _ => {}
         }
     }
 }

@@ -1,5 +1,5 @@
 use esp_println::println;
-use little_weirdo_gui::{EventType, MAPPING_SIGNAL, NAVIGATION_SIGNAL};
+use little_weirdo_gui::{EventType, KeyEvent, MAPPING_SIGNAL, NAVIGATION_SIGNAL};
 use midi_msg::Channel;
 use smart_leds::{RGB8, colors};
 
@@ -26,10 +26,10 @@ pub async fn mapping_task() {
     //C4
     let mut base = 35;
     let mut synth_active = true;
+    let mut last_value_pot0: u16 = 300;
     let mut last_value_pot1: u16 = 300;
     let mut last_value_pot2: u16 = 300;
     let mut last_value_pot3: u16 = 300;
-    
 
     loop {
         let event = MAPPING_SIGNAL.receive().await;
@@ -37,57 +37,101 @@ pub async fn mapping_task() {
             EventType::PotMeterChange => {
                 //println!("potmeter changed = {}, {}", event.id, event.value );
                 if event.id == 0 {
-                    CODEC_SIGNAL
-                        .send(CodecEvent {
-                            event: CodecEventType::ChangeVolume,
-                            value: event.value,
-                        })
-                        .await;
+                    if last_value_pot0 != event.value
+                        && (event.value as i16 - last_value_pot0 as i16).abs() > MARGIN
+                    {
+                        last_value_pot0 = event.value;
+
+                        NAVIGATION_SIGNAL
+                            .send(KeyEvent {
+                                event: EventType::PotMeterChange,
+                                id: 0,
+                                value: event.value,
+                            })
+                            .await;
+
+                        CODEC_SIGNAL
+                            .send(CodecEvent {
+                                event: CodecEventType::ChangeVolume,
+                                value: event.value,
+                            })
+                            .await;
+                    }
                 }
                 if (event.id == 1) {
-                    if last_value_pot1 != event.value && (event.value as i16 - last_value_pot1 as i16).abs() > MARGIN {
+                    if last_value_pot1 != event.value
+                        && (event.value as i16 - last_value_pot1 as i16).abs() > MARGIN
+                    {
                         last_value_pot1 = event.value;
-                        println!("change last_value_pot1 = {}", event.value);
+                        NAVIGATION_SIGNAL
+                            .send(KeyEvent {
+                                event: EventType::PotMeterChange,
+                                id: 1,
+                                value: event.value,
+                            })
+                            .await;
                         let message = midi_msg::MidiMsg::ChannelVoice {
                             channel: if synth_active {
                                 Channel::Ch1
                             } else {
                                 Channel::Ch2
                             },
-                            msg: midi_msg::ChannelVoiceMsg::ControlChange { control: midi_msg::ControlChange::AttackTime(event.value as u8) }
+                            msg: midi_msg::ChannelVoiceMsg::ControlChange {
+                                control: midi_msg::ControlChange::AttackTime(event.value as u8),
+                            },
                         };
 
                         sender.publish(message).await;
                     }
                 }
                 if (event.id == 2) {
-                   if last_value_pot2 != event.value && (event.value as i16 - last_value_pot2 as i16).abs() > MARGIN {
+                    if last_value_pot2 != event.value
+                        && (event.value as i16 - last_value_pot2 as i16).abs() > MARGIN
+                    {
                         last_value_pot2 = event.value;
-                        println!("change last_value_pot2 = {}", event.value);
+                        NAVIGATION_SIGNAL
+                            .send(KeyEvent {
+                                event: EventType::PotMeterChange,
+                                id: 2,
+                                value: event.value,
+                            })
+                            .await;
                         let message = midi_msg::MidiMsg::ChannelVoice {
                             channel: if synth_active {
                                 Channel::Ch1
                             } else {
                                 Channel::Ch2
                             },
-                            msg: midi_msg::ChannelVoiceMsg::ControlChange { control: midi_msg::ControlChange::DecayTime(event.value as u8) }
+                            msg: midi_msg::ChannelVoiceMsg::ControlChange {
+                                control: midi_msg::ControlChange::DecayTime(event.value as u8),
+                            },
                         };
 
                         sender.publish(message).await;
                     }
-              
                 }
                 if (event.id == 3) {
-           if last_value_pot3 != event.value && (event.value as i16 - last_value_pot3 as i16).abs() > MARGIN {
+                    if last_value_pot3 != event.value
+                        && (event.value as i16 - last_value_pot3 as i16).abs() > MARGIN
+                    {
                         last_value_pot3 = event.value;
-                        println!("change last_value_pot3 = {}", event.value);
+                        NAVIGATION_SIGNAL
+                            .send(KeyEvent {
+                                event: EventType::PotMeterChange,
+                                id: 3,
+                                value: event.value,
+                            })
+                            .await;
+
                         let message = midi_msg::MidiMsg::ChannelVoice {
                             channel: if synth_active {
                                 Channel::Ch1
                             } else {
                                 Channel::Ch2
                             },
-                            msg: midi_msg::ChannelVoiceMsg::ControlChange { control: midi_msg::ControlChange::ReleaseTime(event.value as u8) }
+                            msg: midi_msg::ChannelVoiceMsg::ControlChange {
+                                control: midi_msg::ControlChange::ReleaseTime(event.value as u8),
+                            },
                         };
 
                         sender.publish(message).await;
@@ -149,23 +193,47 @@ pub async fn mapping_task() {
                             TILT_SIGNAL.send(EventType::TiltNoteDown).await;
                         }
                         19 => {
-                            NAVIGATION_SIGNAL.send(EventType::MenuLeft).await;
+                            NAVIGATION_SIGNAL
+                                .send(KeyEvent {
+                                    event: EventType::MenuLeft,
+                                    id: 0,
+                                    value: 0,
+                                })
+                                .await;
                             //TILT_SIGNAL.send(EventType::TiltNoteDown).await;
                         }
                         //C2
                         20 => {
                             //   base = 36;
-                            NAVIGATION_SIGNAL.send(EventType::MenuUp).await;
+                            NAVIGATION_SIGNAL
+                                .send(KeyEvent {
+                                    event: EventType::MenuUp,
+                                    id: 0,
+                                    value: 0,
+                                })
+                                .await;
                         }
                         //C3
                         21 => {
                             //    base = 48;
-                            NAVIGATION_SIGNAL.send(EventType::MenuRight).await;
+                            NAVIGATION_SIGNAL
+                                .send(KeyEvent {
+                                    event: EventType::MenuRight,
+                                    id: 0,
+                                    value: 0,
+                                })
+                                .await;
                         }
                         //C4
                         22 => {
                             // base = 60;
-                            NAVIGATION_SIGNAL.send(EventType::MenuDown).await;
+                            NAVIGATION_SIGNAL
+                                .send(KeyEvent {
+                                    event: EventType::MenuDown,
+                                    id: 0,
+                                    value: 0,
+                                })
+                                .await;
                         }
                         _ => {}
                     }
@@ -212,7 +280,13 @@ pub async fn mapping_task() {
                     .await;
             }
             e => {
-                NAVIGATION_SIGNAL.send(e).await;
+                NAVIGATION_SIGNAL
+                    .send(KeyEvent {
+                        event: e,
+                        id: 0,
+                        value: 0,
+                    })
+                    .await;
             }
         }
     }
