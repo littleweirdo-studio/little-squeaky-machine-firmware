@@ -1,4 +1,6 @@
+use embassy_executor::SendSpawner;
 use esp_println::println;
+use little_weirdo::sequencer::AMOUNT_OF_LANES;
 use little_weirdo_gui::{EventType, KeyEvent, MAPPING_SIGNAL, NAVIGATION_SIGNAL};
 use midi_msg::Channel;
 use smart_leds::{RGB8, colors};
@@ -7,6 +9,7 @@ use crate::{
     MIDI_MESSAGE_CHANNEL, MIDI_OUT_MESSAGE_CHANNEL,
     codec::{CODEC_SIGNAL, CodecEvent, CodecEventType},
     led::{LED_MESSAGE_CHANNEL, LedMessage},
+    sequence::{SEQUENCE_KEY_CHANNEL, sequence_task},
     tilt::TILT_SIGNAL,
 };
 
@@ -14,6 +17,11 @@ const COLOR: RGB8 = colors::DEEP_PINK;
 const REMAP_MIDI: [u8; 25] = [
     255, 2, 4, 255, 7, 1, 3, 5, 6, 8, 9, 11, 255, 255, 255, 10, 12, 13, 15, 255, 255, 255, 255,
     255, 255,
+];
+
+const REMAP_SEQ: [u8; 25] = [
+    0, 1, 2, 3, 4, 8, 9, 10, 11, 12, 5, 6, 7, 255, 255, 13, 14, 15, 255, 255, 255, 255, 255, 255,
+    255,
 ];
 
 const VEL: u8 = 70;
@@ -26,10 +34,13 @@ pub async fn mapping_task() {
     //C4
     let mut base = 35;
     let mut synth_active = true;
+    let mut seq_active = false;
     let mut last_value_pot0: u16 = 300;
     let mut last_value_pot1: u16 = 300;
     let mut last_value_pot2: u16 = 300;
     let mut last_value_pot3: u16 = 300;
+
+    let mut lane = 0;
 
     loop {
         let event = MAPPING_SIGNAL.receive().await;
@@ -147,6 +158,11 @@ pub async fn mapping_task() {
                 //println!("synth activated");
                 synth_active = true;
             }
+            EventType::SequencerModeActive => {
+                seq_active = true;
+                let seq_task = sequence_task();
+                SendSpawner::for_current_executor().await.spawn(seq_task);
+            }
             EventType::PatchSelect => {
                 //println!("patch activated = {}", event.id);
                 let message = midi_msg::MidiMsg::ChannelVoice {
@@ -162,21 +178,36 @@ pub async fn mapping_task() {
             }
 
             EventType::KeypadDown => {
-                let remap = REMAP_MIDI[event.id as usize];
+                let mut remap = REMAP_MIDI[event.id as usize];
+
+                if seq_active {
+                    remap = REMAP_SEQ[event.id as usize];
+                }
+
                 if remap != 255 {
-                    let message = midi_msg::MidiMsg::ChannelVoice {
-                        channel: if synth_active {
-                            Channel::Ch1
-                        } else {
-                            Channel::Ch2
-                        },
-                        msg: midi_msg::ChannelVoiceMsg::NoteOn {
-                            note: base + remap,
-                            velocity: VEL,
-                        },
-                    };
-                    MIDI_OUT_MESSAGE_CHANNEL.send(message.clone()).await;
-                    sender.publish(message).await;
+                    if !seq_active {
+                        let message = midi_msg::MidiMsg::ChannelVoice {
+                            channel: if synth_active {
+                                Channel::Ch1
+                            } else {
+                                Channel::Ch2
+                            },
+                            msg: midi_msg::ChannelVoiceMsg::NoteOn {
+                                note: base + remap,
+                                velocity: VEL,
+                            },
+                        };
+                        MIDI_OUT_MESSAGE_CHANNEL.send(message.clone()).await;
+                        sender.publish(message).await;
+                    } else {
+                        SEQUENCE_KEY_CHANNEL
+                            .send(KeyEvent {
+                                event: EventType::ChangeSeqKey,
+                                id: remap,
+                                value: lane,
+                            })
+                            .await;
+                    }
                 } else {
                     //println!("no node {}", event.id);
                     match event.id {
@@ -205,6 +236,18 @@ pub async fn mapping_task() {
                         //C2
                         20 => {
                             //   base = 36;
+                            if seq_active {
+                                if lane > 0 {
+                                    lane = lane - 1;
+                                    SEQUENCE_KEY_CHANNEL
+                                        .send(KeyEvent {
+                                            event: EventType::ChangeSeqLane,
+                                            id: 0,
+                                            value: lane,
+                                        })
+                                        .await;
+                                }
+                            }
                             NAVIGATION_SIGNAL
                                 .send(KeyEvent {
                                     event: EventType::MenuUp,
@@ -227,6 +270,19 @@ pub async fn mapping_task() {
                         //C4
                         22 => {
                             // base = 60;
+                            if seq_active {
+                                if lane < (AMOUNT_OF_LANES - 1) as u16 {
+                                    lane = lane + 1;
+                                    SEQUENCE_KEY_CHANNEL
+                                        .send(KeyEvent {
+                                            event: EventType::ChangeSeqLane,
+                                            id: 0,
+                                            value: lane,
+                                        })
+                                        .await;
+                                }
+                            }
+
                             NAVIGATION_SIGNAL
                                 .send(KeyEvent {
                                     event: EventType::MenuDown,
@@ -246,6 +302,7 @@ pub async fn mapping_task() {
                     })
                     .await;
             }
+
             EventType::KeypadUp => {
                 let remap = REMAP_MIDI[event.id as usize];
                 if remap != 255 {

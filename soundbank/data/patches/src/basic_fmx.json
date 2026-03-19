@@ -1,0 +1,300 @@
+{
+    "$schema": "schema/patch_schema.json",
+    "name": "FM X",
+    "voices": [
+        {
+            "soundbank_index": 15,
+            "glide": true,
+            "glide_rate": 200,
+            "detune": 0,
+            "freq_detune": 0,
+            "grains": false,
+            "grains_seq": [
+                15,
+                14,
+                13,
+                12,
+                15,
+                15,
+                15,
+                15
+            ]
+        },
+        {
+            "soundbank_index": 14,
+            "glide": true,
+            "glide_rate": 200,
+            "detune": 0,
+            "freq_detune": 0,
+            "grains": true,
+            "grains_seq": [
+                15,
+                14,
+                13,
+                12,
+                15,
+                15,
+                15,
+                15
+            ]
+        },
+           {
+            "soundbank_index": 15,
+            "glide": false,
+            "glide_rate": 200,
+            "detune": 0,
+            "freq_detune": 0,
+            "grains": false,
+            "grains_seq": [
+                15,
+                14,
+                13,
+                12,
+                15,
+                15,
+                15,
+                15
+            ]
+        },
+           {
+            "soundbank_index": 14,
+            "glide": false,
+            "glide_rate": 200,
+            "detune": 0,
+            "freq_detune": 0,
+            "grains": false,
+            "grains_seq": [
+                15,
+                14,
+                13,
+                12,
+                15,
+                15,
+                15,
+                15
+            ]
+        },
+            {
+            "soundbank_index": 15,
+            "glide": false,
+            "glide_rate": 200,
+            "detune": 0,
+            "freq_detune": 0,
+            "grains": false,
+            "grains_seq": [
+                15,
+                14,
+                13,
+                12,
+                15,
+                15,
+                15,
+                15
+            ]
+        },
+        {
+            "soundbank_index": 14,
+            "glide": false,
+            "glide_rate": 200,
+            "detune": 0,
+            "freq_detune": 0,
+            "grains": false,
+            "grains_seq": [
+                15,
+                14,
+                13,
+                12,
+                15,
+                15,
+                15,
+                15
+            ]
+        },
+             {
+            "soundbank_index": 15,
+            "glide": false,
+            "glide_rate": 200,
+            "detune": 0,
+            "freq_detune": 0,
+            "grains": false,
+            "grains_seq": [
+                15,
+                14,
+                13,
+                12,
+                15,
+                15,
+                15,
+                15
+            ]
+        },
+            {
+            "soundbank_index": 14,
+            "glide": false,
+            "glide_rate": 200,
+            "detune": 0,
+            "freq_detune": 0,
+            "grains": false,
+            "grains_seq": [
+                15,
+                14,
+                13,
+                12,
+                15,
+                15,
+                15,
+                15
+            ]
+        }
+    ],
+    "envelops": [
+        {
+            "attack_time": 100,
+            "decay_time": 100,
+            "release_time": 500,
+            "sustain_level": 80
+        },
+      {
+            "attack_time": 100,
+            "decay_time": 100,
+            "release_time": 500,
+            "sustain_level": 80
+        },
+       {
+            "attack_time": 100,
+            "decay_time": 100,
+            "release_time": 500,
+            "sustain_level": 80
+        },
+       {
+            "attack_time": 100,
+            "decay_time": 100,
+            "release_time": 500,
+            "sustain_level": 80
+        },
+       {
+            "attack_time": 100,
+            "decay_time": 100,
+            "release_time": 500,
+            "sustain_level": 80
+        },
+       {
+            "attack_time": 100,
+            "decay_time": 100,
+            "release_time": 500,
+            "sustain_level": 80
+        },
+       {
+            "attack_time": 100,
+            "decay_time": 100,
+            "release_time": 500,
+            "sustain_level": 80
+        },
+        {
+            "attack_time": 100,
+            "decay_time": 100,
+            "release_time": 500,
+            "sustain_level": 80
+        }
+    ],
+    "lfos": [
+        {
+            "soundbank_index": 0,
+            "time": 10
+        },
+        {
+            "soundbank_index": 0,
+            "time": 20
+        },
+        {
+            "soundbank_index": 0,
+            "time": 30
+        },
+        {
+            "soundbank_index": 0,
+            "time": 30
+        }
+    ],
+    "filter_config": {
+        "cutoff_frequency": 3000,
+        "resonance": 0,
+        "kind_of_filter": "Low",
+        "enabled": true
+    },
+    "mixer_config": {
+        "gain_voices": [
+            25,
+            25,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "gain_main": 100
+    },
+    "overdrive_config": {
+        "threshold": 2000,
+        "kind": "Softer",
+        "enabled": false
+    },
+    "bitcrunch_config": {
+        "enabled": false
+    },
+    "delay_config": {
+        "enabled": false,
+        "delay_time": 10000,
+        "mix_percentage": 70,
+        "feedback": true,
+        "feedback_percentage": 70
+    },
+    "routering_config": {
+        "voices_to_envelop": [
+            0,
+            0,
+            1,
+            1,
+            2,
+            2,
+            3,
+            3
+        ],
+        "lfo_to_voice": [
+            {
+                "voices": [
+                    0,
+                    1
+                ],
+                "enable": false
+            },
+            {
+                "voices": [
+                    1,
+                    255
+                ],
+                "enable": false
+            },
+            {
+                "voices": [
+                    1,
+                    255
+                ],
+                "enable": false
+            },
+            {
+                "voices": [
+                    1,
+                    255
+                ],
+                "enable": false
+            }
+        ],
+        "lfo_to_filter": false,
+        "lfo_to_freq": false,
+        "lfo_to_freq_amount": 5
+    },
+    "synth_config": {
+        "mode": "Mono"
+    }
+}

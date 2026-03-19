@@ -144,7 +144,6 @@ async fn main(spawner: Spawner) {
 
     Timer::after(Duration::from_millis(10)).await;
    let _ = spawner.spawn(keyboard_input_task());
-    //let _ = spawner.spawn(sequence_task());
     let _ = spawner.spawn(mapping_task());
 
    //let _ = spawner.spawn(touch_input_task(i2c_bus));

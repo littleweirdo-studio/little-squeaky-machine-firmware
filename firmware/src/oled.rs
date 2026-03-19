@@ -60,6 +60,12 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
     let sound_bank: SoundBank = postcard::from_bytes(&buf).unwrap();
 
     let mut main_menu = menu::Menu::new(EventType::NoMenu, EventType::NoActive, MenuIcon::Sine);
+     main_menu.add(
+        "SYNTH".to_string(),
+        MenuIcon::Sine,
+        EventType::SynthMenu,
+        EventType::NoActive,
+    );
     main_menu.add(
         "DRUMS".to_string(),
         MenuIcon::Music,
@@ -70,28 +76,18 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
         "SEQUENCER".to_string(),
         MenuIcon::Piano,
         EventType::SeqMenu,
-        EventType::NoActive,
+        EventType::SequencerModeActive,
     );
-    main_menu.add(
-        "SYNTH".to_string(),
-        MenuIcon::Sine,
-        EventType::SynthMenu,
-        EventType::NoActive,
-    );
+   
     main_menu.add(
         "MIDI".to_string(),
         MenuIcon::Midi,
         EventType::NoMenu,
         EventType::NoActive,
     );
-    main_menu.add(
-        "CONTROLS".to_string(),
-        MenuIcon::Tune,
-        EventType::ControlSettings,
-        EventType::NoActive,
-    );
+   
 
-    let mut control_settings = Settings::new(EventType::MainMenu);
+    let mut control_settings = Settings::new(EventType::SynthMenu);
     control_settings.add("Vol".to_string());
     control_settings.add("Attack".to_string());
     control_settings.add("Decay".to_string());
@@ -121,6 +117,21 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
         EventType::SynthPatchMenu,
         EventType::NoActive,
     );
+
+     synth_menu.add(
+        "CONTROLS".to_string(),
+        MenuIcon::Tune,
+        EventType::ControlSettings,
+        EventType::NoActive,
+    );
+
+     synth_menu.add(
+        "ABOUT".to_string(),
+        MenuIcon::Information,
+        EventType::NoMenu,
+        EventType::NoActive,
+    );
+
 
     let mut synth_patch_menu =
         menu::Menu::new(EventType::SynthMenu, EventType::NoActive, MenuIcon::Patch);
@@ -166,21 +177,9 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
 
     let mut seq_menu = menu::Menu::new(EventType::MainMenu, EventType::NoActive, MenuIcon::Piano);
     seq_menu.add(
-        "PATCHES".to_string(),
-        MenuIcon::Patch,
-        EventType::DrumPatchMenu,
-        EventType::NoActive,
-    );
-    seq_menu.add(
-        "SETTINGS".to_string(),
-        MenuIcon::Tune,
-        EventType::NoMenu,
-        EventType::NoActive,
-    );
-    seq_menu.add(
         "ABOUT".to_string(),
         MenuIcon::Information,
-        EventType::DrumAbout,
+        EventType::NoMenu,
         EventType::NoActive,
     );
 

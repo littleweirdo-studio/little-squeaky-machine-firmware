@@ -47,7 +47,7 @@ pub async fn led_task() {
     //
     data[26] = colors::RED;
 
-    led.write(brightness(gamma(data.iter().cloned()), 20))
+    led.write(brightness(gamma(data.iter().cloned()), 30))
         .unwrap();
 
    
@@ -55,7 +55,7 @@ pub async fn led_task() {
         let message = LED_MESSAGE_CHANNEL.receive().await;
         data[message.id as usize] = message.color;
 
-        led.write(brightness(gamma(data.iter().cloned()), 20))
+        led.write(brightness(gamma(data.iter().cloned()), 30))
             .unwrap();
     }
 }
