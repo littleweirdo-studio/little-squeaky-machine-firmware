@@ -67,8 +67,8 @@ static MIDI_OUT_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, midi_msg::Midi
 // create stack for second core (running the Synth tasks, 220KB stack reserved)
 static mut APP_CORE_STACK: Stack<220_000> = Stack::new();
 
-const USB_MIDI_ENABLED: bool = false;
-const UART_MIDI_ENABLED: bool = true;
+const USB_MIDI_ENABLED: bool = true;
+const UART_MIDI_ENABLED: bool = false;
 
 type I2c1Bus = Mutex<NoopRawMutex, esp_hal::i2c::master::I2c<'static, Async>>;
 
@@ -106,11 +106,12 @@ async fn main(spawner: Spawner) {
     esp_alloc::psram_allocator!(peripherals.PSRAM, esp_hal::psram);
 
     let timg0 = TimerGroup::new(peripherals.TIMG0);
+     let software_interrupt = esp_hal::interrupt::software::SoftwareInterruptControl::new(peripherals.SW_INTERRUPT);
 
-    esp_rtos::start(timg0.timer0);
+     esp_rtos::start(timg0.timer0, software_interrupt.software_interrupt0);
 
     // spawn the tasks
-    let _ = spawner.spawn(led_task());
+    let _ = spawner.spawn(led_task().unwrap());
     Timer::after(Duration::from_millis(10)).await;
 
     let mut cpu_control = CpuControl::new(peripherals.CPU_CTRL);
@@ -124,29 +125,29 @@ async fn main(spawner: Spawner) {
     // Create MIDI USB device
     if USB_MIDI_ENABLED {
         Timer::after(Duration::from_millis(10)).await;
-        let _ = spawner.spawn(midi_usb_task());
+        let _ = spawner.spawn(midi_usb_task().unwrap());
     }
 
     if UART_MIDI_ENABLED {
         Timer::after(Duration::from_millis(10)).await;
-        let _ = spawner.spawn(midi_uart_task());
+        let _ = spawner.spawn(midi_uart_task().unwrap());
     }
 
     Timer::after(Duration::from_millis(100)).await;
-    let _ = spawner.spawn(oled_task(i2c_bus));
+    let _ = spawner.spawn(oled_task(i2c_bus).unwrap());
 
     Timer::after(Duration::from_millis(100)).await;
-    let _ = spawner.spawn(potmeter_task());
+    let _ = spawner.spawn(potmeter_task().unwrap());
 
     Timer::after(Duration::from_millis(100)).await;
 
-    let _ = spawner.spawn(codec_task(i2c_bus));
+    let _ = spawner.spawn(codec_task(i2c_bus).unwrap());
 
     Timer::after(Duration::from_millis(10)).await;
-   let _ = spawner.spawn(keyboard_input_task());
-    let _ = spawner.spawn(mapping_task());
+   let _ = spawner.spawn(keyboard_input_task().unwrap());
+    let _ = spawner.spawn(mapping_task().unwrap());
 
-   //let _ = spawner.spawn(touch_input_task(i2c_bus));
+   let _ = spawner.spawn(touch_input_task(i2c_bus).unwrap());
 
    // let _ = spawner.spawn(tilt_task(i2c_bus));
 

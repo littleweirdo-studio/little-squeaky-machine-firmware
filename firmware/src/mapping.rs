@@ -1,6 +1,6 @@
 use embassy_executor::SendSpawner;
 use esp_println::println;
-use little_weirdo::sequencer::AMOUNT_OF_LANES;
+use little_weirdo::sequencer::{AMOUNT_OF_LANES, MAX_AMOUNT_OF_PATTERNS};
 use little_weirdo_gui::{EventType, KeyEvent, MAPPING_SIGNAL, NAVIGATION_SIGNAL};
 use midi_msg::Channel;
 use smart_leds::{RGB8, colors};
@@ -41,6 +41,7 @@ pub async fn mapping_task() {
     let mut last_value_pot3: u16 = 300;
 
     let mut lane = 0;
+    let mut pattern = 0;
 
     loop {
         let event = MAPPING_SIGNAL.receive().await;
@@ -107,6 +108,15 @@ pub async fn mapping_task() {
                                 value: event.value,
                             })
                             .await;
+                        if seq_active {
+                             SEQUENCE_KEY_CHANNEL
+                            .send(KeyEvent {
+                                event: EventType::ChangeSeqBPM,
+                                id: 0,
+                                value: event.value,
+                            })
+                            .await;
+                        }
                         let message = midi_msg::MidiMsg::ChannelVoice {
                             channel: if synth_active {
                                 Channel::Ch1
@@ -160,8 +170,9 @@ pub async fn mapping_task() {
             }
             EventType::SequencerModeActive => {
                 seq_active = true;
-                let seq_task = sequence_task();
+                let seq_task = sequence_task().unwrap();
                 SendSpawner::for_current_executor().await.spawn(seq_task);
+            
             }
             EventType::PatchSelect => {
                 //println!("patch activated = {}", event.id);
@@ -209,19 +220,69 @@ pub async fn mapping_task() {
                             .await;
                     }
                 } else {
-                    //println!("no node {}", event.id);
+                    println!("no node {}", event.id);
                     match event.id {
                         13 => {
-                            //  if synth_active {
-                            base -= 12;
-                            // }
+                            if seq_active {
+                                if pattern > 0 {
+                                    pattern = pattern - 1;
+                                    println!("pattern {}", pattern);
+                                    SEQUENCE_KEY_CHANNEL
+                                        .send(KeyEvent {
+                                            event: EventType::ChangeSeqPattern,
+                                            id: 0,
+                                            value: pattern,
+                                        })
+                                        .await;
+                                }
+                            } else {
+                                //  if synth_active {
+                                base -= 12;
+                                // }
+                            }
                         }
                         14 => {
                             //if synth_active { base += 12; }
-                            base += 12;
+                            if seq_active {
+                                if pattern < (MAX_AMOUNT_OF_PATTERNS - 1) as u16 {
+                                    pattern = pattern + 1;
+                                    println!("pattern {}", pattern);
+
+                                    SEQUENCE_KEY_CHANNEL
+                                        .send(KeyEvent {
+                                            event: EventType::ChangeSeqPattern,
+                                            id: 0,
+                                            value: pattern,
+                                        })
+                                        .await;
+                                }
+                            } else {
+                                base += 12;
+                            }
+                        }
+                        18 => {
+                              if seq_active {
+                                  SEQUENCE_KEY_CHANNEL
+                                    .send(KeyEvent {
+                                        event: EventType::PlayActiveLaneNoteSeq,
+                                        id: 0,
+                                        value: 0,
+                                    })
+                                    .await;
+                              }
                         }
                         23 => {
-                            TILT_SIGNAL.send(EventType::TiltNoteDown).await;
+                            if seq_active {
+                                SEQUENCE_KEY_CHANNEL
+                                    .send(KeyEvent {
+                                        event: EventType::StartStopSeqPattern,
+                                        id: 0,
+                                        value: 0,
+                                    })
+                                    .await;
+                            }
+
+                            //TILT_SIGNAL.send(EventType::TiltNoteDown).await;
                         }
                         19 => {
                             NAVIGATION_SIGNAL
@@ -294,13 +355,15 @@ pub async fn mapping_task() {
                         _ => {}
                     }
                 };
-                LED_MESSAGE_CHANNEL
-                    .send(LedMessage {
-                        color: COLOR,
-                        id: 2 + event.id,
-                        brightness: BRIGTHNESS,
-                    })
-                    .await;
+                if !seq_active {
+                    LED_MESSAGE_CHANNEL
+                        .send(LedMessage {
+                            color: COLOR,
+                            id: 2 + event.id,
+                            brightness: BRIGTHNESS,
+                        })
+                        .await;
+                }
             }
 
             EventType::KeypadUp => {
@@ -328,13 +391,15 @@ pub async fn mapping_task() {
                         _ => {}
                     }
                 };
-                LED_MESSAGE_CHANNEL
-                    .send(LedMessage {
-                        color: colors::BLACK,
-                        id: 2 + event.id,
-                        brightness: BRIGTHNESS,
-                    })
-                    .await;
+                if !seq_active {
+                    LED_MESSAGE_CHANNEL
+                        .send(LedMessage {
+                            color: colors::BLACK,
+                            id: 2 + event.id,
+                            brightness: BRIGTHNESS,
+                        })
+                        .await;
+                }
             }
             e => {
                 NAVIGATION_SIGNAL

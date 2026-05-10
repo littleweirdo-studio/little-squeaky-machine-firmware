@@ -31,7 +31,7 @@ pub async fn touch_input_task(i2c_bus: &'static I2c1Bus) {
     );
 
     let is_config_ready = touch.write_configuration().await;
-    match is_config_ready {
+     match is_config_ready {
         Ok(true) => {
             println!("CY8CMBR3108 Configuration successful!");
         }
@@ -40,6 +40,8 @@ pub async fn touch_input_task(i2c_bus: &'static I2c1Bus) {
         }
         Err(e) => println!("CY8CMBR3108 Configuration failed with error: {:?}", e),
     }
+
+
     let mut key_status_array: [KeyStatus; 8] = [KeyStatus::default(); 8];
 
     loop {
