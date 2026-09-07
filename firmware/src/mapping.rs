@@ -10,7 +10,7 @@ use crate::{
     codec::{CODEC_SIGNAL, CodecEvent, CodecEventType},
     led::{LED_MESSAGE_CHANNEL, LedMessage},
     sequence::{SEQUENCE_KEY_CHANNEL, sequence_task},
-    tilt::TILT_SIGNAL,
+    // tilt::TILT_SIGNAL,
 };
 
 const COLOR: RGB8 = colors::DEEP_PINK;
@@ -383,10 +383,10 @@ pub async fn mapping_task() {
                     MIDI_OUT_MESSAGE_CHANNEL.send(message.clone()).await;
                     sender.publish(message).await;
                 } else {
-                    println!("event {:?}", event.id);
+                    // println!("event {:?}", event.id);
                     match event.id {
                         23 => {
-                            TILT_SIGNAL.send(EventType::TiltNoteUp).await;
+                           // TILT_SIGNAL.send(EventType::TiltNoteUp).await;
                         }
                         _ => {}
                     }

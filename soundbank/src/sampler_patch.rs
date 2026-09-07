@@ -1,4 +1,4 @@
-use little_weirdo::sampler::patch::Patch;
+use little_weirdo::wavetable::patch::Patch;
 use std::fs::{self, File, read_dir};
 use std::io::Write;
 use std::path::Path;

@@ -20,7 +20,7 @@ use esp_hal::otg_fs::Usb;
 use esp_hal::otg_fs::asynch::Driver;
 use esp_hal::peripherals::Peripherals;
 use esp_println::println;
-use midi_msg::{Channel, ReceiverContext};
+use midi_msg::ReceiverContext;
 
 // Custom module imports
 use crate::{MIDI_MESSAGE_CHANNEL, MIDI_OUT_MESSAGE_CHANNEL};

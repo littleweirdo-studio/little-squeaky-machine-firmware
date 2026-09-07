@@ -2,15 +2,15 @@ extern crate alloc;
 use alloc::string::ToString;
 use alloc::{format, vec};
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
-use embassy_futures::join::join;
-use embassy_futures::select::{Either, select};
+// use embassy_futures::join::join;
+use embassy_futures::select::select;
 use embassy_time::{Duration, Timer};
 use embedded_graphics::pixelcolor::BinaryColor;
 use embedded_graphics::prelude::DrawTarget;
 use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::peripherals::Peripherals;
-use esp_println::println;
+// use esp_println::println;
 use esp_storage::FlashStorage;
 use little_weirdo::synth::patch::Patch;
 use little_weirdo_filesystem::WeirdoFileSystem;
@@ -18,7 +18,7 @@ use little_weirdo_gui::about::About;
 use little_weirdo_gui::menu::{self, MenuIcon};
 use little_weirdo_gui::settings::Settings;
 use little_weirdo_gui::{
-    ActiveItem, DrawItem, EventType, NAVIGATION_SIGNAL, Navigatable, settings,
+    ActiveItem, DrawItem, EventType, NAVIGATION_SIGNAL, Navigatable,
 };
 use ssd1306::prelude::DisplayRotation;
 use ssd1306::size::DisplaySize128x64;
@@ -189,7 +189,7 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
         let length_of_patch = filesystem
             .read_key_value(200 + i, &mut patch_read_buffer)
             .unwrap();
-        let patch: little_weirdo::sampler::patch::Patch =
+        let patch: little_weirdo::wavetable::patch::Patch =
             postcard::from_bytes(&patch_read_buffer[..length_of_patch as usize]).unwrap();
         drum_patch_menu.add(
             format!("{}", patch.name),

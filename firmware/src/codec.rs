@@ -28,7 +28,7 @@ pub static CODEC_SIGNAL: Channel<CriticalSectionRawMutex, CodecEvent, 50> = Chan
 #[embassy_executor::task]
 pub async fn codec_task(i2c_bus: &'static I2c1Bus) {
     let i2c_dev = I2cDevice::new(i2c_bus);
-    let mut volume = 50;
+    let volume = 50;
     let mut sgtl500 = SGTL5000::new(i2c_dev);
     for i in 0..10 {
         println!("Starting -:= > SGTL5000  ... {}x try ", i);

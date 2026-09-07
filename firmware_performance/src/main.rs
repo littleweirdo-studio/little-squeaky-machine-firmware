@@ -1,26 +1,60 @@
 #![no_std]
 #![no_main]
-#![feature(impl_trait_in_assoc_type)]
-use alloc::sync::Arc;
+
+use alloc::{
+    string::{String, ToString},
+    sync::Arc,
+    vec,
+    vec::Vec,
+};
+
 use embassy_executor::Spawner;
+use esp_alloc::heap_allocator;
 use esp_backtrace as _;
 use esp_hal::psram;
 use esp_hal::rtc_cntl::Rtc;
 use esp_hal::{
     peripherals::Peripherals,
 };
+use esp_hal::{
+    Async, clock::CpuClock, ram, system::{Cpu, CpuControl, Stack}
+};
 use esp_println::println;
 use esp_storage::FlashStorage;
 use little_weirdo::synth;
-use little_weirdo::synth::data::wavetables::{BoxedWavetable, BoxedWavetables};
 use little_weirdo::synth::patch::Patch;
 use little_weirdo_filesystem::WeirdoFileSystem;
+use little_weirdo::synth::{
+    Synth,
+    data::{
+        patches::{BoxedPatch, BoxedPatches},
+        waveforms::{BoxedWaveform, BoxedWaveforms},
+    }
+};
+
+use esp_hal::timer::timg::TimerGroup;
+
 extern crate alloc;
 use esp_alloc as _;
 use esp_backtrace as _;
 
+use serde::Deserialize;
+use serde::Serialize;
+#[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
+pub struct SoundBank {
+    pub name: String,
+    pub amount_of_patches: u16,
+    pub amount_of_waveforms: u16,
+    pub amount_of_samples: u16,
+    pub amound_of_sampler_patches: u16,
+}
+
+
 const SAMPLE_RATE: u32 = 44_100;
 const DELAY_US: u32 = 1_000_000 / SAMPLE_RATE;
+
+esp_bootloader_esp_idf::esp_app_desc!();
+
 #[esp_rtos::main]
 async fn main(_spawner: Spawner) {
     // init CPU
@@ -28,13 +62,29 @@ async fn main(_spawner: Spawner) {
 
     let peripherals = esp_hal::init(config);
     let rtc = Rtc::new(peripherals.LPWR);
-    esp_alloc::psram_allocator!(peripherals.PSRAM, psram);
+   
+
+    // Use 64kB in dram2_seg for the heap, which is otherwise unused.
+    heap_allocator!(#[ram(reclaimed)] size: 64000);
+
+    // Initialize PSRAM and add it as a heap memory region
+    esp_alloc::psram_allocator!(peripherals.PSRAM, esp_hal::psram);
+
+    let timg0 = TimerGroup::new(peripherals.TIMG0);
+     let software_interrupt = esp_hal::interrupt::software::SoftwareInterruptControl::new(peripherals.SW_INTERRUPT);
+
+     esp_rtos::start(timg0.timer0, software_interrupt.software_interrupt0);
+
+
     println!("> performance run start");
     println!("> Heap size  = {:?} bytes", esp_alloc::HEAP.free());
     println!(
         "> Heap used before allocation of wavetables/synth = {:?} bytes",
         esp_alloc::HEAP.used()
     );
+
+     println!("> performance run stop");
+     
 
     let storage;
     unsafe {
@@ -45,36 +95,43 @@ async fn main(_spawner: Spawner) {
     let mut filesystem: WeirdoFileSystem<FlashStorage> =
         WeirdoFileSystem::new(storage, 0x00220000, 0x100000);
 
-    let mut wt_on_heap = BoxedWavetables::new();
+         let mut buf = vec![0u8; 256];
+
+    filesystem.read_key_value(000, buf.as_mut_slice());
+    let sound_bank: SoundBank = postcard::from_bytes(&buf).unwrap();
+
+
+    let mut wt_on_heap = BoxedWaveforms::new();
     let mut wt_read_buffer = alloc::vec![0u8; 1200];
     for wt in 0..10 {
         let _ = filesystem
             .read_key_value(700 + wt, &mut wt_read_buffer)
             .unwrap();
-        wt_on_heap.add(BoxedWavetable::new(&wt_read_buffer));
+        wt_on_heap.add(BoxedWaveform::new(&wt_read_buffer));
     }
     let wt = Arc::new(wt_on_heap);
 
-    let mut samples_on_heap = little_weirdo::sampler::audio_sampler::BoxedSamples::new();
-    let mut sample_read_buffer = alloc::vec![0u8; 48_000];
-    for wt in 0..5 {
-        let length_of_sample = filesystem
-            .read_key_value(900 + wt, &mut sample_read_buffer)
-            .unwrap();
-        samples_on_heap.add(little_weirdo::sampler::audio_sampler::BoxedSample::new(
-            &sample_read_buffer[..length_of_sample as usize],
-        ));
-    }
 
     esp_println::println!("-:= > \n{}-:= >", esp_alloc::HEAP.stats());
 
-    let mut patch_bytes = [0u8; 256];
+    let mut patches_on_heap = BoxedPatches::new();
+    let mut patch_read_buffer = vec![0u8; 512];
+    for pt in 0..sound_bank.amount_of_patches as u32 {
+        let length_of_patch = filesystem
+            .read_key_value(100 + pt, &mut patch_read_buffer)
+            .unwrap();
+        let patch: Patch =
+            postcard::from_bytes(&patch_read_buffer[..length_of_patch as usize]).unwrap();
+        println!("patch {}", patch.name);
+        patches_on_heap.add(BoxedPatch::new(patch));
+    }
 
-    let _ = filesystem.read_key_value(102, &mut patch_bytes).unwrap();
+    let patches = Arc::new(patches_on_heap);
 
-    let patch: Patch = postcard::from_bytes(&patch_bytes).unwrap();
 
-    let mut synth: synth::Synth = synth::Synth::new(SAMPLE_RATE as u16, &patch, Arc::clone(&wt));
+    let mut synth: synth::Synth =
+        Synth::new(SAMPLE_RATE as u16, 2, Arc::clone(&patches), Arc::clone(&wt));
+ 
     println!(
         "> Heap used after allocation of wavetables/synth = {:?} bytes",
         esp_alloc::HEAP.used()
@@ -87,7 +144,7 @@ async fn main(_spawner: Spawner) {
     let mut moment: u32 = 0;
     for _x in 0..20 {
         let start_time = rtc.current_time_us();
-        synth.load_patch(&patch);
+        synth.load_patch(0);
         let stop_time = rtc.current_time_us();
         esp_println::println!(
             "> patch change in {} µs (max {}µs)",
@@ -150,4 +207,5 @@ async fn main(_spawner: Spawner) {
         low = DELAY_US as u64;
     }
     println!("> performance run stop");
+
 }

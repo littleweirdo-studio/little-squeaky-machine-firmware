@@ -32,7 +32,7 @@ pub fn generate_patches() {
                 // Parse JSON
                 let patch: Patch = serde_json::from_str(&json_content).unwrap();
                 // Serialize to postcard format
-                let mut buf = [0u8; 256];
+                let mut buf = [0u8; 512];
                 let serialized =
                     postcard::to_slice(&patch, &mut buf).expect("Failed to serialize to postcard");
 

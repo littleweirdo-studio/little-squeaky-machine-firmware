@@ -1,7 +1,7 @@
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::Channel;
 
-use embassy_time::{Duration, Instant, Timer, WithTimeout};
+use embassy_time::{Duration, Instant, Timer};
 use esp_backtrace as _;
 use esp_println::{print, println};
 use little_weirdo::sequencer::{AMOUNT_OF_LANES, MAX_AMOUNT_OF_PATTERNS};
@@ -83,7 +83,7 @@ pub async fn sequence_task() {
                 }
                 EventType::ChangeSeqKey => {
                     let state =
-                        sequencer_1.flip_step(active_pattern, e.value as usize, e.id as usize);
+                        sequencer_1.flip_step(e.value as usize, e.id as usize);
 
                   
 

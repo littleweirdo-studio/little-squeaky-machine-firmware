@@ -36,8 +36,8 @@ mod touch_input;
 use crate::touch_input::touch_input_task;
 
 
-mod tilt;
-use crate::tilt::tilt_task;
+// mod tilt;
+// use crate::tilt::tilt_task;
 
 //
 use embassy_executor::Spawner;
@@ -149,7 +149,7 @@ async fn main(spawner: Spawner) {
 
    let _ = spawner.spawn(touch_input_task(i2c_bus).unwrap());
 
-   // let _ = spawner.spawn(tilt_task(i2c_bus));
+   // let _ = spawner.spawn(tilt_task(i2c_bus)); // Commented out as tilt module is not available
 
 
     loop {

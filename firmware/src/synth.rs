@@ -1,11 +1,12 @@
 extern crate alloc;
 
 use alloc::{
-    boxed::Box,
     string::{String, ToString},
     sync::Arc,
     vec,
+    vec::Vec,
 };
+use embassy_sync::mutex::Mutex;
 use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::{
@@ -23,21 +24,17 @@ use little_weirdo::{
         delay::DelayConfiguration,
         overdrive::{KindOfOverdrive, OverdriveConfiguration},
     },
-    sampler::data::patches::{BoxedSamplerPatch, BoxedSamplerPatches},
     synth::{
         self, Synth,
         data::patches::{BoxedPatch, BoxedPatches},
         patch::Patch,
     },
+    wavetable::data::patches::{BoxedSamplerPatch, BoxedSamplerPatches},
+    wavetable::sample_voice::{BoxedSample, BoxedSamples},
+    synth::data::waveforms::{BoxedWaveform, BoxedWaveforms},
 };
 
-use little_weirdo::{
-    sampler::{
-        self,
-        audio_sampler::{BoxedSample, BoxedSamples},
-    },
-    synth::data::wavetables::{BoxedWavetable, BoxedWavetables},
-};
+
 use little_weirdo_filesystem::WeirdoFileSystem;
 use midi_msg::Channel;
 
@@ -83,14 +80,14 @@ pub fn synth_loop() {
 
     println!("Soundbank Loaded = {}", sound_bank.name);
 
-    let mut wt_on_heap = BoxedWavetables::new();
+    let mut wt_on_heap = BoxedWaveforms::new();
     let mut wt_read_buffer = vec![0u8; 1200];
     for wt in 0..sound_bank.amount_of_waveforms as u32 {
         //        println!("key = {:?}", wt);
         let _ = filesystem
             .read_key_value(700 + wt, wt_read_buffer.as_mut_slice())
             .unwrap();
-        wt_on_heap.add(BoxedWavetable::new(&wt_read_buffer));
+        wt_on_heap.add(BoxedWaveform::new(&wt_read_buffer));
     }
     let wt = Arc::new(wt_on_heap);
 
@@ -131,10 +128,10 @@ pub fn synth_loop() {
         let length_of_patch = filesystem
             .read_key_value(200 + pt, &mut sampler_patch_read_buffer)
             .unwrap();
-        let patch: sampler::patch::Patch =
-            postcard::from_bytes(&sampler_patch_read_buffer[..length_of_patch as usize]).unwrap();
-        println!("sampler patch {}", patch.name);
-        sampler_patches_on_heap.add(BoxedSamplerPatch::new(patch));
+        // let patch: sampler::patch::Patch =
+        //     postcard::from_bytes(&sampler_patch_read_buffer[..length_of_patch as usize]).unwrap();
+        // println!("sampler patch {}", patch.name);
+        // sampler_patches_on_heap.add(BoxedSamplerPatch::new(patch));
     }
 
     let sampler_patches = Arc::new(sampler_patches_on_heap);
@@ -144,14 +141,18 @@ pub fn synth_loop() {
     let mut synth: synth::Synth =
         Synth::new(SAMPLE_RATE as u16, 2, Arc::clone(&patches), Arc::clone(&wt));
 
-    let mut sampler: sampler::Sampler = sampler::Sampler::new(
-        SAMPLE_RATE as u16,
-        0,
-        Arc::clone(&sampler_patches),
-        Arc::clone(&sp),
-    );
+    // let mut sampler: sampler::Sampler = sampler::Sampler::new(
+    //     SAMPLE_RATE as u16,
+    //     0,
+    //     Arc::clone(&sampler_patches),
+    //     Arc::clone(&sp),
+    // );
 
-    let (_, _rx_descriptors, tx_buffer, tx_descriptors) = dma_circular_buffers!(0, BUFFER_SIZE);
+    //let mut recorder = AudioRecorder::new(SAMPLE_RATE, SAMPLE_RATE as usize * 2* 10);
+
+
+    let (rx_buffer, rx_descriptors, tx_buffer, tx_descriptors) =
+        dma_circular_buffers!(BUFFER_SIZE, BUFFER_SIZE);
 
     unsafe {
         let peripherals: Peripherals = Peripherals::steal();
@@ -161,6 +162,7 @@ pub fn synth_loop() {
             peripherals.I2S0,
             dma_channel,
             Config::new_tdm_philips()
+                .with_signal_loopback(false)
                 .with_sample_rate(Rate::from_hz(44100))
                 .with_data_format(DataFormat::Data16Channel16)
                 .with_channels(Channels::STEREO),
@@ -176,19 +178,28 @@ pub fn synth_loop() {
             .with_dout(peripherals.GPIO38)
             .build(tx_descriptors);
 
+        let mut i2s_rx = i2s
+        .i2s_rx
+        .with_din(peripherals.GPIO39)
+        .build(rx_descriptors);
+
         esp_println::println!(
             "-:= > Starting LttL Weirdɵ DMA transfer with a {} ms buffer",
             (AMOUNT_OF_SAMPLES_BUFFERING * 1000 / SAMPLE_RATE as usize * 1000) / 1000
         );
 
         let mut transfer = i2s_tx.write_dma_circular(tx_buffer).unwrap();
+      //  let mut receiver = i2s_rx.read_dma_circular(rx_buffer).unwrap();
+     
         let mut buffer = [0u8; BUFFER_SIZE];
-        let mut receiver = MIDI_MESSAGE_CHANNEL.subscriber().unwrap();
+       // let mut buffer_receiver =  [0u8; BUFFER_SIZE];
+
+        let mut midi_message_receiver = MIDI_MESSAGE_CHANNEL.subscriber().unwrap();
 
         loop {
             //TODO fix this hack
-            if receiver.available() > 0 {
-                match receiver.try_next_message_pure() {
+            if midi_message_receiver.available() > 0 {
+                match midi_message_receiver.try_next_message_pure() {
                     Some(msg) => {
                         match msg {
                             midi_msg::MidiMsg::ChannelVoice { channel, msg } => {
@@ -198,7 +209,7 @@ pub fn synth_loop() {
                                             midi_msg::ChannelVoiceMsg::ProgramChange {
                                                 program,
                                             } => {
-                                                sampler.load_patch(program);
+                                                synth.load_patch(program);
                                             }
 
                                             midi_msg::ChannelVoiceMsg::NoteOn {
@@ -206,13 +217,13 @@ pub fn synth_loop() {
                                                 velocity,
                                             } => {
                                                 //           println!("note on");
-                                                sampler.note_on(note, velocity);
+                                                synth.note_on(note, velocity);
                                             }
                                             midi_msg::ChannelVoiceMsg::NoteOff {
                                                 note,
                                                 velocity: _,
                                             } => {
-                                                sampler.note_off(note);
+                                                synth.note_off(note);
                                             }
                                             _ => {}
                                         }
@@ -296,19 +307,29 @@ pub fn synth_loop() {
                     }
                     None => {}
                 }
-                if receiver.available() == 0 {
-                    receiver.clear();
+                if midi_message_receiver.available() == 0 {
+                    midi_message_receiver.clear();
                 }
             }
-            let mut reload = false;
+         //   let mut reload = false;
+            /* 
+            match receiver.available() {
+                Ok(num_bytes) => {
+                    receiver.pop(&mut buffer_receiver).unwrap();
+                  //  recorder.process_audio(&buffer_receiver[..num_bytes]);
+                }
+                Err(error) => {
+                   // println!("Error: {:?}", error); 
+                }
+            }
+            */
             match transfer.available() {
                 Ok(num_bytes) => {
                     let avail = usize::min(BUFFER_SIZE, num_bytes);
                     for i in 0..(avail / 4) {
-                        let output_sampler = sampler.clock_and_output();
                         let output_synth = synth.clock_and_output();
 
-                        let mix = output_sampler[0] + output_synth[0];
+                        let mix = output_synth[0];
 
                         let left = mix.to_be_bytes();
                         let right = left;
@@ -326,5 +347,57 @@ pub fn synth_loop() {
                 }
             }
         }
+    }
+}
+
+
+// Add this struct to hold your recording state
+struct AudioRecorder {
+    buffer: Vec<u8>,
+    is_recording: bool,
+    sample_rate: u32,
+    max_size: usize,  // Maximum buffer size in bytes
+}
+
+impl AudioRecorder {
+    fn new(sample_rate: u32, max_size: usize) -> Self {
+        Self {
+            buffer: Vec::with_capacity(max_size),
+            is_recording: false,
+            sample_rate,
+            max_size,
+        }
+    }
+
+    fn start_recording(&mut self) {
+        self.is_recording = true;
+        self.buffer.clear();  // Clear previous recording when starting new one
+    }
+
+    fn stop_recording(&mut self) {
+        self.is_recording = false;
+    }
+
+    fn is_recording(&self) -> bool {
+        self.is_recording
+    }
+
+    fn process_audio(&mut self, data: &[u8]) {
+        if self.is_recording {
+            // Only add data if there's space left in the buffer
+            if self.buffer.len() + data.len() <= self.max_size {
+                self.buffer.extend_from_slice(data);
+            }
+            // Optionally: could implement a circular buffer behavior here
+            // by overwriting oldest data when full
+        }
+    }
+
+    fn get_recording(&self) -> &[u8] {
+        &self.buffer
+    }
+
+    fn clear_recording(&mut self) {
+        self.buffer.clear();
     }
 }

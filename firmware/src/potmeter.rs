@@ -1,12 +1,12 @@
-use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, watch::Watch};
+// use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, watch::Watch};
 use embassy_time::{Duration, Timer};
 use esp_backtrace as _;
 use esp_hal::{
     analog::adc::{Adc, AdcCalBasic, AdcConfig, Attenuation},
-    peripherals::{ADC1, ADC2, GPIO1, GPIO2, GPIO3, GPIO8, GPIO15, GPIO16, Peripherals},
+    peripherals::{ADC1, ADC2, GPIO1, GPIO2, GPIO3, GPIO16, Peripherals},
 };
 use little_weirdo_gui::{KeyEvent, MAPPING_SIGNAL};
-use smart_leds::RGB8;
+// use smart_leds::RGB8;
 
 #[embassy_executor::task]
 pub async fn potmeter_task() {

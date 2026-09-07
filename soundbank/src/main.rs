@@ -77,7 +77,7 @@ fn main() {
         amound_of_sampler_patches: sampler_patches_count,
     };
 
-      let mut buf = [0u8; 256];
+      let mut buf = [0u8; 512];
                 let serialized =
                     postcard::to_slice(&soundbank, &mut buf).expect("Failed to serialize to postcard");
 

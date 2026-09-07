@@ -1,4 +1,4 @@
 cd experiment
 cargo build --release --offline
 cd ..
-espflash flash --monitor  ./target/xtensa-esp32-none-elf/release/experiment
+espflash flash --monitor  ./experiment/target/xtensa-esp32s3-none-elf/release/experiment
