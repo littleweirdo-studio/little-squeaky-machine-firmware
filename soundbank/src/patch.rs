@@ -4,8 +4,7 @@ use std::io::Write;
 use std::path::Path;
 
 pub fn generate_patches() {
-      println!(":: Generate patches.");
-   
+    println!(":: Generate patches.");
 
     // Load a synth patch from a JSON file
     let patch_dir = "data/patches/src";

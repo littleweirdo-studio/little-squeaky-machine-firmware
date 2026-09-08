@@ -55,12 +55,12 @@ pub async fn sequence_task() {
     loop {
         let start = Instant::now();
         let seq_key = SEQUENCE_KEY_CHANNEL.try_receive();
-       
+
         match seq_key {
             Ok(e) => match e.event {
                 EventType::ChangeSeqBPM => {
-                    if e.value > 0  {
-                        tick = 60_000 / ( e.value * 8);
+                    if e.value > 0 {
+                        tick = 60_000 / (e.value * 8);
                     }
                 }
                 EventType::StartStopSeqPattern => {
@@ -73,19 +73,16 @@ pub async fn sequence_task() {
                 EventType::PlayActiveLaneNoteSeq => {
                     println!("active = {}", active_lane + 36);
                     let message = MidiMsg::ChannelVoice {
-                    channel: midi_msg::Channel::Ch2,
-                    msg: midi_msg::ChannelVoiceMsg::NoteOn {
-                        note: active_lane + 36,
-                        velocity: 127,
-                    },
-                };
-                let _ = sender.publish(message).await;
+                        channel: midi_msg::Channel::Ch2,
+                        msg: midi_msg::ChannelVoiceMsg::NoteOn {
+                            note: active_lane + 36,
+                            velocity: 127,
+                        },
+                    };
+                    let _ = sender.publish(message).await;
                 }
                 EventType::ChangeSeqKey => {
-                    let state =
-                        sequencer_1.flip_step(e.value as usize, e.id as usize);
-
-                  
+                    let state = sequencer_1.flip_step(e.value as usize, e.id as usize);
 
                     LED_MESSAGE_CHANNEL
                         .send(LedMessage {
@@ -147,29 +144,29 @@ pub async fn sequence_task() {
         let note_id_active = sequencer_1.get_position() as usize;
 
         if note_id_active % 4 == 0 {
-  LED_MESSAGE_CHANNEL
-                        .send(LedMessage {
-                            color: if switch {
-                                smart_leds::colors::RED
-                            } else {
-                                smart_leds::colors::INDIAN_RED
-                            },
-                            id: 0,
-                            // brightness: 10,
-                        })
-                        .await;
-                     LED_MESSAGE_CHANNEL
-                        .send(LedMessage {
-                            color: if switch {
-                                smart_leds::colors::INDIAN_RED
-                            } else {
-                                smart_leds::colors::RED
-                            },
-                            id: 1,
-                            // brightness: 10,
-                        })
-                        .await;
-                    switch = !switch;
+            LED_MESSAGE_CHANNEL
+                .send(LedMessage {
+                    color: if switch {
+                        smart_leds::colors::RED
+                    } else {
+                        smart_leds::colors::INDIAN_RED
+                    },
+                    id: 0,
+                    // brightness: 10,
+                })
+                .await;
+            LED_MESSAGE_CHANNEL
+                .send(LedMessage {
+                    color: if switch {
+                        smart_leds::colors::INDIAN_RED
+                    } else {
+                        smart_leds::colors::RED
+                    },
+                    id: 1,
+                    // brightness: 10,
+                })
+                .await;
+            switch = !switch;
         }
 
         for (i, &hit) in trigger_1.iter().enumerate() {
@@ -204,9 +201,6 @@ pub async fn sequence_task() {
         }
         let stop = Instant::now();
         let duration = stop.duration_since(start);
-        Timer::after(Duration::from_millis(
-            tick as u64 - duration.as_millis(),
-        ))
-        .await;
+        Timer::after(Duration::from_millis(tick as u64 - duration.as_millis())).await;
     }
 }

@@ -7,21 +7,20 @@ use little_weirdo_filesystem::memory_storage::MemoryStorage;
 use little_weirdo_filesystem::{BLOCK_SIZE, WeirdoFileSystem};
 
 mod patch;
-mod wav_to_raw;
 mod sampler_patch;
+mod wav_to_raw;
 
 use serde::Deserialize;
 use serde::Serialize;
 
 #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 pub struct SoundBank {
-   pub name: String,
-   pub amount_of_patches: u16,
-   pub amount_of_waveforms: u16,
-   pub amount_of_samples: u16,
-   pub amound_of_sampler_patches: u16,
+    pub name: String,
+    pub amount_of_patches: u16,
+    pub amount_of_waveforms: u16,
+    pub amount_of_samples: u16,
+    pub amound_of_sampler_patches: u16,
 }
-
 
 fn main() {
     //generating optimized files for Little Weirdo
@@ -50,7 +49,7 @@ fn main() {
         "lwp".to_string(),
         100,
     );
-     let sampler_patches_count = store_items(
+    let sampler_patches_count = store_items(
         &mut filesystem,
         "data/sampler_patches".to_string(),
         "lwp".to_string(),
@@ -77,12 +76,11 @@ fn main() {
         amound_of_sampler_patches: sampler_patches_count,
     };
 
-      let mut buf = [0u8; 512];
-                let serialized =
-                    postcard::to_slice(&soundbank, &mut buf).expect("Failed to serialize to postcard");
+    let mut buf = [0u8; 512];
+    let _serialized =
+        postcard::to_slice(&soundbank, &mut buf).expect("Failed to serialize to postcard");
 
-                    
-    filesystem.write_key_value(000, &buf);
+    let _ = filesystem.write_key_value(000, &buf);
 
     println!(
         ":: Image blocks free ({}) = {} B, used ({}) = {} B",
@@ -92,12 +90,10 @@ fn main() {
         filesystem.amount_of_used_blocks() * BLOCK_SIZE as u32
     );
 
+    let mut buf = [0u8; 256];
 
-  let mut buf = [0u8; 256];
-
-    filesystem.read_key_value(000, &mut buf);
-    let patch: SoundBank =
-            postcard::from_bytes(&buf).unwrap();
+    let _ = filesystem.read_key_value(000, &mut buf);
+    let patch: SoundBank = postcard::from_bytes(&buf).unwrap();
 
     println!("name = {}", patch.name);
 
@@ -139,10 +135,10 @@ fn store_items(
                     let mut file = fs::File::open(path).unwrap();
                     let len = file.read(&mut buffer).unwrap();
                     println!(", file size = {:?}", len);
-                    filesystem.write_key_value(key as u32, &buffer[0..len]);
+                    let _ = filesystem.write_key_value(key as u32, &buffer[0..len]);
                     key = key + 1;
                     amount_of_keys += 1;
-                 }
+                }
             }
         }
     }

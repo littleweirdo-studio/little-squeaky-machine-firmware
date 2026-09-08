@@ -4,11 +4,9 @@
 use alloc::sync::Arc;
 use embassy_executor::Spawner;
 use esp_backtrace as _;
+use esp_hal::peripherals::Peripherals;
 use esp_hal::psram;
 use esp_hal::rtc_cntl::Rtc;
-use esp_hal::{
-    peripherals::Peripherals,
-};
 use esp_println::println;
 use esp_storage::FlashStorage;
 use little_weirdo::synth;

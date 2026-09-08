@@ -1,10 +1,6 @@
 extern crate alloc;
 
-use alloc::{
-    string::String,
-    sync::Arc,
-    vec,
-};
+use alloc::{string::String, sync::Arc, vec};
 
 use esp_alloc as _;
 use esp_backtrace as _;
@@ -18,6 +14,7 @@ use esp_hal::{
 use esp_println::println;
 use esp_storage::FlashStorage;
 use little_weirdo::{
+    synth::data::waveforms::{BoxedWaveform, BoxedWaveforms},
     synth::{
         self, Synth,
         data::patches::{BoxedPatch, BoxedPatches},
@@ -25,9 +22,7 @@ use little_weirdo::{
     },
     wavetable::data::patches::BoxedSamplerPatches,
     wavetable::sample_voice::{BoxedSample, BoxedSamples},
-    synth::data::waveforms::{BoxedWaveform, BoxedWaveforms},
 };
-
 
 use little_weirdo_filesystem::WeirdoFileSystem;
 use midi_msg::Channel;
@@ -144,7 +139,6 @@ pub fn synth_loop() {
 
     //let mut recorder = AudioRecorder::new(SAMPLE_RATE, SAMPLE_RATE as usize * 2* 10);
 
-
     let (_rx_buffer, rx_descriptors, tx_buffer, tx_descriptors) =
         dma_circular_buffers!(BUFFER_SIZE, BUFFER_SIZE);
 
@@ -173,9 +167,9 @@ pub fn synth_loop() {
             .build(tx_descriptors);
 
         let _i2s_rx = i2s
-        .i2s_rx
-        .with_din(peripherals.GPIO39)
-        .build(rx_descriptors);
+            .i2s_rx
+            .with_din(peripherals.GPIO39)
+            .build(rx_descriptors);
 
         esp_println::println!(
             "-:= > Starting LttL Weirdɵ DMA transfer with a {} ms buffer",
@@ -183,10 +177,10 @@ pub fn synth_loop() {
         );
 
         let mut transfer = i2s_tx.write_dma_circular(tx_buffer).unwrap();
-      //  let mut receiver = i2s_rx.read_dma_circular(rx_buffer).unwrap();
-     
+        //  let mut receiver = i2s_rx.read_dma_circular(rx_buffer).unwrap();
+
         let mut buffer = [0u8; BUFFER_SIZE];
-       // let mut buffer_receiver =  [0u8; BUFFER_SIZE];
+        // let mut buffer_receiver =  [0u8; BUFFER_SIZE];
 
         let mut midi_message_receiver = MIDI_MESSAGE_CHANNEL.subscriber().unwrap();
 
@@ -305,15 +299,15 @@ pub fn synth_loop() {
                     midi_message_receiver.clear();
                 }
             }
-         //   let mut reload = false;
-            /* 
+            //   let mut reload = false;
+            /*
             match receiver.available() {
                 Ok(num_bytes) => {
                     receiver.pop(&mut buffer_receiver).unwrap();
                   //  recorder.process_audio(&buffer_receiver[..num_bytes]);
                 }
                 Err(error) => {
-                   // println!("Error: {:?}", error); 
+                   // println!("Error: {:?}", error);
                 }
             }
             */
@@ -343,5 +337,3 @@ pub fn synth_loop() {
         }
     }
 }
-
-

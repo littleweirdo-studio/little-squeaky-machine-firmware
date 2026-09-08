@@ -93,11 +93,7 @@ async fn main(_spawner: Spawner) {
         Input::new(peripherals.GPIO10, input_pin_config),
     ];
 
-  
-
     loop {
-    
-
         for (col_counter, col) in cols.iter_mut().enumerate() {
             col.set_high();
             for (row_counter, row) in rows.iter().enumerate() {
@@ -105,7 +101,7 @@ async fn main(_spawner: Spawner) {
                 if row.is_high() {
                     if status.counter == 5 {
                         if status.key_down_trigger == false {
-                           // println!("key down ({})", col_counter * 5 + row_counter);
+                            // println!("key down ({})", col_counter * 5 + row_counter);
                             status.key_down_trigger = true;
                         }
                     } else {
@@ -116,8 +112,8 @@ async fn main(_spawner: Spawner) {
                         status.counter = status.counter - 1;
                         if (status.counter == 0) && (status.key_down_trigger == true) {
                             status.key_down_trigger = false;
-                          //  println!("key up   ({})", col_counter * 5 + row_counter);
-                          //  println!("--");
+                            //  println!("key up   ({})", col_counter * 5 + row_counter);
+                            //  println!("--");
                         }
                     }
                 }

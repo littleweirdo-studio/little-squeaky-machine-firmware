@@ -39,8 +39,6 @@ where
     }
 }
 
-
-
 #[embassy_executor::task]
 pub async fn keyboard_input_task() {
     let mut cols: [Output; 5];
@@ -48,64 +46,264 @@ pub async fn keyboard_input_task() {
 
     let keymap_down: [KeyEvent; 25] = [
         // 0 -- 9
-        KeyEvent { event: EventType::KeypadDown, id: 0, value: 0 },
-        KeyEvent { event: EventType::KeypadDown, id: 1, value: 0 },
-        KeyEvent { event: EventType::KeypadDown, id: 2, value: 0 },
-        KeyEvent { event: EventType::KeypadDown, id: 3, value: 0 },
-        KeyEvent { event: EventType::KeypadDown, id: 4, value: 0 },
-        KeyEvent { event: EventType::KeypadDown, id: 5, value: 0 },
-        KeyEvent { event: EventType::KeypadDown, id: 6, value: 0 },
-        KeyEvent { event: EventType::KeypadDown, id: 7, value: 0 },
-        KeyEvent { event: EventType::KeypadDown, id: 8, value: 0 },
-        KeyEvent { event: EventType::KeypadDown, id: 9, value: 0 },
+        KeyEvent {
+            event: EventType::KeypadDown,
+            id: 0,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadDown,
+            id: 1,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadDown,
+            id: 2,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadDown,
+            id: 3,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadDown,
+            id: 4,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadDown,
+            id: 5,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadDown,
+            id: 6,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadDown,
+            id: 7,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadDown,
+            id: 8,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadDown,
+            id: 9,
+            value: 0,
+        },
         // 10 -- 19
-        KeyEvent { event: EventType::KeypadDown, id: 10, value: 0 },
-        KeyEvent { event: EventType::KeypadDown, id: 11, value: 0 },
-        KeyEvent { event: EventType::KeypadDown, id: 12, value: 0 },
-        KeyEvent { event: EventType::KeypadDown, id: 13, value: 0 },
-        KeyEvent { event: EventType::KeypadDown, id: 14, value: 0 },
-        KeyEvent { event: EventType::KeypadDown, id: 15, value: 0 },
-        KeyEvent { event: EventType::KeypadDown, id: 16, value: 0 },
-        KeyEvent { event: EventType::KeypadDown, id: 17, value: 0 },
-        KeyEvent { event: EventType::KeypadDown, id: 18, value: 0 },
-        KeyEvent { event: EventType::KeypadDown, id: 19, value: 0 },
+        KeyEvent {
+            event: EventType::KeypadDown,
+            id: 10,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadDown,
+            id: 11,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadDown,
+            id: 12,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadDown,
+            id: 13,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadDown,
+            id: 14,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadDown,
+            id: 15,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadDown,
+            id: 16,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadDown,
+            id: 17,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadDown,
+            id: 18,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadDown,
+            id: 19,
+            value: 0,
+        },
         // 20 -- 24
-        KeyEvent { event: EventType::KeypadDown, id: 20, value: 0 },
-        KeyEvent { event: EventType::KeypadDown, id: 21, value: 0 },
-        KeyEvent { event: EventType::KeypadDown, id: 22, value: 0 },
-        KeyEvent { event: EventType::KeypadDown, id: 23, value: 0 },
-        KeyEvent { event: EventType::KeypadDown, id: 24, value: 0 },
+        KeyEvent {
+            event: EventType::KeypadDown,
+            id: 20,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadDown,
+            id: 21,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadDown,
+            id: 22,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadDown,
+            id: 23,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadDown,
+            id: 24,
+            value: 0,
+        },
     ];
 
     let keymap_up: [KeyEvent; 25] = [
-          // 0 -- 9
-        KeyEvent { event: EventType::KeypadUp, id: 0, value: 0 },
-        KeyEvent { event: EventType::KeypadUp, id: 1, value: 0 },
-        KeyEvent { event: EventType::KeypadUp, id: 2, value: 0 },
-        KeyEvent { event: EventType::KeypadUp, id: 3, value: 0 },
-        KeyEvent { event: EventType::KeypadUp, id: 4, value: 0 },
-        KeyEvent { event: EventType::KeypadUp, id: 5, value: 0 },
-        KeyEvent { event: EventType::KeypadUp, id: 6, value: 0 },
-        KeyEvent { event: EventType::KeypadUp, id: 7, value: 0 },
-        KeyEvent { event: EventType::KeypadUp, id: 8, value: 0 },
-        KeyEvent { event: EventType::KeypadUp, id: 9, value: 0 },
+        // 0 -- 9
+        KeyEvent {
+            event: EventType::KeypadUp,
+            id: 0,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadUp,
+            id: 1,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadUp,
+            id: 2,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadUp,
+            id: 3,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadUp,
+            id: 4,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadUp,
+            id: 5,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadUp,
+            id: 6,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadUp,
+            id: 7,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadUp,
+            id: 8,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadUp,
+            id: 9,
+            value: 0,
+        },
         // 10 -- 19
-        KeyEvent { event: EventType::KeypadUp, id: 10, value: 0 },
-        KeyEvent { event: EventType::KeypadUp, id: 11, value: 0 },
-        KeyEvent { event: EventType::KeypadUp, id: 12, value: 0 },
-        KeyEvent { event: EventType::KeypadUp, id: 13, value: 0 },
-        KeyEvent { event: EventType::KeypadUp, id: 14, value: 0 },
-        KeyEvent { event: EventType::KeypadUp, id: 15, value: 0 },
-        KeyEvent { event: EventType::KeypadUp, id: 16, value: 0 },
-        KeyEvent { event: EventType::KeypadUp, id: 17, value: 0 },
-        KeyEvent { event: EventType::KeypadUp, id: 18, value: 0 },
-        KeyEvent { event: EventType::KeypadUp, id: 19, value: 0 },
+        KeyEvent {
+            event: EventType::KeypadUp,
+            id: 10,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadUp,
+            id: 11,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadUp,
+            id: 12,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadUp,
+            id: 13,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadUp,
+            id: 14,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadUp,
+            id: 15,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadUp,
+            id: 16,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadUp,
+            id: 17,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadUp,
+            id: 18,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadUp,
+            id: 19,
+            value: 0,
+        },
         // 20 -- 24
-        KeyEvent { event: EventType::KeypadUp, id: 20, value: 0 },
-        KeyEvent { event: EventType::KeypadUp, id: 21, value: 0 },
-        KeyEvent { event: EventType::KeypadUp, id: 22, value: 0 },
-        KeyEvent { event: EventType::KeypadUp, id: 23, value: 0 },
-        KeyEvent { event: EventType::KeypadUp, id: 24, value: 0 },
+        KeyEvent {
+            event: EventType::KeypadUp,
+            id: 20,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadUp,
+            id: 21,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadUp,
+            id: 22,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadUp,
+            id: 23,
+            value: 0,
+        },
+        KeyEvent {
+            event: EventType::KeypadUp,
+            id: 24,
+            value: 0,
+        },
     ];
 
     unsafe {
@@ -141,8 +339,9 @@ pub async fn keyboard_input_task() {
                 if row.is_high() {
                     if status.counter == 5 {
                         if status.key_down_trigger == false {
-                          // println!("key down ({})", col_counter * 5 + row_counter);
-                            let _ = MAPPING_SIGNAL.try_send(keymap_down[col_counter * 5 + row_counter].clone());
+                            // println!("key down ({})", col_counter * 5 + row_counter);
+                            let _ = MAPPING_SIGNAL
+                                .try_send(keymap_down[col_counter * 5 + row_counter].clone());
                             status.key_down_trigger = true;
                         }
                     } else {
@@ -153,9 +352,10 @@ pub async fn keyboard_input_task() {
                         status.counter = status.counter - 1;
                         if (status.counter == 0) && (status.key_down_trigger == true) {
                             status.key_down_trigger = false;
-                            let _ = MAPPING_SIGNAL.try_send(keymap_up[col_counter * 5 + row_counter].clone());
-                      //      println!("key up   ({})", col_counter * 5 + row_counter);
-                      //      println!("--");
+                            let _ = MAPPING_SIGNAL
+                                .try_send(keymap_up[col_counter * 5 + row_counter].clone());
+                            //      println!("key up   ({})", col_counter * 5 + row_counter);
+                            //      println!("--");
                         }
                     }
                 }

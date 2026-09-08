@@ -35,18 +35,25 @@ use crate::mapping::mapping_task;
 mod touch_input;
 use crate::touch_input::touch_input_task;
 
-
 // mod tilt;
 // use crate::tilt::tilt_task;
 
 //
 use embassy_executor::Spawner;
-use embassy_sync::{blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex}, channel::Channel, mutex::Mutex, pubsub::PubSubChannel};
+use embassy_sync::{
+    blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex},
+    channel::Channel,
+    mutex::Mutex,
+    pubsub::PubSubChannel,
+};
 use embassy_time::{Duration, Timer};
 use esp_alloc::heap_allocator;
 use esp_backtrace as _;
 use esp_hal::{
-    Async, clock::CpuClock, ram, system::{Cpu, CpuControl, Stack}
+    Async,
+    clock::CpuClock,
+    ram,
+    system::{Cpu, CpuControl, Stack},
 };
 use static_cell::StaticCell;
 //
@@ -58,7 +65,7 @@ use esp_hal::timer::timg::TimerGroup;
 //
 
 // channel for sharing midi message between tasks and processes running on different cores.
-static MIDI_MESSAGE_CHANNEL: PubSubChannel<CriticalSectionRawMutex, midi_msg::MidiMsg, 50, 5 ,5> =
+static MIDI_MESSAGE_CHANNEL: PubSubChannel<CriticalSectionRawMutex, midi_msg::MidiMsg, 50, 5, 5> =
     PubSubChannel::new();
 
 static MIDI_OUT_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, midi_msg::MidiMsg, 50> =
@@ -98,7 +105,6 @@ async fn main(spawner: Spawner) {
     static I2C_BUS: StaticCell<I2c1Bus> = StaticCell::new();
     let i2c_bus = I2C_BUS.init(Mutex::new(i2c));
 
-
     // Use 64kB in dram2_seg for the heap, which is otherwise unused.
     heap_allocator!(#[ram(reclaimed)] size: 64000);
 
@@ -106,9 +112,10 @@ async fn main(spawner: Spawner) {
     esp_alloc::psram_allocator!(peripherals.PSRAM, esp_hal::psram);
 
     let timg0 = TimerGroup::new(peripherals.TIMG0);
-     let software_interrupt = esp_hal::interrupt::software::SoftwareInterruptControl::new(peripherals.SW_INTERRUPT);
+    let software_interrupt =
+        esp_hal::interrupt::software::SoftwareInterruptControl::new(peripherals.SW_INTERRUPT);
 
-     esp_rtos::start(timg0.timer0, software_interrupt.software_interrupt0);
+    esp_rtos::start(timg0.timer0, software_interrupt.software_interrupt0);
 
     // spawn the tasks
     let _ = spawner.spawn(led_task().unwrap());
@@ -120,7 +127,6 @@ async fn main(spawner: Spawner) {
             synth_loop();
         })
         .unwrap();
-
 
     // Create MIDI USB device
     if USB_MIDI_ENABLED {
@@ -144,13 +150,12 @@ async fn main(spawner: Spawner) {
     let _ = spawner.spawn(codec_task(i2c_bus).unwrap());
 
     Timer::after(Duration::from_millis(10)).await;
-   let _ = spawner.spawn(keyboard_input_task().unwrap());
+    let _ = spawner.spawn(keyboard_input_task().unwrap());
     let _ = spawner.spawn(mapping_task().unwrap());
 
-   let _ = spawner.spawn(touch_input_task(i2c_bus).unwrap());
+    let _ = spawner.spawn(touch_input_task(i2c_bus).unwrap());
 
-   // let _ = spawner.spawn(tilt_task(i2c_bus)); // Commented out as tilt module is not available
-
+    // let _ = spawner.spawn(tilt_task(i2c_bus)); // Commented out as tilt module is not available
 
     loop {
         Timer::after(Duration::from_millis(10)).await;

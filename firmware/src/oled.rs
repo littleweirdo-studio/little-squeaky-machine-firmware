@@ -16,9 +16,7 @@ use little_weirdo_filesystem::WeirdoFileSystem;
 use little_weirdo_gui::about::About;
 use little_weirdo_gui::menu::{self, MenuIcon};
 use little_weirdo_gui::settings::Settings;
-use little_weirdo_gui::{
-    ActiveItem, EventType, NAVIGATION_SIGNAL, Navigatable,
-};
+use little_weirdo_gui::{ActiveItem, EventType, NAVIGATION_SIGNAL, Navigatable};
 use ssd1306::prelude::DisplayRotation;
 use ssd1306::size::DisplaySize128x64;
 use ssd1306::{I2CDisplayInterface, Ssd1306Async};
@@ -59,7 +57,7 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
     let sound_bank: SoundBank = postcard::from_bytes(&buf).unwrap();
 
     let mut main_menu = menu::Menu::new(EventType::NoMenu, EventType::NoActive, MenuIcon::Sine);
-     main_menu.add(
+    main_menu.add(
         "SYNTH".to_string(),
         MenuIcon::Sine,
         EventType::SynthMenu,
@@ -77,14 +75,13 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
         EventType::SeqMenu,
         EventType::SequencerModeActive,
     );
-   
+
     main_menu.add(
         "MIDI".to_string(),
         MenuIcon::Midi,
         EventType::NoMenu,
         EventType::NoActive,
     );
-   
 
     let mut control_settings = Settings::new(EventType::SynthMenu);
     control_settings.add("Vol".to_string());
@@ -117,20 +114,19 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
         EventType::NoActive,
     );
 
-     synth_menu.add(
+    synth_menu.add(
         "CONTROLS".to_string(),
         MenuIcon::Tune,
         EventType::ControlSettings,
         EventType::NoActive,
     );
 
-     synth_menu.add(
+    synth_menu.add(
         "ABOUT".to_string(),
         MenuIcon::Information,
         EventType::NoMenu,
         EventType::NoActive,
     );
-
 
     let mut synth_patch_menu =
         menu::Menu::new(EventType::SynthMenu, EventType::NoActive, MenuIcon::Patch);
@@ -224,46 +220,44 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
     let mut active_item = ActiveItem::Menu(&mut main_menu);
 
     loop {
-         let _ = display.clear(BinaryColor::Off);
+        let _ = display.clear(BinaryColor::Off);
         let _ = active_item.draw(&mut display);
         let _ = display.flush().await;
         let event = NAVIGATION_SIGNAL.receive().await;
         match event.event {
-
-
-                EventType::ControlSettings => {
-                    active_item = ActiveItem::Settings(&mut control_settings);
-                    control_menu_active = true;
+            EventType::ControlSettings => {
+                active_item = ActiveItem::Settings(&mut control_settings);
+                control_menu_active = true;
+            }
+            EventType::DrumMenu => {
+                active_item = ActiveItem::Menu(&mut drum_menu);
+                active_item.activate();
+            }
+            EventType::NoMenu => {}
+            EventType::MainMenu => {
+                active_item = ActiveItem::Menu(&mut main_menu);
+                control_menu_active = false;
+            }
+            EventType::DrumPatchMenu => active_item = ActiveItem::Menu(&mut drum_patch_menu),
+            EventType::SynthPatchMenu => active_item = ActiveItem::Menu(&mut synth_patch_menu),
+            EventType::SynthMenu => {
+                active_item = ActiveItem::Menu(&mut synth_menu);
+                active_item.activate();
+            }
+            EventType::DrumAbout => active_item = ActiveItem::About(&mut about_drums_menu),
+            EventType::SeqMenu => active_item = ActiveItem::Menu(&mut seq_menu),
+            EventType::LttLMenuAbout => active_item = ActiveItem::About(&mut about_lttl_menu),
+            EventType::LttlStatus => active_item = ActiveItem::About(&mut main_status_menu),
+            EventType::MenuUp => active_item.prev(),
+            EventType::MenuDown => active_item.next(),
+            EventType::MenuLeft => active_item.back(),
+            EventType::MenuRight => active_item.select(),
+            EventType::PotMeterChange => {
+                if control_menu_active {
+                    active_item.update_bar(event.id, (event.value * 100 / 255) as u8);
                 }
-                EventType::DrumMenu => {
-                    active_item = ActiveItem::Menu(&mut drum_menu);
-                    active_item.activate();
-                }
-                EventType::NoMenu => {}
-                EventType::MainMenu => {
-                    active_item = ActiveItem::Menu(&mut main_menu);
-                    control_menu_active = false;
-                }
-                EventType::DrumPatchMenu => active_item = ActiveItem::Menu(&mut drum_patch_menu),
-                EventType::SynthPatchMenu => active_item = ActiveItem::Menu(&mut synth_patch_menu),
-                EventType::SynthMenu => {
-                    active_item = ActiveItem::Menu(&mut synth_menu);
-                    active_item.activate();
-                }
-                EventType::DrumAbout => active_item = ActiveItem::About(&mut about_drums_menu),
-                EventType::SeqMenu => active_item = ActiveItem::Menu(&mut seq_menu),
-                EventType::LttLMenuAbout => active_item = ActiveItem::About(&mut about_lttl_menu),
-                EventType::LttlStatus => active_item = ActiveItem::About(&mut main_status_menu),
-                EventType::MenuUp => active_item.prev(),
-                EventType::MenuDown => active_item.next(),
-                EventType::MenuLeft => active_item.back(),
-                EventType::MenuRight => active_item.select(),
-                EventType::PotMeterChange => {
-                    if control_menu_active {
-                       active_item.update_bar(event.id, (event.value * 100 / 255) as u8);
-                    }
-                }
-                _ => {}
+            }
+            _ => {}
         }
     }
 }

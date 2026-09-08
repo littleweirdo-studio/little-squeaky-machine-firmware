@@ -3,7 +3,7 @@ struct AudioRecorder {
     buffer: Vec<u8>,
     is_recording: bool,
     sample_rate: u32,
-    max_size: usize,  // Maximum buffer size in bytes
+    max_size: usize, // Maximum buffer size in bytes
 }
 
 impl AudioRecorder {
@@ -18,7 +18,7 @@ impl AudioRecorder {
 
     fn start_recording(&mut self) {
         self.is_recording = true;
-        self.buffer.clear();  // Clear previous recording when starting new one
+        self.buffer.clear(); // Clear previous recording when starting new one
     }
 
     fn stop_recording(&mut self) {

@@ -11,7 +11,7 @@ use smart_leds::{RGB8, SmartLedsWrite, brightness, colors, gamma};
 #[derive(Debug)]
 pub struct LedMessage {
     pub color: RGB8,
-    pub id: u8
+    pub id: u8,
 }
 
 pub static LED_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, LedMessage, 10> = Channel::new();
@@ -40,8 +40,6 @@ pub async fn led_task() {
     data[28] = colors::LIGHT_SKY_BLUE;
     data[29] = colors::DEEP_PINK;
     data[30] = colors::LIGHT_SKY_BLUE;
-    
-    
 
     //
     data[26] = colors::RED;
@@ -49,7 +47,6 @@ pub async fn led_task() {
     led.write(brightness(gamma(data.iter().cloned()), 30))
         .unwrap();
 
-   
     loop {
         let message = LED_MESSAGE_CHANNEL.receive().await;
         data[message.id as usize] = message.color;

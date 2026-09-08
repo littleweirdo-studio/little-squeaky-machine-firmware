@@ -6,7 +6,8 @@ use midi_msg::Channel;
 use smart_leds::{RGB8, colors};
 
 use crate::{
-    MIDI_MESSAGE_CHANNEL, MIDI_OUT_MESSAGE_CHANNEL,
+    MIDI_MESSAGE_CHANNEL,
+    MIDI_OUT_MESSAGE_CHANNEL,
     codec::{CODEC_SIGNAL, CodecEvent, CodecEventType},
     led::{LED_MESSAGE_CHANNEL, LedMessage},
     sequence::{SEQUENCE_KEY_CHANNEL, sequence_task},
@@ -70,7 +71,7 @@ pub async fn mapping_task() {
                             .await;
                     }
                 }
-                if event.id == 1  {
+                if event.id == 1 {
                     if last_value_pot1 != event.value
                         && (event.value as i16 - last_value_pot1 as i16).abs() > MARGIN
                     {
@@ -96,7 +97,7 @@ pub async fn mapping_task() {
                         sender.publish(message).await;
                     }
                 }
-                if event.id == 2  {
+                if event.id == 2 {
                     if last_value_pot2 != event.value
                         && (event.value as i16 - last_value_pot2 as i16).abs() > MARGIN
                     {
@@ -109,13 +110,13 @@ pub async fn mapping_task() {
                             })
                             .await;
                         if seq_active {
-                             SEQUENCE_KEY_CHANNEL
-                            .send(KeyEvent {
-                                event: EventType::ChangeSeqBPM,
-                                id: 0,
-                                value: event.value,
-                            })
-                            .await;
+                            SEQUENCE_KEY_CHANNEL
+                                .send(KeyEvent {
+                                    event: EventType::ChangeSeqBPM,
+                                    id: 0,
+                                    value: event.value,
+                                })
+                                .await;
                         }
                         let message = midi_msg::MidiMsg::ChannelVoice {
                             channel: if synth_active {
@@ -131,7 +132,7 @@ pub async fn mapping_task() {
                         sender.publish(message).await;
                     }
                 }
-                if event.id == 3  {
+                if event.id == 3 {
                     if last_value_pot3 != event.value
                         && (event.value as i16 - last_value_pot3 as i16).abs() > MARGIN
                     {
@@ -172,7 +173,6 @@ pub async fn mapping_task() {
                 seq_active = true;
                 let seq_task = sequence_task().unwrap();
                 SendSpawner::for_current_executor().await.spawn(seq_task);
-            
             }
             EventType::PatchSelect => {
                 //println!("patch activated = {}", event.id);
@@ -261,15 +261,15 @@ pub async fn mapping_task() {
                             }
                         }
                         18 => {
-                              if seq_active {
-                                  SEQUENCE_KEY_CHANNEL
+                            if seq_active {
+                                SEQUENCE_KEY_CHANNEL
                                     .send(KeyEvent {
                                         event: EventType::PlayActiveLaneNoteSeq,
                                         id: 0,
                                         value: 0,
                                     })
                                     .await;
-                              }
+                            }
                         }
                         23 => {
                             if seq_active {
@@ -360,7 +360,7 @@ pub async fn mapping_task() {
                         .send(LedMessage {
                             color: COLOR,
                             id: 2 + event.id,
-                          //  brightness: BRIGTHNESS,
+                            //  brightness: BRIGTHNESS,
                         })
                         .await;
                 }
@@ -386,7 +386,7 @@ pub async fn mapping_task() {
                     // println!("event {:?}", event.id);
                     match event.id {
                         23 => {
-                           // TILT_SIGNAL.send(EventType::TiltNoteUp).await;
+                            // TILT_SIGNAL.send(EventType::TiltNoteUp).await;
                         }
                         _ => {}
                     }
