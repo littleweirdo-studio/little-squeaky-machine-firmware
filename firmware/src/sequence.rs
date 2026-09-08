@@ -3,7 +3,7 @@ use embassy_sync::channel::Channel;
 
 use embassy_time::{Duration, Instant, Timer};
 use esp_backtrace as _;
-use esp_println::{print, println};
+use esp_println::println;
 use little_weirdo::sequencer::{AMOUNT_OF_LANES, MAX_AMOUNT_OF_PATTERNS};
 use little_weirdo_gui::{EventType, KeyEvent};
 //use embassy_time::{Duration, Timer};
@@ -40,13 +40,13 @@ pub async fn sequence_task() {
             .send(LedMessage {
                 color: smart_leds::colors::GREEN,
                 id: ID_LED_MAP[i as usize],
-                brightness: 10,
+                // brightness: 10,
             })
             .await;
     }
 
-    let mut last_id = 0;
-    let mut last_hit = false;
+    let last_id = 0;
+    let last_hit = false;
     let mut active_lane = 0;
     let mut active_pattern = 0;
     let mut switch = false;
@@ -59,7 +59,7 @@ pub async fn sequence_task() {
         match seq_key {
             Ok(e) => match e.event {
                 EventType::ChangeSeqBPM => {
-                    if (e.value > 0) {
+                    if e.value > 0  {
                         tick = 60_000 / ( e.value * 8);
                     }
                 }
@@ -95,7 +95,7 @@ pub async fn sequence_task() {
                                 smart_leds::colors::GREEN
                             },
                             id: ID_LED_MAP[e.id as usize],
-                            brightness: 10,
+                            // brightness: 10,
                         })
                         .await;
                 }
@@ -114,7 +114,7 @@ pub async fn sequence_task() {
                                     smart_leds::colors::GREEN
                                 },
                                 id: ID_LED_MAP[i as usize],
-                                brightness: 10,
+                                // brightness: 10,
                             })
                             .await;
                     }
@@ -133,7 +133,7 @@ pub async fn sequence_task() {
                                     smart_leds::colors::GREEN
                                 },
                                 id: ID_LED_MAP[i as usize],
-                                brightness: 10,
+                                // brightness: 10,
                             })
                             .await;
                     }
@@ -155,7 +155,7 @@ pub async fn sequence_task() {
                                 smart_leds::colors::INDIAN_RED
                             },
                             id: 0,
-                            brightness: 10,
+                            // brightness: 10,
                         })
                         .await;
                      LED_MESSAGE_CHANNEL
@@ -166,7 +166,7 @@ pub async fn sequence_task() {
                                 smart_leds::colors::RED
                             },
                             id: 1,
-                            brightness: 10,
+                            // brightness: 10,
                         })
                         .await;
                     switch = !switch;
@@ -183,7 +183,7 @@ pub async fn sequence_task() {
                                 smart_leds::colors::GREEN
                             },
                             id: ID_LED_MAP[last_id],
-                            brightness: 10,
+                            // brightness: 10,
                         })
                         .await;
                 }

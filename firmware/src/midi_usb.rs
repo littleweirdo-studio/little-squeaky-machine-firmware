@@ -154,7 +154,7 @@ pub async fn midi_read<'d>(class: &mut MidiClass<'d, Driver<'d>>) -> Result<(), 
                 Err(_) => todo!(),
             },
             Either::Second(res) => match res {
-                _ => { class.write_packet(res.to_midi().as_slice()).await; }
+                _ => { let _ = class.write_packet(res.to_midi().as_slice()).await; }
             },
         }
     }

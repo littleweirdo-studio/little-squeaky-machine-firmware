@@ -81,7 +81,7 @@ async fn main(spawner: Spawner) {
     esp_println::println!("⠧⠤⠇⠸ ⠸ ⠧⠤⠧⠤ ⠢⠜⠣⠪⠣⠜⠧⠤⠇⠸⠇⠱ ⠇ ⠇⠸⠇⠸⠣⠔⠇⠸⠇⠇⠹⠧⠤");
     esp_println::println!("Firmware v0.1.0 with Little Weirdo v0.1.1\n");
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
-    esp_println::println!("-:= > Set CPU Speed to {:?}", config.cpu_clock());
+    esp_println::println!("-:= > Set CPU Speed to {:?}", config.clock_config());
     esp_println::println!(
         "-:= > Starting Little Squeaky Machine on core {}",
         Cpu::current() as usize

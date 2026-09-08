@@ -1,12 +1,11 @@
 extern crate alloc;
 
 use alloc::{
-    string::{String, ToString},
+    string::String,
     sync::Arc,
     vec,
-    vec::Vec,
 };
-use embassy_sync::mutex::Mutex;
+
 use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::{
@@ -19,17 +18,12 @@ use esp_hal::{
 use esp_println::println;
 use esp_storage::FlashStorage;
 use little_weirdo::{
-    effects::{
-        bitcrunch::BitcrunchConfiguration,
-        delay::DelayConfiguration,
-        overdrive::{KindOfOverdrive, OverdriveConfiguration},
-    },
     synth::{
         self, Synth,
         data::patches::{BoxedPatch, BoxedPatches},
         patch::Patch,
     },
-    wavetable::data::patches::{BoxedSamplerPatch, BoxedSamplerPatches},
+    wavetable::data::patches::BoxedSamplerPatches,
     wavetable::sample_voice::{BoxedSample, BoxedSamples},
     synth::data::waveforms::{BoxedWaveform, BoxedWaveforms},
 };
@@ -75,7 +69,7 @@ pub fn synth_loop() {
 
     let mut buf = vec![0u8; 256];
 
-    filesystem.read_key_value(000, buf.as_mut_slice());
+    let _ = filesystem.read_key_value(000, buf.as_mut_slice());
     let sound_bank: SoundBank = postcard::from_bytes(&buf).unwrap();
 
     println!("Soundbank Loaded = {}", sound_bank.name);
@@ -98,13 +92,13 @@ pub fn synth_loop() {
         let size_of_value = filesystem.size_of_key_value(900 + wt).unwrap();
         let mut sample: vec::Vec<u8> = vec![0u8; size_of_value as usize]; //vec::Vec::with_capacity(size_of_value as usize);
 
-        let length_of_sample = filesystem
+        let _length_of_sample = filesystem
             .read_key_value(900 + wt, sample.as_mut_slice())
             .unwrap();
         samples_on_heap.add(BoxedSample::new(sample));
     }
 
-    let sp = Arc::new(samples_on_heap);
+    let _sp = Arc::new(samples_on_heap);
 
     let mut patches_on_heap = BoxedPatches::new();
     let mut patch_read_buffer = vec![0u8; 512];
@@ -122,10 +116,10 @@ pub fn synth_loop() {
 
     //
 
-    let mut sampler_patches_on_heap = BoxedSamplerPatches::new();
+    let sampler_patches_on_heap = BoxedSamplerPatches::new();
     let mut sampler_patch_read_buffer = vec![0u8; 50];
     for pt in 0..sound_bank.amound_of_sampler_patches as u32 {
-        let length_of_patch = filesystem
+        let _length_of_patch = filesystem
             .read_key_value(200 + pt, &mut sampler_patch_read_buffer)
             .unwrap();
         // let patch: sampler::patch::Patch =
@@ -134,7 +128,7 @@ pub fn synth_loop() {
         // sampler_patches_on_heap.add(BoxedSamplerPatch::new(patch));
     }
 
-    let sampler_patches = Arc::new(sampler_patches_on_heap);
+    let _sampler_patches = Arc::new(sampler_patches_on_heap);
 
     esp_println::println!("-:= > \n{}-:= >", esp_alloc::HEAP.stats());
 
@@ -151,7 +145,7 @@ pub fn synth_loop() {
     //let mut recorder = AudioRecorder::new(SAMPLE_RATE, SAMPLE_RATE as usize * 2* 10);
 
 
-    let (rx_buffer, rx_descriptors, tx_buffer, tx_descriptors) =
+    let (_rx_buffer, rx_descriptors, tx_buffer, tx_descriptors) =
         dma_circular_buffers!(BUFFER_SIZE, BUFFER_SIZE);
 
     unsafe {
@@ -178,7 +172,7 @@ pub fn synth_loop() {
             .with_dout(peripherals.GPIO38)
             .build(tx_descriptors);
 
-        let mut i2s_rx = i2s
+        let _i2s_rx = i2s
         .i2s_rx
         .with_din(peripherals.GPIO39)
         .build(rx_descriptors);
@@ -351,53 +345,3 @@ pub fn synth_loop() {
 }
 
 
-// Add this struct to hold your recording state
-struct AudioRecorder {
-    buffer: Vec<u8>,
-    is_recording: bool,
-    sample_rate: u32,
-    max_size: usize,  // Maximum buffer size in bytes
-}
-
-impl AudioRecorder {
-    fn new(sample_rate: u32, max_size: usize) -> Self {
-        Self {
-            buffer: Vec::with_capacity(max_size),
-            is_recording: false,
-            sample_rate,
-            max_size,
-        }
-    }
-
-    fn start_recording(&mut self) {
-        self.is_recording = true;
-        self.buffer.clear();  // Clear previous recording when starting new one
-    }
-
-    fn stop_recording(&mut self) {
-        self.is_recording = false;
-    }
-
-    fn is_recording(&self) -> bool {
-        self.is_recording
-    }
-
-    fn process_audio(&mut self, data: &[u8]) {
-        if self.is_recording {
-            // Only add data if there's space left in the buffer
-            if self.buffer.len() + data.len() <= self.max_size {
-                self.buffer.extend_from_slice(data);
-            }
-            // Optionally: could implement a circular buffer behavior here
-            // by overwriting oldest data when full
-        }
-    }
-
-    fn get_recording(&self) -> &[u8] {
-        &self.buffer
-    }
-
-    fn clear_recording(&mut self) {
-        self.buffer.clear();
-    }
-}

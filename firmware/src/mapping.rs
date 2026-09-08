@@ -25,7 +25,7 @@ const REMAP_SEQ: [u8; 25] = [
 ];
 
 const VEL: u8 = 70;
-const BRIGTHNESS: u8 = 255;
+// const BRIGTHNESS: u8 = 255;
 const MARGIN: i16 = 2;
 
 #[embassy_executor::task]
@@ -70,7 +70,7 @@ pub async fn mapping_task() {
                             .await;
                     }
                 }
-                if (event.id == 1) {
+                if event.id == 1  {
                     if last_value_pot1 != event.value
                         && (event.value as i16 - last_value_pot1 as i16).abs() > MARGIN
                     {
@@ -96,7 +96,7 @@ pub async fn mapping_task() {
                         sender.publish(message).await;
                     }
                 }
-                if (event.id == 2) {
+                if event.id == 2  {
                     if last_value_pot2 != event.value
                         && (event.value as i16 - last_value_pot2 as i16).abs() > MARGIN
                     {
@@ -131,7 +131,7 @@ pub async fn mapping_task() {
                         sender.publish(message).await;
                     }
                 }
-                if (event.id == 3) {
+                if event.id == 3  {
                     if last_value_pot3 != event.value
                         && (event.value as i16 - last_value_pot3 as i16).abs() > MARGIN
                     {
@@ -360,7 +360,7 @@ pub async fn mapping_task() {
                         .send(LedMessage {
                             color: COLOR,
                             id: 2 + event.id,
-                            brightness: BRIGTHNESS,
+                          //  brightness: BRIGTHNESS,
                         })
                         .await;
                 }
@@ -396,7 +396,7 @@ pub async fn mapping_task() {
                         .send(LedMessage {
                             color: colors::BLACK,
                             id: 2 + event.id,
-                            brightness: BRIGTHNESS,
+                            //brightness: BRIGTHNESS,
                         })
                         .await;
                 }

@@ -11,8 +11,7 @@ use smart_leds::{RGB8, SmartLedsWrite, brightness, colors, gamma};
 #[derive(Debug)]
 pub struct LedMessage {
     pub color: RGB8,
-    pub id: u8,
-    pub brightness: u8,
+    pub id: u8
 }
 
 pub static LED_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, LedMessage, 10> = Channel::new();

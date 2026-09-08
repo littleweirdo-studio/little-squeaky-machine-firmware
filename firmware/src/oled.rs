@@ -3,7 +3,6 @@ use alloc::string::ToString;
 use alloc::{format, vec};
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 // use embassy_futures::join::join;
-use embassy_futures::select::select;
 use embassy_time::{Duration, Timer};
 use embedded_graphics::pixelcolor::BinaryColor;
 use embedded_graphics::prelude::DrawTarget;
@@ -18,7 +17,7 @@ use little_weirdo_gui::about::About;
 use little_weirdo_gui::menu::{self, MenuIcon};
 use little_weirdo_gui::settings::Settings;
 use little_weirdo_gui::{
-    ActiveItem, DrawItem, EventType, NAVIGATION_SIGNAL, Navigatable,
+    ActiveItem, EventType, NAVIGATION_SIGNAL, Navigatable,
 };
 use ssd1306::prelude::DisplayRotation;
 use ssd1306::size::DisplaySize128x64;
@@ -56,7 +55,7 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
 
     let mut buf = vec![0u8; 256];
 
-    filesystem.read_key_value(000, buf.as_mut_slice());
+    let _ = filesystem.read_key_value(000, buf.as_mut_slice());
     let sound_bank: SoundBank = postcard::from_bytes(&buf).unwrap();
 
     let mut main_menu = menu::Menu::new(EventType::NoMenu, EventType::NoActive, MenuIcon::Sine);
