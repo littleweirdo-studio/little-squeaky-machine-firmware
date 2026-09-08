@@ -2,22 +2,18 @@
 #![no_main]
 
 use alloc::{
-    string::{String, ToString},
+    string::String,
     sync::Arc,
     vec,
-    vec::Vec,
 };
 
 use embassy_executor::Spawner;
 use esp_alloc::heap_allocator;
 use esp_backtrace as _;
-use esp_hal::psram;
 use esp_hal::rtc_cntl::Rtc;
 use esp_hal::{
     peripherals::Peripherals,
-};
-use esp_hal::{
-    Async, clock::CpuClock, ram, system::{Cpu, CpuControl, Stack}
+    ram
 };
 use esp_println::println;
 use esp_storage::FlashStorage;
@@ -97,7 +93,7 @@ async fn main(_spawner: Spawner) {
 
          let mut buf = vec![0u8; 256];
 
-    filesystem.read_key_value(000, buf.as_mut_slice());
+    let _ = filesystem.read_key_value(000, buf.as_mut_slice());
     let sound_bank: SoundBank = postcard::from_bytes(&buf).unwrap();
 
 
