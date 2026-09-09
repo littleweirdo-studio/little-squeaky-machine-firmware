@@ -204,7 +204,7 @@ pub fn synth_loop() {
                                                 note,
                                                 velocity,
                                             } => {
-                                                //           println!("note on");
+                                                  println!("note on");
                                                 synth.note_on(note, velocity);
                                             }
                                             midi_msg::ChannelVoiceMsg::NoteOff {
@@ -221,6 +221,7 @@ pub fn synth_loop() {
                                             synth.load_patch(program);
                                         }
                                         midi_msg::ChannelVoiceMsg::NoteOn { note, velocity } => {
+                                            //println!("note on");
                                             synth.note_on(note, velocity);
                                         }
                                         midi_msg::ChannelVoiceMsg::NoteOff {

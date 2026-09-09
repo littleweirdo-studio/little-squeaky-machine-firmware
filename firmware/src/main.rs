@@ -72,10 +72,10 @@ static MIDI_OUT_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, midi_msg::Midi
     Channel::new();
 
 // create stack for second core (running the Synth tasks, 220KB stack reserved)
-static mut APP_CORE_STACK: Stack<220_000> = Stack::new();
+static mut APP_CORE_STACK: Stack<250_000> = Stack::new();
 
-const USB_MIDI_ENABLED: bool = true;
-const UART_MIDI_ENABLED: bool = false;
+const USB_MIDI_ENABLED: bool = false;
+const UART_MIDI_ENABLED: bool = true;
 
 type I2c1Bus = Mutex<NoopRawMutex, esp_hal::i2c::master::I2c<'static, Async>>;
 
@@ -106,7 +106,7 @@ async fn main(spawner: Spawner) {
     let i2c_bus = I2C_BUS.init(Mutex::new(i2c));
 
     // Use 64kB in dram2_seg for the heap, which is otherwise unused.
-    heap_allocator!(#[ram(reclaimed)] size: 64000);
+   // heap_allocator!(#[ram(reclaimed)] size: 64000);
 
     // Initialize PSRAM and add it as a heap memory region
     esp_alloc::psram_allocator!(peripherals.PSRAM, esp_hal::psram);
@@ -153,7 +153,7 @@ async fn main(spawner: Spawner) {
     let _ = spawner.spawn(keyboard_input_task().unwrap());
     let _ = spawner.spawn(mapping_task().unwrap());
 
-    let _ = spawner.spawn(touch_input_task(i2c_bus).unwrap());
+  //  let _ = spawner.spawn(touch_input_task(i2c_bus).unwrap());
 
     // let _ = spawner.spawn(tilt_task(i2c_bus)); // Commented out as tilt module is not available
 

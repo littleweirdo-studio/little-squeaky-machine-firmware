@@ -240,22 +240,22 @@
             100,
             100
         ],
-        "gain_main": 100,
+        "gain_main": 80,
          "avc_enabled":  true,
         "avc_decay_time_ms": 1000
     },
     "overdrive_config": {
-        "threshold": 6000,
+        "threshold": 8000,
         "kind": "Softer",
-        "enabled": true,
+        "enabled": false,
         "gain_percentage": 30
     },
     "bitcrunch_config": {
         "enabled": false
     },
     "delay_config": {
-        "enabled": false,
-        "delay_time": 5000,
+        "enabled": true,
+        "delay_time": 250,
         "mix_percentage": 70,
         "feedback": true,
         "feedback_percentage": 70

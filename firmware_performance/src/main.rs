@@ -113,7 +113,7 @@ async fn main(_spawner: Spawner) {
     let patches = Arc::new(patches_on_heap);
 
     let mut synth: synth::Synth =
-        Synth::new(SAMPLE_RATE as u16, 2, Arc::clone(&patches), Arc::clone(&wt));
+        Synth::new(SAMPLE_RATE as u16, 16, Arc::clone(&patches), Arc::clone(&wt));
 
     println!(
         "> Heap used after allocation of wavetables/synth = {:?} bytes",
