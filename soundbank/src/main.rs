@@ -32,9 +32,9 @@ fn main() {
 
     println!("\nCreate filesystem en store generated optimized data. \n");
 
-    let storage = MemoryStorage::new(0x100000);
+    let storage = MemoryStorage::new(0x200000);
     let mut filesystem: WeirdoFileSystem<MemoryStorage> =
-        WeirdoFileSystem::new(storage, 0, 0x100000);
+        WeirdoFileSystem::new(storage, 0, 0x200000);
     filesystem.format();
 
     println!(
