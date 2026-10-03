@@ -8,7 +8,7 @@ use smart_leds::{RGB8, colors};
 use crate::{
     MIDI_MESSAGE_CHANNEL, MIDI_OUT_MESSAGE_CHANNEL,
     codec::{CODEC_SIGNAL, CodecEvent, CodecEventType},
-    keyboard_input,
+    encoder, keyboard_input,
     led::{LED_MESSAGE_CHANNEL, LedMessage},
     sequence::sequence_task,
 };
@@ -59,6 +59,8 @@ pub async fn mapping_task() {
     let mut last_value_pot1: u16 = 300;
     let mut last_value_pot2: u16 = 300;
     let mut last_value_pot3: u16 = 300;
+
+    let mut volume: u8 = 50;
 
     let mut lane = 0;
     let mut pattern = 0;
@@ -216,6 +218,22 @@ pub async fn mapping_task() {
                             sender.publish(message).await;
                         }
             */
+            encoder::ENCODER_EVENT_ROTATION => {
+                if event.id == 0 {
+                    if event.value == encoder::ENCODER_CLOCKWISE {
+                        volume = volume.saturating_add(5).min(100);
+                    } else {
+                        volume = volume.saturating_sub(5);
+                    }
+
+                    CODEC_SIGNAL
+                        .send(CodecEvent {
+                            event: CodecEventType::ChangeVolume,
+                            value: volume as u16,
+                        })
+                        .await;
+                }
+            }
             keyboard_input::KEYPAD_EVENT_DOWN => {
                 let mut remap = REMAP_MIDI[event.id as usize];
                 let mut led_remap = REMAP_MIDI_LED[event.id as usize];

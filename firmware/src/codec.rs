@@ -25,7 +25,7 @@ pub static CODEC_SIGNAL: Channel<CriticalSectionRawMutex, CodecEvent, 50> = Chan
 #[embassy_executor::task]
 pub async fn codec_task(i2c_bus: &'static I2c1Bus) {
     let i2c_dev = I2cDevice::new(i2c_bus);
-    let volume = 75;
+    let volume = 50;
     let mut sgtl500 = SGTL5000::new(i2c_dev);
     for i in 0..10 {
         println!("Starting -:= > SGTL5000  ... {}x try ", i);
@@ -43,13 +43,13 @@ pub async fn codec_task(i2c_bus: &'static I2c1Bus) {
                 );
                 let _ = sgtl500.headphone_volume(volume).await;
                 // sgtl500.select_adc_input(driver_sgtl5000::AdcInputSources::LineIn).await;
-              ///  let _ = sgtl500.enable_audio_processing().await;
+                ///  let _ = sgtl500.enable_audio_processing().await;
                 // sgtl500.enable_mixer().await;
                 // sgtl500.set_mix_channel_volume_level().await;
-              //  let _ = sgtl500.enable_surround().await;
+                //  let _ = sgtl500.enable_surround().await;
 
                 //  sgtl500.enable_bass_enhance().await;
-                 println!(
+                println!(
                     "-:= > SGTL5000 ::Setup Complete {:?}",
                     sgtl500.get_chip_revision().await
                 );
