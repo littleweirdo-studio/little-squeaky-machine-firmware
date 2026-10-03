@@ -16,7 +16,7 @@ use little_weirdo_filesystem::WeirdoFileSystem;
 use little_weirdo_gui::about::About;
 use little_weirdo_gui::menu::{self, MenuIcon};
 use little_weirdo_gui::settings::Settings;
-use little_weirdo_gui::{ActiveItem, EventType, NAVIGATION_SIGNAL, Navigatable};
+use little_weirdo_gui::{ActiveItem,NAVIGATION_SIGNAL, Navigatable, NO_MENU_EVENT, NO_ACTIVITY_EVENT};
 use ssd1306::prelude::DisplayRotation;
 use ssd1306::size::DisplaySize128x64;
 use ssd1306::{I2CDisplayInterface, Ssd1306Async};
@@ -55,9 +55,9 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
 
     let _ = filesystem.read_key_value(000, buf.as_mut_slice());
     let sound_bank: SoundBank = postcard::from_bytes(&buf).unwrap();
-
-    let mut main_menu = menu::Menu::new(EventType::NoMenu, EventType::NoActive, MenuIcon::Sine);
-    main_menu.add(
+ 
+    let mut main_menu = menu::Menu::new(NO_MENU_EVENT.clone(), NO_ACTIVITY_EVENT.clone(), MenuIcon::Sine);
+/*     main_menu.add(
         "SYNTH".to_string(),
         MenuIcon::Sine,
         EventType::SynthMenu,
@@ -95,13 +95,14 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
         EventType::LttlStatus,
         EventType::NoActive,
     );
+    */
     main_menu.add(
         "ABOUT".to_string(),
         MenuIcon::Information,
-        EventType::LttLMenuAbout,
-        EventType::NoActive,
+        NO_ACTIVITY_EVENT.clone(),
+        NO_ACTIVITY_EVENT.clone(),
     );
-
+/* 
     let mut synth_menu = menu::Menu::new(
         EventType::MainMenu,
         EventType::SynthModeActive,
@@ -217,13 +218,14 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
 
     let mut control_menu_active = false;
 
-    let mut active_item = ActiveItem::Menu(&mut main_menu);
-
+    */
+   let mut active_item = ActiveItem::Menu(&mut main_menu);
     loop {
         let _ = display.clear(BinaryColor::Off);
-        let _ = active_item.draw(&mut display);
+       let _ = active_item.draw(&mut display);
         let _ = display.flush().await;
         let event = NAVIGATION_SIGNAL.receive().await;
+      /* 
         match event.event {
             EventType::ControlSettings => {
                 active_item = ActiveItem::Settings(&mut control_settings);
@@ -259,5 +261,6 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
             }
             _ => {}
         }
+        */
     }
 }

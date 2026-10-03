@@ -1,23 +1,30 @@
 use embassy_executor::SendSpawner;
 use esp_println::println;
 use little_weirdo::sequencer::{AMOUNT_OF_LANES, MAX_AMOUNT_OF_PATTERNS};
-use little_weirdo_gui::{EventType, KeyEvent, MAPPING_SIGNAL, NAVIGATION_SIGNAL};
+use little_weirdo_gui::{Event, MAPPING_SIGNAL, NAVIGATION_SIGNAL};
 use midi_msg::Channel;
 use smart_leds::{RGB8, colors};
 
 use crate::{
-    MIDI_MESSAGE_CHANNEL,
-    MIDI_OUT_MESSAGE_CHANNEL,
-    codec::{CODEC_SIGNAL, CodecEvent, CodecEventType},
-    led::{LED_MESSAGE_CHANNEL, LedMessage},
-    sequence::{SEQUENCE_KEY_CHANNEL, sequence_task},
-    // tilt::TILT_SIGNAL,
+    MIDI_MESSAGE_CHANNEL, MIDI_OUT_MESSAGE_CHANNEL, codec::{CODEC_SIGNAL, CodecEvent, CodecEventType}, keyboard_input, led::{LED_MESSAGE_CHANNEL, LedMessage}, sequence::sequence_task
 };
 
 const COLOR: RGB8 = colors::DEEP_PINK;
 const REMAP_MIDI: [u8; 25] = [
-    255, 2, 4, 255, 7, 1, 3, 5, 6, 8, 9, 11, 255, 255, 255, 10, 12, 13, 15, 255, 255, 255, 255,
-    255, 255,
+    99, 00, 08, 09, 17, //00..04
+    01, 02, 10, 11, 19, //05..09
+    03, 04, 99, 12, 99, //10..14
+    99, 05, 13, 14, 18, //15..19
+    06, 07, 15, 16, 99, //20..24
+];
+
+
+const REMAP_MIDI_LED: [u8; 25] = [
+    99, 07, 12, 17, 22, //00..04
+    03, 08, 13, 18, 23, //05..09
+    04, 09, 99, 19, 99, //10..14
+    99, 10, 15, 20, 25, //15..19
+    06, 11, 16, 21, 99, //20..24
 ];
 
 const REMAP_SEQ: [u8; 25] = [
@@ -33,7 +40,7 @@ const MARGIN: i16 = 2;
 pub async fn mapping_task() {
     let sender = MIDI_MESSAGE_CHANNEL.publisher().unwrap();
     //C4
-    let mut base = 35;
+    let mut base = 35 + 24;
     let mut synth_active = true;
     let mut seq_active = false;
     let mut last_value_pot0: u16 = 300;
@@ -45,8 +52,12 @@ pub async fn mapping_task() {
     let mut pattern = 0;
 
     loop {
-        let event = MAPPING_SIGNAL.receive().await;
-        match event.event {
+        let event:Event = MAPPING_SIGNAL.receive().await;
+        println!("event {:?} = {:?}, lengt = {:?} ", event.event_identifier, event.id, MAPPING_SIGNAL.len());
+        
+
+        match event.event_identifier {
+            /* 
             EventType::PotMeterChange => {
                 //println!("potmeter changed = {}, {}", event.id, event.value );
                 if event.id == 0 {
@@ -187,15 +198,16 @@ pub async fn mapping_task() {
 
                 sender.publish(message).await;
             }
-
-            EventType::KeypadDown => {
+*/
+            keyboard_input::KEYPAD_EVENT_DOWN => {
                 let mut remap = REMAP_MIDI[event.id as usize];
+                let mut led_remap  = REMAP_MIDI_LED [event.id as usize];
 
                 if seq_active {
                     remap = REMAP_SEQ[event.id as usize];
                 }
 
-                if remap != 255 {
+                if remap != 99 {
                     if !seq_active {
                         let message = midi_msg::MidiMsg::ChannelVoice {
                             channel: if synth_active {
@@ -208,16 +220,20 @@ pub async fn mapping_task() {
                                 velocity: VEL,
                             },
                         };
-                        MIDI_OUT_MESSAGE_CHANNEL.send(message.clone()).await;
+                         println!("out");
+                   //     MIDI_OUT_MESSAGE_CHANNEL.send(message.clone()).await;
+                        println!("out {:?}", MIDI_OUT_MESSAGE_CHANNEL.len());
+                         println!("out2");
                         sender.publish(message).await;
+                         println!("out done");
                     } else {
-                        SEQUENCE_KEY_CHANNEL
+                     /*    SEQUENCE_KEY_CHANNEL
                             .send(KeyEvent {
                                 event: EventType::ChangeSeqKey,
                                 id: remap,
                                 value: lane,
                             })
-                            .await;
+                            .await;*/
                     }
                 } else {
                     println!("no node {}", event.id);
@@ -227,17 +243,18 @@ pub async fn mapping_task() {
                                 if pattern > 0 {
                                     pattern = pattern - 1;
                                     println!("pattern {}", pattern);
+                                     /* 
                                     SEQUENCE_KEY_CHANNEL
                                         .send(KeyEvent {
                                             event: EventType::ChangeSeqPattern,
                                             id: 0,
                                             value: pattern,
                                         })
-                                        .await;
+                                        .await;*/
                                 }
                             } else {
                                 //  if synth_active {
-                                base -= 12;
+                               // base -= 12;
                                 // }
                             }
                         }
@@ -247,7 +264,7 @@ pub async fn mapping_task() {
                                 if pattern < (MAX_AMOUNT_OF_PATTERNS - 1) as u16 {
                                     pattern = pattern + 1;
                                     println!("pattern {}", pattern);
-
+/* 
                                     SEQUENCE_KEY_CHANNEL
                                         .send(KeyEvent {
                                             event: EventType::ChangeSeqPattern,
@@ -255,13 +272,15 @@ pub async fn mapping_task() {
                                             value: pattern,
                                         })
                                         .await;
+                                    */
                                 }
                             } else {
-                                base += 12;
+                              //  base += 12;
                             }
                         }
                         18 => {
                             if seq_active {
+                                /* 
                                 SEQUENCE_KEY_CHANNEL
                                     .send(KeyEvent {
                                         event: EventType::PlayActiveLaneNoteSeq,
@@ -269,10 +288,12 @@ pub async fn mapping_task() {
                                         value: 0,
                                     })
                                     .await;
+                                */
                             }
                         }
                         23 => {
                             if seq_active {
+                                /* 
                                 SEQUENCE_KEY_CHANNEL
                                     .send(KeyEvent {
                                         event: EventType::StartStopSeqPattern,
@@ -280,11 +301,13 @@ pub async fn mapping_task() {
                                         value: 0,
                                     })
                                     .await;
+                                */
                             }
 
                             //TILT_SIGNAL.send(EventType::TiltNoteDown).await;
                         }
                         19 => {
+/* 
                             NAVIGATION_SIGNAL
                                 .send(KeyEvent {
                                     event: EventType::MenuLeft,
@@ -292,6 +315,7 @@ pub async fn mapping_task() {
                                     value: 0,
                                 })
                                 .await;
+                            */
                             //TILT_SIGNAL.send(EventType::TiltNoteDown).await;
                         }
                         //C2
@@ -300,6 +324,7 @@ pub async fn mapping_task() {
                             if seq_active {
                                 if lane > 0 {
                                     lane = lane - 1;
+                                    /* 
                                     SEQUENCE_KEY_CHANNEL
                                         .send(KeyEvent {
                                             event: EventType::ChangeSeqLane,
@@ -307,8 +332,10 @@ pub async fn mapping_task() {
                                             value: lane,
                                         })
                                         .await;
+                                    */
                                 }
                             }
+                            /* 
                             NAVIGATION_SIGNAL
                                 .send(KeyEvent {
                                     event: EventType::MenuUp,
@@ -316,10 +343,12 @@ pub async fn mapping_task() {
                                     value: 0,
                                 })
                                 .await;
+                            */
                         }
                         //C3
                         21 => {
                             //    base = 48;
+                            /* 
                             NAVIGATION_SIGNAL
                                 .send(KeyEvent {
                                     event: EventType::MenuRight,
@@ -327,10 +356,12 @@ pub async fn mapping_task() {
                                     value: 0,
                                 })
                                 .await;
+                             */
                         }
                         //C4
                         22 => {
                             // base = 60;
+/* 
                             if seq_active {
                                 if lane < (AMOUNT_OF_LANES - 1) as u16 {
                                     lane = lane + 1;
@@ -351,24 +382,31 @@ pub async fn mapping_task() {
                                     value: 0,
                                 })
                                 .await;
+                            */
                         }
                         _ => {}
                     }
                 };
                 if !seq_active {
+                     if led_remap != 99 {
                     LED_MESSAGE_CHANNEL
                         .send(LedMessage {
                             color: COLOR,
-                            id: 2 + event.id,
+                            id: led_remap,
                             //  brightness: BRIGTHNESS,
                         })
                         .await;
+                       println!("led done");
+                    }
                 }
             }
 
-            EventType::KeypadUp => {
+           keyboard_input::KEYPAD_EVENT_UP => {
+            println!("event {:?}", event.id);
                 let remap = REMAP_MIDI[event.id as usize];
-                if remap != 255 {
+                   let mut led_remap  = REMAP_MIDI_LED [event.id as usize];
+
+                if remap != 99 {
                     let message = midi_msg::MidiMsg::ChannelVoice {
                         channel: if synth_active {
                             Channel::Ch1
@@ -380,7 +418,7 @@ pub async fn mapping_task() {
                             velocity: VEL,
                         },
                     };
-                    MIDI_OUT_MESSAGE_CHANNEL.send(message.clone()).await;
+                   // MIDI_OUT_MESSAGE_CHANNEL.send(message.clone()).await;
                     sender.publish(message).await;
                 } else {
                     // println!("event {:?}", event.id);
@@ -392,16 +430,19 @@ pub async fn mapping_task() {
                     }
                 };
                 if !seq_active {
+                    if led_remap != 99 {
                     LED_MESSAGE_CHANNEL
                         .send(LedMessage {
                             color: colors::BLACK,
-                            id: 2 + event.id,
+                            id: led_remap,
                             //brightness: BRIGTHNESS,
                         })
                         .await;
+                    }
                 }
             }
             e => {
+                /* 
                 NAVIGATION_SIGNAL
                     .send(KeyEvent {
                         event: e,
@@ -409,7 +450,9 @@ pub async fn mapping_task() {
                         value: 0,
                     })
                     .await;
+                  */
             }
+          
         }
     }
 }

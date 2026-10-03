@@ -5,7 +5,6 @@ use embassy_time::{Duration, Instant, Timer};
 use esp_backtrace as _;
 use esp_println::println;
 use little_weirdo::sequencer::{AMOUNT_OF_LANES, MAX_AMOUNT_OF_PATTERNS};
-use little_weirdo_gui::{EventType, KeyEvent};
 //use embassy_time::{Duration, Timer};
 use crate::{
     MIDI_MESSAGE_CHANNEL,
@@ -17,7 +16,7 @@ use midi_msg::MidiMsg;
 const BPM: u16 = 120;
 const CLOCK_TICK: u16 = 60_000 / (BPM * 4);
 
-pub static SEQUENCE_KEY_CHANNEL: Channel<CriticalSectionRawMutex, KeyEvent, 50> = Channel::new();
+//pub static SEQUENCE_KEY_CHANNEL: Channel<CriticalSectionRawMutex, Event, 50> = Channel::new();
 
 pub static ID_LED_MAP: [u8; 16] = [2, 3, 4, 5, 6, 12, 13, 14, 7, 8, 9, 10, 11, 17, 18, 19];
 
@@ -54,8 +53,8 @@ pub async fn sequence_task() {
     let sender = MIDI_MESSAGE_CHANNEL.publisher().unwrap();
     loop {
         let start = Instant::now();
-        let seq_key = SEQUENCE_KEY_CHANNEL.try_receive();
-
+        //let seq_key = SEQUENCE_KEY_CHANNEL.try_receive();
+/* 
         match seq_key {
             Ok(e) => match e.event {
                 EventType::ChangeSeqBPM => {
@@ -140,6 +139,7 @@ pub async fn sequence_task() {
             Err(_) => {}
         }
 
+        */
         let trigger_1 = sequencer_1.clock(); // Update the sequencer state (not currently used to trigger anything)
         let note_id_active = sequencer_1.get_position() as usize;
 

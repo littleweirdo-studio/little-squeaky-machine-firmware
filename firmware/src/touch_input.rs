@@ -4,7 +4,7 @@ use embassy_time::{Duration, Timer};
 use esp_backtrace as _;
 use esp_hal::delay::Delay;
 use esp_println::println;
-use little_weirdo_gui::{EventType, KeyEvent, MAPPING_SIGNAL};
+use little_weirdo_gui::{MAPPING_SIGNAL};
 
 use crate::{I2c1Bus, keyboard_input::KeyStatus};
 extern crate alloc;
@@ -51,20 +51,25 @@ pub async fn touch_input_task(i2c_bus: &'static I2c1Bus) {
         for i in 0..8 {
             if (status & (1 << i)) != 0 {
                 if !key_status_array[i].key_down_trigger {
+                    println!("touch down {:}", i);
                     key_status_array[i].key_down_trigger = true;
-                    let _ = MAPPING_SIGNAL.try_send(KeyEvent {
+                   
+                   /*  let _ = MAPPING_SIGNAL.try_send(KeyEvent {
                         event: EventType::KeypadDown,
                         id: i as u8,
                         value: 0,
-                    });
+                    });*/
                 }
             } else if key_status_array[i].key_down_trigger {
                 key_status_array[i].key_down_trigger = false;
+                                    println!("touch up {:}", i);
+
+              /* 
                 let _ = MAPPING_SIGNAL.try_send(KeyEvent {
                     event: EventType::KeypadUp,
                     id: i as u8,
                     value: 0,
-                });
+                }); */
             }
         }
     }
