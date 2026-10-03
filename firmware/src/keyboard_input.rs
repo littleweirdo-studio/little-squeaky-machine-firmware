@@ -47,282 +47,13 @@ const DEBUG: bool = false;
 pub async fn keyboard_input_task() {
     let mut cols: [Output; 5];
     let rows: [esp_hal::gpio::Input; 5];
-
-    let keymap_down: [Event; 25] = [
-        // 0 -- 9
-        Event {
-            event_identifier: KEYPAD_EVENT_DOWN.clone(),
-            id: 0,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_DOWN.clone(),
-            id: 1,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_DOWN.clone(),
-            id: 2,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_DOWN.clone(),
-            id: 3,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_DOWN.clone(),
-            id: 4,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_DOWN.clone(),
-            id: 5,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_DOWN.clone(),
-            id: 6,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_DOWN.clone(),
-            id: 7,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_DOWN.clone(),
-            id: 8,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_DOWN.clone(),
-            id: 9,
-            value: 0,
-        },
-        // 10 -- 19
-        Event {
-            event_identifier: KEYPAD_EVENT_DOWN.clone(),
-            id: 10,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_DOWN.clone(),
-            id: 11,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_DOWN.clone(),
-            id: 12,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_DOWN.clone(),
-            id: 13,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_DOWN.clone(),
-            id: 14,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_DOWN.clone(),
-            id: 15,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_DOWN.clone(),
-            id: 16,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_DOWN.clone(),
-            id: 17,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_DOWN.clone(),
-            id: 18,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_DOWN.clone(),
-            id: 19,
-            value: 0,
-        },
-        // 20 -- 24
-        Event {
-            event_identifier: KEYPAD_EVENT_DOWN.clone(),
-            id: 20,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_DOWN.clone(),
-            id: 21,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_DOWN.clone(),
-            id: 22,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_DOWN.clone(),
-            id: 23,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_DOWN.clone(),
-            id: 24,
-            value: 0,
-        },
-    ];
-
-    let keymap_up: [Event; 25] = [
-        // 0 -- 9
-        Event {
-            event_identifier: KEYPAD_EVENT_UP.clone(),
-            id: 0,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_UP.clone(),
-            id: 1,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_UP.clone(),
-            id: 2,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_UP.clone(),
-            id: 3,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_UP.clone(),
-            id: 4,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_UP.clone(),
-            id: 5,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_UP.clone(),
-            id: 6,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_UP.clone(),
-            id: 7,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_UP.clone(),
-            id: 8,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_UP.clone(),
-            id: 9,
-            value: 0,
-        },
-        // 10 -- 19
-        Event {
-            event_identifier: KEYPAD_EVENT_UP.clone(),
-            id: 10,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_UP.clone(),
-            id: 11,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_UP.clone(),
-            id: 12,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_UP.clone(),
-            id: 13,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_UP.clone(),
-            id: 14,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_UP.clone(),
-            id: 15,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_UP.clone(),
-            id: 16,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_UP.clone(),
-            id: 17,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_UP.clone(),
-            id: 18,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_UP.clone(),
-            id: 19,
-            value: 0,
-        },
-        // 20 -- 24
-        Event {
-            event_identifier: KEYPAD_EVENT_UP.clone(),
-            id: 20,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_UP.clone(),
-            id: 21,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_UP.clone(),
-            id: 22,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_UP.clone(),
-            id: 23,
-            value: 0,
-        },
-        Event {
-            event_identifier: KEYPAD_EVENT_UP.clone(),
-            id: 24,
-            value: 0,
-        },
-    ];
-
+   
     unsafe {
         let peripherals: Peripherals = Peripherals::steal();
         let input_pin_config = InputConfig::default().with_pull(Pull::Down);
         let output_pin_config = OutputConfig::default();
 
         cols = [
-            /*
-              Input::new(peripherals.GPIO14, input_pin_config),
-            Input::new(peripherals.GPIO13, input_pin_config),
-            Input::new(peripherals.GPIO12, input_pin_config),
-            Input::new(peripherals.GPIO11, input_pin_config),
-            Input::new(peripherals.GPIO10, input_pin_config),
-             */
             Output::new(peripherals.GPIO14, Level::Low, output_pin_config),
             Output::new(peripherals.GPIO13, Level::Low, output_pin_config),
             Output::new(peripherals.GPIO12, Level::Low, output_pin_config),
@@ -331,14 +62,6 @@ pub async fn keyboard_input_task() {
         ];
 
         rows = [
-            //
-            /*
-              Output::new(peripherals.GPIO4, Level::Low, output_pin_config),
-            Output::new(peripherals.GPIO5, Level::Low, output_pin_config),
-            Output::new(peripherals.GPIO6, Level::Low, output_pin_config),
-            Output::new(peripherals.GPIO7, Level::Low, output_pin_config),
-            Output::new(peripherals.GPIO15, Level::Low, output_pin_config),
-             */
             Input::new(peripherals.GPIO4, input_pin_config),
             Input::new(peripherals.GPIO5, input_pin_config),
             Input::new(peripherals.GPIO6, input_pin_config),
@@ -364,8 +87,13 @@ pub async fn keyboard_input_task() {
                                     col_counter * 5 + row_counter
                                 )
                             };
+                            let event = Event {
+                                event_identifier: KEYPAD_EVENT_DOWN,
+                                id: (col_counter * 5 + row_counter) as u8,
+                                value: 0,
+                            };
                             let _ = MAPPING_SIGNAL
-                                .try_send(keymap_down[col_counter * 5 + row_counter].clone());
+                                .try_send(event);
                             status.key_down_trigger = true;
                         }
                     } else {
@@ -383,8 +111,13 @@ pub async fn keyboard_input_task() {
                                 esp_println::println!("--");
                             }
                             status.key_down_trigger = false;
+                            let event = Event {
+                                event_identifier: KEYPAD_EVENT_UP,
+                                id: (col_counter * 5 + row_counter) as u8,
+                                value: 0,
+                            };
                             let _ = MAPPING_SIGNAL
-                                .try_send(keymap_up[col_counter * 5 + row_counter].clone());
+                                .try_send(event.clone());
                         }
                     }
                 }
