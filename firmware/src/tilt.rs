@@ -1,15 +1,16 @@
+
 use driver_stk8321::STK8321;
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
+use embassy_time::{Duration, Timer};
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex};
 use esp_backtrace as _;
 use esp_println::println;
-use little_weirdo_gui::EventType;
 use midi_msg::Channel;
 
 use crate::{I2c1Bus, MIDI_MESSAGE_CHANNEL};
 extern crate alloc;
 
-pub static TILT_SIGNAL: embassy_sync::channel::Channel<CriticalSectionRawMutex, EventType, 50> = embassy_sync::channel::Channel::new();
+//pub static TILT_SIGNAL: embassy_sync::channel::Channel<CriticalSectionRawMutex, Event, 50> = embassy_sync::channel::Channel::new();
 
 
 #[embassy_executor::task]
@@ -28,9 +29,9 @@ let mut stk8321 = STK8321::new(i2c_dev);
     
     
     loop {
-        
-          match TILT_SIGNAL.receive().await {
-                EventType::TiltNoteDown => {
+        /* 
+       //   match TILT_SIGNAL.receive().await {
+       //         EventType::TiltNoteDown => {
                      let x = stk8321.read_x().await.unwrap().abs();
                 println!("X-axis value: {}", x);
               /*            LED_MESSAGE_CHANNEL
@@ -52,7 +53,7 @@ let mut stk8321 = STK8321::new(i2c_dev);
                     };
                     sender.publish(message).await;
                 },
-                EventType::TiltNoteUp => {
+            //    EventType::TiltNoteUp => {
                      let message = midi_msg::MidiMsg::ChannelVoice {
                         channel: Channel::Ch1,
                         msg: midi_msg::ChannelVoiceMsg::NoteOff {
@@ -65,19 +66,19 @@ let mut stk8321 = STK8321::new(i2c_dev);
                // EventType::KeypadLeft => active_item.back(),
                // EventType::KeypadRight => active_item.select(),
             _ => {}
-        }
-/* 
+        }*/
+
           let x = stk8321.read_x().await.unwrap().abs();
 
             if (x > 100) {
       
                 
-               // println!("X-axis value: {}", x);
+                println!("X-axis value: {}", x);
             }
 
         let y = stk8321.read_y().await.unwrap().abs();
         if (y > 100) {
-               // println!("Y-axis value: {}", y);
+                println!("Y-axis value: {}", y);
               /*            LED_MESSAGE_CHANNEL
                     .send(LedMessage {
                         color: smart_leds::colors::ALICE_BLUE,
@@ -88,8 +89,8 @@ let mut stk8321 = STK8321::new(i2c_dev);
                 
             }
     
-          */
+    
 
-       // Timer::after(Duration::from_millis(100)).await;
+    Timer::after(Duration::from_millis(100)).await;
     }
 }

@@ -4,9 +4,8 @@ use embassy_time::{Duration, Timer};
 use esp_backtrace as _;
 use esp_hal::delay::Delay;
 use esp_println::println;
-use little_weirdo_gui::{MAPPING_SIGNAL};
-
-use crate::{I2c1Bus, keyboard_input::KeyStatus};
+use little_weirdo_gui::{Event, MAPPING_SIGNAL};
+use crate::{I2c1Bus, keyboard_input::{KEYPAD_EVENT_DOWN, KEYPAD_EVENT_UP, KeyStatus}};
 extern crate alloc;
 
 #[embassy_executor::task]
@@ -53,23 +52,27 @@ pub async fn touch_input_task(i2c_bus: &'static I2c1Bus) {
                 if !key_status_array[i].key_down_trigger {
                     println!("touch down {:}", i);
                     key_status_array[i].key_down_trigger = true;
+                     let event = Event {
+                                event_identifier: KEYPAD_EVENT_DOWN,
+                                id: i as u8,
+                                value: 0,
+                            };
+
                    
-                   /*  let _ = MAPPING_SIGNAL.try_send(KeyEvent {
-                        event: EventType::KeypadDown,
-                        id: i as u8,
-                        value: 0,
-                    });*/
+                    let _ = MAPPING_SIGNAL.try_send(event);
                 }
             } else if key_status_array[i].key_down_trigger {
                 key_status_array[i].key_down_trigger = false;
                                     println!("touch up {:}", i);
 
-              /* 
-                let _ = MAPPING_SIGNAL.try_send(KeyEvent {
-                    event: EventType::KeypadUp,
-                    id: i as u8,
-                    value: 0,
-                }); */
+                let event = Event {
+                                event_identifier: KEYPAD_EVENT_UP,
+                                id: i as u8,
+                                value: 0,
+                            };
+
+                   
+                    let _ = MAPPING_SIGNAL.try_send(event);
             }
         }
     }

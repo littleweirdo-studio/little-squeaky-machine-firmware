@@ -71,7 +71,6 @@ pub async fn keyboard_input_task() {
     }
 
     let mut matrix = Matrix::<KeyStatus>::new(5, 5);
-    esp_println::println!("start");
     loop {
         for (col_counter, col) in cols.iter_mut().enumerate() {
             Timer::after(Duration::from_millis(1)).await;

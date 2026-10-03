@@ -34,9 +34,9 @@ use crate::mapping::mapping_task;
 
 mod touch_input;
 use crate::touch_input::touch_input_task;
-
-// mod tilt;
-// use crate::tilt::tilt_task;
+ 
+ mod tilt;
+ use crate::tilt::tilt_task;
 
 //
 use embassy_executor::Spawner;
@@ -143,7 +143,7 @@ async fn main(spawner: Spawner) {
     let _ = spawner.spawn(oled_task(i2c_bus).unwrap());
 
     Timer::after(Duration::from_millis(100)).await;
-    let _ = spawner.spawn(potmeter_task().unwrap());
+   // let _ = spawner.spawn(potmeter_task().unwrap());
 
     Timer::after(Duration::from_millis(100)).await;
 
@@ -152,10 +152,9 @@ async fn main(spawner: Spawner) {
     Timer::after(Duration::from_millis(10)).await;
     let _ = spawner.spawn(keyboard_input_task().unwrap());
     let _ = spawner.spawn(mapping_task().unwrap());
-
    let _ = spawner.spawn(touch_input_task(i2c_bus).unwrap());
 
-    // let _ = spawner.spawn(tilt_task(i2c_bus)); // Commented out as tilt module is not available
+let _ = spawner.spawn(tilt_task(i2c_bus).unwrap()); // Commented out as tilt module is not available
 
     loop {
         Timer::after(Duration::from_millis(10)).await;
