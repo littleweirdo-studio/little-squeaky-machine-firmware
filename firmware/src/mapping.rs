@@ -221,7 +221,7 @@ pub async fn mapping_task() {
             encoder::ENCODER_EVENT_ROTATION => {
                 if event.id == 0 {
                     if event.value == encoder::ENCODER_CLOCKWISE {
-                        volume = volume.saturating_add(5).min(100);
+                        volume = volume.saturating_add(5).min(127);
                     } else {
                         volume = volume.saturating_sub(5);
                     }
