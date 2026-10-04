@@ -11,9 +11,28 @@ use crate::{
     encoder, keyboard_input,
     led::{LED_MESSAGE_CHANNEL, LedMessage},
     sequence::sequence_task,
+    touch_input::{TOUCH_BUTTON_EVENT_DOWN, TOUCH_BUTTON_EVENT_UP},
 };
 
 const COLOR: RGB8 = colors::DEEP_PINK;
+
+// Touch pads 0..7 select major, minor, diminished, augmented, sus2, sus4, maj7, and min7.
+const CHORD_INTERVALS: [&[u8]; 8] = [
+    &[0, 4, 7],
+    &[0, 3, 7],
+    &[0, 3, 6],
+    &[0, 4, 8],
+    &[0, 2, 7],
+    &[0, 5, 7],
+    &[0, 4, 7, 11],
+    &[0, 3, 7, 10],
+];
+
+#[derive(Clone, Copy, Default)]
+struct ActiveNotes {
+    notes: [u8; 4],
+    len: usize,
+}
 
 #[rustfmt::skip]
 const REMAP_MIDI: [u8; 25] = [
@@ -67,6 +86,8 @@ pub async fn mapping_task() {
 
     let mut lane = 0;
     let mut pattern = 0;
+    let mut selected_chord: Option<usize> = None;
+    let mut active_notes: [Option<ActiveNotes>; 25] = [None; 25];
 
     loop {
         let event: Event = MAPPING_SIGNAL.receive().await;
@@ -79,6 +100,16 @@ pub async fn mapping_task() {
             );
         };
         match event.event_identifier {
+            TOUCH_BUTTON_EVENT_DOWN => {
+                if (event.id as usize) < CHORD_INTERVALS.len() {
+                    selected_chord = Some(event.id as usize);
+                }
+            }
+            TOUCH_BUTTON_EVENT_UP => {
+                if selected_chord == Some(event.id as usize) {
+                    selected_chord = None;
+                }
+            }
             /*
                         EventType::PotMeterChange => {
                             //println!("potmeter changed = {}, {}", event.id, event.value );
@@ -283,19 +314,28 @@ pub async fn mapping_task() {
 
                 if remap != 99 {
                     if !seq_active {
-                        let message = midi_msg::MidiMsg::ChannelVoice {
-                            channel: if synth_active {
-                                Channel::Ch1
-                            } else {
-                                Channel::Ch2
-                            },
-                            msg: midi_msg::ChannelVoiceMsg::NoteOn {
-                                note: base + remap,
-                                velocity: VEL,
-                            },
-                        };
-                        //     MIDI_OUT_MESSAGE_CHANNEL.send(message.clone()).await;
-                        sender.publish(message).await;
+                        let intervals = selected_chord
+                            .map(|chord| CHORD_INTERVALS[chord])
+                            .unwrap_or(&[0]);
+                        let mut notes = ActiveNotes::default();
+                        for (index, interval) in intervals.iter().enumerate() {
+                            let note = base + remap + *interval;
+                            notes.notes[index] = note;
+                            notes.len += 1;
+                            let message = midi_msg::MidiMsg::ChannelVoice {
+                                channel: if synth_active {
+                                    Channel::Ch1
+                                } else {
+                                    Channel::Ch2
+                                },
+                                msg: midi_msg::ChannelVoiceMsg::NoteOn {
+                                    note,
+                                    velocity: VEL,
+                                },
+                            };
+                            sender.publish(message).await;
+                        }
+                        active_notes[event.id as usize] = Some(notes);
                     } else {
                         /*    SEQUENCE_KEY_CHANNEL
                         .send(KeyEvent {
@@ -475,19 +515,26 @@ pub async fn mapping_task() {
                 let mut led_remap = REMAP_MIDI_LED[event.id as usize];
 
                 if remap != 99 {
-                    let message = midi_msg::MidiMsg::ChannelVoice {
-                        channel: if synth_active {
-                            Channel::Ch1
-                        } else {
-                            Channel::Ch2
-                        },
-                        msg: midi_msg::ChannelVoiceMsg::NoteOff {
-                            note: base + remap,
-                            velocity: VEL,
-                        },
-                    };
-                    // MIDI_OUT_MESSAGE_CHANNEL.send(message.clone()).await;
-                    sender.publish(message).await;
+                    let notes = active_notes[event.id as usize].take().unwrap_or_else(|| {
+                        let mut notes = ActiveNotes::default();
+                        notes.notes[0] = base + remap;
+                        notes.len = 1;
+                        notes
+                    });
+                    for note in notes.notes.into_iter().take(notes.len) {
+                        let message = midi_msg::MidiMsg::ChannelVoice {
+                            channel: if synth_active {
+                                Channel::Ch1
+                            } else {
+                                Channel::Ch2
+                            },
+                            msg: midi_msg::ChannelVoiceMsg::NoteOff {
+                                note,
+                                velocity: VEL,
+                            },
+                        };
+                        sender.publish(message).await;
+                    }
                 } else {
                     // println!("event {:?}", event.id);
                     match event.id {

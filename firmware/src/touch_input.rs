@@ -1,3 +1,4 @@
+use crate::{I2c1Bus, keyboard_input::KeyStatus};
 use driver_cy8cmbr3108::CY8CMBR3108;
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 use embassy_time::{Duration, Timer};
@@ -5,8 +6,10 @@ use esp_backtrace as _;
 use esp_hal::delay::Delay;
 use esp_println::println;
 use little_weirdo_gui::{Event, MAPPING_SIGNAL};
-use crate::{I2c1Bus, keyboard_input::{KEYPAD_EVENT_DOWN, KEYPAD_EVENT_UP, KeyStatus}};
 extern crate alloc;
+
+pub const TOUCH_BUTTON_EVENT_DOWN: u8 = 43;
+pub const TOUCH_BUTTON_EVENT_UP: u8 = 44;
 
 #[embassy_executor::task]
 pub async fn touch_input_task(i2c_bus: &'static I2c1Bus) {
@@ -52,27 +55,23 @@ pub async fn touch_input_task(i2c_bus: &'static I2c1Bus) {
                 if !key_status_array[i].key_down_trigger {
                     println!("touch down {:}", i);
                     key_status_array[i].key_down_trigger = true;
-                     let event = Event {
-                                event_identifier: KEYPAD_EVENT_DOWN,
-                                id: i as u8,
-                                value: 0,
-                            };
-
-                   
+                    let event = Event {
+                        event_identifier: TOUCH_BUTTON_EVENT_DOWN,
+                        id: i as u8,
+                        value: 0,
+                    };
                     let _ = MAPPING_SIGNAL.try_send(event);
                 }
             } else if key_status_array[i].key_down_trigger {
                 key_status_array[i].key_down_trigger = false;
-                                    println!("touch up {:}", i);
+                println!("touch up {:}", i);
 
                 let event = Event {
-                                event_identifier: KEYPAD_EVENT_UP,
-                                id: i as u8,
-                                value: 0,
-                            };
-
-                   
-                    let _ = MAPPING_SIGNAL.try_send(event);
+                    event_identifier: TOUCH_BUTTON_EVENT_UP,
+                    id: i as u8,
+                    value: 0,
+                };
+                let _ = MAPPING_SIGNAL.try_send(event);
             }
         }
     }
