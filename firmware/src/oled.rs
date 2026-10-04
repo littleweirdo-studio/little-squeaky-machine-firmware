@@ -1,7 +1,7 @@
 extern crate alloc;
 use alloc::string::ToString;
 use alloc::string::String;
-use alloc::{format, vec, vec::Vec};
+use alloc::{vec, vec::Vec};
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 // use embassy_futures::join::join;
 use embassy_time::{Duration, Timer};
@@ -38,7 +38,7 @@ const WAVEFORM_NAMES_KEY: u32 = 600;
 
 enum DisplaySetting {
     Waveform { name: String, samples: [i16; WAVEFORM_SAMPLE_COUNT] },
-    Volume(u16),
+    Volume,
 }
 
 fn draw_waveform<D>(display: &mut D, samples: &[i16; WAVEFORM_SAMPLE_COUNT]) -> Result<(), D::Error>
@@ -296,30 +296,27 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
 
     */
     let mut active_item = ActiveItem::Menu(&mut main_menu);
+    let mut volume_settings = Settings::new(NO_MENU_EVENT.clone());
+    volume_settings.add("Volume".to_string());
     let mut display_setting = None;
     let mut waveform_bytes = [0u8; WAVEFORM_BYTE_COUNT];
     loop {
         let _ = display.clear(BinaryColor::Off);
-        if let Some(setting) = &display_setting {
-            let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
-            match setting {
+        match &display_setting {
+            Some(setting) => match setting {
                 DisplaySetting::Waveform { name, samples } => {
+                    let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
                     let _ = Text::new("WAVEFORM", Point::new(0, 13), text_style).draw(&mut display);
                     let _ = Text::new(name, Point::new(0, 26), text_style).draw(&mut display);
                     let _ = draw_waveform(&mut display, samples);
                 }
-                DisplaySetting::Volume(volume) => {
-                    let _ = Text::new("VOLUME", Point::new(0, 20), text_style).draw(&mut display);
-                    let _ = Text::new(
-                        format!("{} / 127", volume).as_str(),
-                        Point::new(0, 40),
-                        text_style,
-                    )
-                    .draw(&mut display);
+                DisplaySetting::Volume => {
+                    let _ = volume_settings.draw(&mut display);
                 }
+            },
+            None => {
+                let _ = active_item.draw(&mut display);
             }
-        } else {
-            let _ = active_item.draw(&mut display);
         }
         let _ = display.flush().await;
         let event = NAVIGATION_SIGNAL.receive().await;
@@ -364,7 +361,8 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
                 }
             }
             VOLUME_CHANGED_EVENT_IDENTIFIER => {
-                display_setting = Some(DisplaySetting::Volume(event.value));
+                volume_settings.update_bar(0, (event.value.min(127) * 100 / 127) as u8);
+                display_setting = Some(DisplaySetting::Volume);
             }
             _ => {}
         }

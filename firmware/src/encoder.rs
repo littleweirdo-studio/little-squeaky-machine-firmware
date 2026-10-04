@@ -84,11 +84,11 @@ pub async fn encoder_task() {
             // Emit one event after a complete detent; retain partial movement.
             if accumulated_transitions[encoder_id] >= TRANSITIONS_PER_DETENT {
                 accumulated_transitions[encoder_id] -= TRANSITIONS_PER_DETENT;
-                println!("encoder {} event clockwise = true", encoder_id);
+              //  println!("encoder {} event clockwise = true", encoder_id);
                 send_rotation_event(encoder_id as u8, true);
             } else if accumulated_transitions[encoder_id] <= -TRANSITIONS_PER_DETENT {
                 accumulated_transitions[encoder_id] += TRANSITIONS_PER_DETENT;
-                println!("encoder {} event clockwise = false", encoder_id);
+             //   println!("encoder {} event clockwise = false", encoder_id);
                 send_rotation_event(encoder_id as u8, false);
             }
         }
