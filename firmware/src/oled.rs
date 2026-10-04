@@ -34,8 +34,8 @@ use crate::I2c1Bus;
 use crate::synth::SoundBank;
 use crate::mapping::{
     CHORD_CHANGED_EVENT_IDENTIFIER, CHORD_NAMES, ENVELOPE_CHANGED_EVENT_IDENTIFIER,
-    ENVELOPE_MODE_EVENT_ID, INITIAL_ENVELOPE_VALUES, VOLUME_CHANGED_EVENT_IDENTIFIER,
-    WAVEFORM_CHANGED_EVENT_IDENTIFIER,
+    ENVELOPE_MODE_EVENT_ID, INITIAL_ENVELOPE_VALUES, OVERDRIVE_CHANGED_EVENT_IDENTIFIER,
+    OVERDRIVE_MODE_EVENT_ID, VOLUME_CHANGED_EVENT_IDENTIFIER, WAVEFORM_CHANGED_EVENT_IDENTIFIER,
 };
 
 const WAVEFORM_SAMPLE_COUNT: usize = 600;
@@ -59,6 +59,7 @@ enum DisplaySetting {
     Volume,
     Chord(&'static str),
     Envelope,
+    Overdrive,
 }
 
 fn draw_envelope<D>(display: &mut D, values: &[u8; 4]) -> Result<(), D::Error>
@@ -136,6 +137,53 @@ where
     Text::new(
         &format!("S {}%  R {}ms", values[2], release_ms),
         Point::new(7, 57),
+        text_style,
+    )
+    .draw(display)?;
+    draw_screen_border(display)
+}
+
+fn draw_overdrive<D>(
+    display: &mut D,
+    enabled: Option<bool>,
+    kind: Option<u8>,
+    threshold: Option<u16>,
+) -> Result<(), D::Error>
+where
+    D: DrawTarget<Color = BinaryColor>,
+{
+    let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
+    let enabled_text = match enabled {
+        Some(true) => "ON",
+        Some(false) => "OFF",
+        None => "--",
+    };
+    let kind_text = match kind {
+        Some(0) => "Hard",
+        Some(1) => "Soft",
+        Some(2) => "Softer",
+        _ => "--",
+    };
+    let threshold_text = threshold
+        .map(|value| format!("{}", value))
+        .unwrap_or_else(|| "--".to_string());
+
+    Text::new("OVERDRIVE", Point::new(7, 16), text_style).draw(display)?;
+    Text::new(
+        &format!("Enable: {}", enabled_text),
+        Point::new(7, 29),
+        text_style,
+    )
+    .draw(display)?;
+    Text::new(
+        &format!("Kind: {}", kind_text),
+        Point::new(7, 41),
+        text_style,
+    )
+    .draw(display)?;
+    Text::new(
+        &format!("Threshold: {}", threshold_text),
+        Point::new(7, 53),
         text_style,
     )
     .draw(display)?;
@@ -428,6 +476,10 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
     let mut display_setting = None;
     let mut envelope_values = INITIAL_ENVELOPE_VALUES;
     let mut envelope_edit_mode = false;
+    let mut overdrive_edit_mode = false;
+    let mut overdrive_enabled = None;
+    let mut overdrive_kind = None;
+    let mut overdrive_threshold = None;
     let mut waveform_bytes = [0u8; WAVEFORM_BYTE_COUNT];
     loop {
         let _ = display.clear(BinaryColor::Off);
@@ -453,6 +505,14 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
                 }
                 DisplaySetting::Envelope => {
                     let _ = draw_envelope(&mut display, &envelope_values);
+                }
+                DisplaySetting::Overdrive => {
+                    let _ = draw_overdrive(
+                        &mut display,
+                        overdrive_enabled,
+                        overdrive_kind,
+                        overdrive_threshold,
+                    );
                 }
             },
             None => {
@@ -524,6 +584,35 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
                     }
                 }
             }
+            OVERDRIVE_CHANGED_EVENT_IDENTIFIER => match event.id {
+                OVERDRIVE_MODE_EVENT_ID => {
+                    overdrive_edit_mode = event.value != 0;
+                    display_setting = if overdrive_edit_mode {
+                        Some(DisplaySetting::Overdrive)
+                    } else {
+                        None
+                    };
+                }
+                0 => {
+                    overdrive_enabled = Some(event.value != 0);
+                    if overdrive_edit_mode {
+                        display_setting = Some(DisplaySetting::Overdrive);
+                    }
+                }
+                1 => {
+                    overdrive_kind = Some(event.value.min(2) as u8);
+                    if overdrive_edit_mode {
+                        display_setting = Some(DisplaySetting::Overdrive);
+                    }
+                }
+                2 => {
+                    overdrive_threshold = Some(event.value);
+                    if overdrive_edit_mode {
+                        display_setting = Some(DisplaySetting::Overdrive);
+                    }
+                }
+                _ => {}
+            },
             _ => {}
         }
       /* 

@@ -85,6 +85,14 @@ pub const ENVELOPE_MODE_EVENT_ID: u8 = 4;
 pub const ENVELOPE_KEY_ID: u8 = 14;
 pub const ENVELOPE_KEY_LED_ID: u8 = 24;
 pub const INITIAL_ENVELOPE_VALUES: [u8; 4] = [20, 20, 80, 20];
+pub const OVERDRIVE_CHANGED_EVENT_IDENTIFIER: u8 = 246;
+pub const OVERDRIVE_MODE_EVENT_ID: u8 = 3;
+pub const OVERDRIVE_KEY_ID: u8 = 15;
+pub const OVERDRIVE_KEY_LED_ID: u8 = 5;
+pub const OVERDRIVE_ENABLE_CONTROL: u8 = 110;
+pub const OVERDRIVE_KIND_CONTROL: u8 = 111;
+pub const OVERDRIVE_THRESHOLD_CONTROL: u8 = 112;
+pub const OVERDRIVE_STATUS_CONTROL: u8 = 113;
 
 #[embassy_executor::task]
 pub async fn mapping_task() {
@@ -102,6 +110,7 @@ pub async fn mapping_task() {
     let mut voice: u8 = 0;
     let mut envelope_values = INITIAL_ENVELOPE_VALUES;
     let mut envelope_edit_mode = false;
+    let mut overdrive_edit_mode = false;
 
     let mut lane = 0;
     let mut pattern = 0;
@@ -320,6 +329,29 @@ pub async fn mapping_task() {
                             })
                             .await;
                     }
+                } else if overdrive_edit_mode {
+                    let control = match event.id {
+                            0 => Some((OVERDRIVE_ENABLE_CONTROL, 0)),
+                            1 => Some((
+                                OVERDRIVE_KIND_CONTROL,
+                                (event.value == encoder::ENCODER_CLOCKWISE) as u8,
+                            )),
+                            2 => Some((
+                                OVERDRIVE_THRESHOLD_CONTROL,
+                                (event.value == encoder::ENCODER_CLOCKWISE) as u8,
+                            )),
+                            _ => None,
+                    };
+                    if let Some((control, value)) = control {
+                            sender
+                                .publish(midi_msg::MidiMsg::ChannelVoice {
+                                    channel: Channel::Ch1,
+                                    msg: midi_msg::ChannelVoiceMsg::ControlChange {
+                                        control: midi_msg::ControlChange::CC { control, value },
+                                    },
+                                })
+                                .await;
+                    }
                 } else {
                     //enc 0
                     if event.id == 0 {
@@ -384,6 +416,22 @@ pub async fn mapping_task() {
 
                 if event.id == ENVELOPE_KEY_ID && !seq_active && synth_active {
                     envelope_edit_mode = !envelope_edit_mode;
+                    if envelope_edit_mode && overdrive_edit_mode {
+                        overdrive_edit_mode = false;
+                        LED_MESSAGE_CHANNEL
+                            .send(LedMessage {
+                                color: colors::BLACK,
+                                id: OVERDRIVE_KEY_LED_ID,
+                            })
+                            .await;
+                        NAVIGATION_SIGNAL
+                            .send(Event {
+                                event_identifier: OVERDRIVE_CHANGED_EVENT_IDENTIFIER,
+                                id: OVERDRIVE_MODE_EVENT_ID,
+                                value: 0,
+                            })
+                            .await;
+                    }
                     NAVIGATION_SIGNAL
                         .send(Event {
                             event_identifier: ENVELOPE_CHANGED_EVENT_IDENTIFIER,
@@ -391,6 +439,46 @@ pub async fn mapping_task() {
                             value: envelope_edit_mode as u16,
                         })
                         .await;
+                }
+
+                if event.id == OVERDRIVE_KEY_ID && !seq_active && synth_active {
+                    overdrive_edit_mode = !overdrive_edit_mode;
+                    if overdrive_edit_mode && envelope_edit_mode {
+                        envelope_edit_mode = false;
+                        LED_MESSAGE_CHANNEL
+                            .send(LedMessage {
+                                color: colors::BLACK,
+                                id: ENVELOPE_KEY_LED_ID,
+                            })
+                            .await;
+                        NAVIGATION_SIGNAL
+                            .send(Event {
+                                event_identifier: ENVELOPE_CHANGED_EVENT_IDENTIFIER,
+                                id: ENVELOPE_MODE_EVENT_ID,
+                                value: 0,
+                            })
+                            .await;
+                    }
+                    NAVIGATION_SIGNAL
+                        .send(Event {
+                            event_identifier: OVERDRIVE_CHANGED_EVENT_IDENTIFIER,
+                            id: OVERDRIVE_MODE_EVENT_ID,
+                            value: overdrive_edit_mode as u16,
+                        })
+                        .await;
+                    if overdrive_edit_mode {
+                        sender
+                            .publish(midi_msg::MidiMsg::ChannelVoice {
+                                channel: Channel::Ch1,
+                                msg: midi_msg::ChannelVoiceMsg::ControlChange {
+                                    control: midi_msg::ControlChange::CC {
+                                        control: OVERDRIVE_STATUS_CONTROL,
+                                        value: 0,
+                                    },
+                                },
+                            })
+                            .await;
+                    }
                 }
 
                 if remap != 99 {
@@ -581,12 +669,20 @@ pub async fn mapping_task() {
                 if !seq_active {
                     if event.id == ENVELOPE_KEY_ID {
                         led_remap = ENVELOPE_KEY_LED_ID;
+                    } else if event.id == OVERDRIVE_KEY_ID {
+                        led_remap = OVERDRIVE_KEY_LED_ID;
                     }
                     if led_remap != 99 {
                         LED_MESSAGE_CHANNEL
                             .send(LedMessage {
                                 color: if event.id == ENVELOPE_KEY_ID {
                                     if envelope_edit_mode {
+                                        colors::BLUE
+                                    } else {
+                                        colors::BLACK
+                                    }
+                                } else if event.id == OVERDRIVE_KEY_ID {
+                                    if overdrive_edit_mode {
                                         colors::BLUE
                                     } else {
                                         colors::BLACK
@@ -607,6 +703,8 @@ pub async fn mapping_task() {
                 let mut led_remap = REMAP_MIDI_LED[event.id as usize];
                 if event.id == ENVELOPE_KEY_ID && !seq_active {
                     led_remap = ENVELOPE_KEY_LED_ID;
+                } else if event.id == OVERDRIVE_KEY_ID && !seq_active {
+                    led_remap = OVERDRIVE_KEY_LED_ID;
                 }
 
                 if remap != 99 {
@@ -641,7 +739,10 @@ pub async fn mapping_task() {
                 };
                 if !seq_active {
                     if led_remap != 99 {
-                        if event.id != ENVELOPE_KEY_ID || !envelope_edit_mode {
+                        let keep_edit_led =
+                            (event.id == ENVELOPE_KEY_ID && envelope_edit_mode)
+                                || (event.id == OVERDRIVE_KEY_ID && overdrive_edit_mode);
+                        if !keep_edit_led {
                             LED_MESSAGE_CHANNEL
                                 .send(LedMessage {
                                     color: colors::BLACK,

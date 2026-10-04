@@ -25,9 +25,16 @@ use little_weirdo::{
 };
 
 use little_weirdo_filesystem::WeirdoFileSystem;
+use little_weirdo_gui::{Event, NAVIGATION_SIGNAL};
 use midi_msg::Channel;
 
-use crate::MIDI_MESSAGE_CHANNEL;
+use crate::{
+    MIDI_MESSAGE_CHANNEL,
+    mapping::{
+        OVERDRIVE_CHANGED_EVENT_IDENTIFIER, OVERDRIVE_ENABLE_CONTROL, OVERDRIVE_KIND_CONTROL,
+        OVERDRIVE_STATUS_CONTROL, OVERDRIVE_THRESHOLD_CONTROL,
+    },
+};
 
 use serde::Deserialize;
 use serde::Serialize;
@@ -38,6 +45,22 @@ pub struct SoundBank {
     pub amount_of_waveforms: u16,
     pub amount_of_samples: u16,
     pub amound_of_sampler_patches: u16,
+}
+
+fn notify_overdrive_settings(synth: &Synth) {
+    let (enabled, kind, threshold) = synth.overdrive_settings();
+    for (id, value) in [(0, enabled as u16), (1, kind as u16), (2, threshold)] {
+        if NAVIGATION_SIGNAL
+            .try_send(Event {
+                event_identifier: OVERDRIVE_CHANGED_EVENT_IDENTIFIER,
+                id,
+                value,
+            })
+            .is_err()
+        {
+            println!("overdrive display event dropped: navigation queue full");
+        }
+    }
 }
 
 pub fn synth_loop() {
@@ -296,6 +319,33 @@ pub fn synth_loop() {
                                                     );
                                                 }
 
+                                                midi_msg::ControlChange::CC { control, .. }
+                                                    if control == OVERDRIVE_ENABLE_CONTROL =>
+                                                {
+                                                    synth.toggle_overdrive();
+                                                    notify_overdrive_settings(&synth);
+                                                }
+
+                                                midi_msg::ControlChange::CC { control, value }
+                                                    if control == OVERDRIVE_KIND_CONTROL =>
+                                                {
+                                                    synth.cycle_overdrive_kind(value != 0);
+                                                    notify_overdrive_settings(&synth);
+                                                }
+
+                                                midi_msg::ControlChange::CC { control, value }
+                                                    if control == OVERDRIVE_THRESHOLD_CONTROL =>
+                                                {
+                                                    synth.adjust_overdrive_threshold(value != 0);
+                                                    notify_overdrive_settings(&synth);
+                                                }
+
+                                                midi_msg::ControlChange::CC { control, .. }
+                                                    if control == OVERDRIVE_STATUS_CONTROL =>
+                                                {
+                                                    notify_overdrive_settings(&synth);
+                                                }
+
                                                 _ => {}
                                             }
                                         }
@@ -304,6 +354,7 @@ pub fn synth_loop() {
                                     _ => {}
                                 }
                             }
+
                             _ => {}
                         }
                     }
@@ -349,5 +400,6 @@ pub fn synth_loop() {
                 }
             }
         }
+
     }
 }
