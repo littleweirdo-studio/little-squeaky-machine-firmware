@@ -47,6 +47,8 @@ const VEL: u8 = 70;
 const MARGIN: i16 = 2;
 
 const DEBUG: bool = false;
+pub const WAVEFORM_CHANGED_EVENT_IDENTIFIER: u8 = 250;
+pub const VOLUME_CHANGED_EVENT_IDENTIFIER: u8 = 249;
 
 #[embassy_executor::task]
 pub async fn mapping_task() {
@@ -234,6 +236,13 @@ pub async fn mapping_task() {
                             value: volume as u16,
                         })
                         .await;
+                    NAVIGATION_SIGNAL
+                        .send(Event {
+                            event_identifier: VOLUME_CHANGED_EVENT_IDENTIFIER,
+                            id: 0,
+                            value: volume as u16,
+                        })
+                        .await;
                 }
                 //enc 1
                   if event.id == 1 {
@@ -255,6 +264,13 @@ pub async fn mapping_task() {
                     };
 
                     sender.publish(message).await;
+                    NAVIGATION_SIGNAL
+                        .send(Event {
+                            event_identifier: WAVEFORM_CHANGED_EVENT_IDENTIFIER,
+                            id: voice,
+                            value: voice as u16,
+                        })
+                        .await;
                 }
             }
             keyboard_input::KEYPAD_EVENT_DOWN => {

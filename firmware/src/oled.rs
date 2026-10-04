@@ -4,8 +4,11 @@ use alloc::{format, vec};
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 // use embassy_futures::join::join;
 use embassy_time::{Duration, Timer};
+use embedded_graphics::mono_font::{MonoTextStyle, ascii::FONT_6X10};
 use embedded_graphics::pixelcolor::BinaryColor;
-use embedded_graphics::prelude::DrawTarget;
+use embedded_graphics::prelude::{DrawTarget, Point};
+use embedded_graphics::text::Text;
+use embedded_graphics::Drawable;
 use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::peripherals::Peripherals;
@@ -16,13 +19,50 @@ use little_weirdo_filesystem::WeirdoFileSystem;
 use little_weirdo_gui::about::About;
 use little_weirdo_gui::menu::{self, MenuIcon};
 use little_weirdo_gui::settings::Settings;
-use little_weirdo_gui::{ActiveItem,NAVIGATION_SIGNAL, Navigatable, NO_MENU_EVENT, NO_ACTIVITY_EVENT};
+use little_weirdo_gui::{
+    ActiveItem, NAVIGATION_SIGNAL, Navigatable, NO_ACTIVITY_EVENT, NO_MENU_EVENT,
+};
 use ssd1306::prelude::DisplayRotation;
 use ssd1306::size::DisplaySize128x64;
 use ssd1306::{I2CDisplayInterface, Ssd1306Async};
 
 use crate::I2c1Bus;
 use crate::synth::SoundBank;
+use crate::mapping::{VOLUME_CHANGED_EVENT_IDENTIFIER, WAVEFORM_CHANGED_EVENT_IDENTIFIER};
+
+const WAVEFORM_NAMES: [&str; 26] = [
+    "Sine",
+    "Saw",
+    "Square",
+    "Triangle",
+    "Electric Bass",
+    "Cello",
+    "Violin",
+    "Electric Organ",
+    "Electric Piano",
+    "Overtone",
+    "Granular 0001",
+    "Granular 0002",
+    "Granular 0003",
+    "Granular 0004",
+    "Granular 0005",
+    "Granular 0006",
+    "Granular 0007",
+    "Granular 0008",
+    "Granular 0009",
+    "Granular 0010",
+    "Granular 0011",
+    "Granular 0012",
+    "Granular 0013",
+    "Granular 0014",
+    "Granular 0015",
+    "Granular 0016",
+];
+
+enum DisplaySetting {
+    Waveform(&'static str),
+    Volume(u16),
+}
 
 #[embassy_executor::task]
 pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
@@ -219,12 +259,48 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
     let mut control_menu_active = false;
 
     */
-   let mut active_item = ActiveItem::Menu(&mut main_menu);
+    let mut active_item = ActiveItem::Menu(&mut main_menu);
+    let mut display_setting = None;
     loop {
         let _ = display.clear(BinaryColor::Off);
-       let _ = active_item.draw(&mut display);
+        if let Some(setting) = &display_setting {
+            let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
+            match setting {
+                DisplaySetting::Waveform(waveform_name) => {
+                    let _ = Text::new("WAVEFORM", Point::new(0, 20), text_style).draw(&mut display);
+                    let _ = Text::new(waveform_name, Point::new(0, 40), text_style)
+                        .draw(&mut display);
+                }
+                DisplaySetting::Volume(volume) => {
+                    let _ = Text::new("VOLUME", Point::new(0, 20), text_style).draw(&mut display);
+                    let _ = Text::new(
+                        format!("{} / 127", volume).as_str(),
+                        Point::new(0, 40),
+                        text_style,
+                    )
+                    .draw(&mut display);
+                }
+            }
+        } else {
+            let _ = active_item.draw(&mut display);
+        }
         let _ = display.flush().await;
         let event = NAVIGATION_SIGNAL.receive().await;
+        match event.event_identifier {
+            WAVEFORM_CHANGED_EVENT_IDENTIFIER => {
+                display_setting = match WAVEFORM_NAMES.get(event.id as usize) {
+                    Some(name) => Some(DisplaySetting::Waveform(name)),
+                    None => {
+                        esp_println::println!("waveform name missing for index {}", event.id);
+                        None
+                    }
+                };
+            }
+            VOLUME_CHANGED_EVENT_IDENTIFIER => {
+                display_setting = Some(DisplaySetting::Volume(event.value));
+            }
+            _ => {}
+        }
       /* 
         match event.event {
             EventType::ControlSettings => {
