@@ -61,6 +61,7 @@ pub async fn mapping_task() {
     let mut last_value_pot3: u16 = 300;
 
     let mut volume: u8 = 50;
+    let mut voice: u8 = 0;
 
     let mut lane = 0;
     let mut pattern = 0;
@@ -219,6 +220,7 @@ pub async fn mapping_task() {
                         }
             */
             encoder::ENCODER_EVENT_ROTATION => {
+                //enc 0
                 if event.id == 0 {
                     if event.value == encoder::ENCODER_CLOCKWISE {
                         volume = volume.saturating_add(5).min(127);
@@ -232,6 +234,27 @@ pub async fn mapping_task() {
                             value: volume as u16,
                         })
                         .await;
+                }
+                //enc 1
+                  if event.id == 1 {
+                    if event.value == encoder::ENCODER_CLOCKWISE {
+                        voice = voice.saturating_add(1).min(25);
+                    } else {
+                        voice = voice.saturating_sub(1);
+                    }
+
+                    let message = midi_msg::MidiMsg::ChannelVoice {
+                        channel: if synth_active {
+                            Channel::Ch1
+                        } else {
+                            Channel::Ch2
+                        },
+                        msg: midi_msg::ChannelVoiceMsg::ControlChange {
+                            control: midi_msg::ControlChange::SoundControl2(voice),
+                        },
+                    };
+
+                    sender.publish(message).await;
                 }
             }
             keyboard_input::KEYPAD_EVENT_DOWN => {

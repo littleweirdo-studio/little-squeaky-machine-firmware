@@ -13,7 +13,7 @@ pub const ENCODER_CLOCKWISE: u16 = 1;
 pub const ENCODER_COUNTER_CLOCKWISE: u16 = 0;
 const ENCODER_COUNT: usize = 4;
 // Most mechanical encoders produce four valid signal transitions per detent.
-const TRANSITIONS_PER_DETENT: i8 = 4;
+const TRANSITIONS_PER_DETENT: i8 = 3;
 
 // Index with (previous_state << 2) | current_state, where each state is A:B.
 // The signs are reversed to match the physical direction of these encoders.

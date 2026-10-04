@@ -240,6 +240,10 @@ pub fn synth_loop() {
                                                     synth.change_cutoff(value);
                                                 }
 
+                                                 midi_msg::ControlChange::SoundControl2(value) => {
+                                                    synth.change_all_voices(value);
+                                                }
+
                                                 midi_msg::ControlChange::AttackTime(value) => {
                                                     let attack_time = if value == 0 {
                                                         5
