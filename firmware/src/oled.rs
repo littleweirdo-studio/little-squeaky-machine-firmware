@@ -1,7 +1,7 @@
 extern crate alloc;
-use alloc::string::ToString;
 use alloc::string::String;
-use alloc::{vec, vec::Vec};
+use alloc::string::ToString;
+use alloc::{format, vec, vec::Vec};
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 // use embassy_futures::join::join;
 use embassy_time::{Duration, Timer};
@@ -33,7 +33,8 @@ use ssd1306::{I2CDisplayInterface, Ssd1306Async};
 use crate::I2c1Bus;
 use crate::synth::SoundBank;
 use crate::mapping::{
-    CHORD_CHANGED_EVENT_IDENTIFIER, CHORD_NAMES, VOLUME_CHANGED_EVENT_IDENTIFIER,
+    CHORD_CHANGED_EVENT_IDENTIFIER, CHORD_NAMES, ENVELOPE_CHANGED_EVENT_IDENTIFIER,
+    ENVELOPE_MODE_EVENT_ID, INITIAL_ENVELOPE_VALUES, VOLUME_CHANGED_EVENT_IDENTIFIER,
     WAVEFORM_CHANGED_EVENT_IDENTIFIER,
 };
 
@@ -57,6 +58,88 @@ enum DisplaySetting {
     Waveform { name: String, samples: [i16; WAVEFORM_SAMPLE_COUNT] },
     Volume,
     Chord(&'static str),
+    Envelope,
+}
+
+fn draw_envelope<D>(display: &mut D, values: &[u8; 4]) -> Result<(), D::Error>
+where
+    D: DrawTarget<Color = BinaryColor>,
+{
+    let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
+    let attack_ms = if values[0] == 0 {
+        5
+    } else {
+        values[0] as u16 * 5
+    };
+    let decay_ms = if values[1] == 0 {
+        5
+    } else {
+        values[1] as u16 * 5
+    };
+    let release_ms = if values[3] == 0 {
+        5
+    } else {
+        values[3] as u16 * 5
+    };
+    let plot_left = 8;
+    let plot_right = 120;
+    let plot_top = 16;
+    let baseline = 35;
+    let sustain_y = baseline - (values[2] as i32 * (baseline - plot_top) / 100);
+
+    let attack = attack_ms as u32;
+    let decay = decay_ms as u32;
+    let release = release_ms as u32;
+    let total_time = attack + decay + release;
+    let adjustable_width = (plot_right - plot_left - 28 - 24) as u32;
+    let attack_extra = adjustable_width * attack / total_time;
+    let decay_extra = adjustable_width * decay / total_time;
+    let release_extra = adjustable_width - attack_extra - decay_extra;
+    let attack_width = 8 + attack_extra as i32;
+    let decay_width = 8 + decay_extra as i32;
+    let sustain_width = 28;
+    let release_width = 8 + release_extra as i32;
+
+    let attack_end = plot_left + attack_width;
+    let decay_end = attack_end + decay_width;
+    let sustain_end = decay_end + sustain_width;
+    let release_end = sustain_end + release_width;
+    let line_style = PrimitiveStyle::with_stroke(BinaryColor::On, 1);
+    Line::new(
+        Point::new(plot_left, baseline),
+        Point::new(attack_end, plot_top),
+    )
+    .draw_styled(&line_style, display)?;
+    Line::new(
+        Point::new(attack_end, plot_top),
+        Point::new(decay_end, sustain_y),
+    )
+    .draw_styled(&line_style, display)?;
+    Line::new(
+        Point::new(decay_end, sustain_y),
+        Point::new(sustain_end, sustain_y),
+    )
+    .draw_styled(&line_style, display)?;
+    Line::new(
+        Point::new(sustain_end, sustain_y),
+        Point::new(release_end, baseline),
+    )
+    .draw_styled(&line_style, display)?;
+
+    Text::new("ADSR", Point::new(7, 12), text_style).draw(display)?;
+    Text::new(
+        &format!("A {}ms  D {}ms", attack_ms, decay_ms),
+        Point::new(7, 47),
+        text_style,
+    )
+    .draw(display)?;
+    Text::new(
+        &format!("S {}%  R {}ms", values[2], release_ms),
+        Point::new(7, 57),
+        text_style,
+    )
+    .draw(display)?;
+    draw_screen_border(display)
 }
 
 fn draw_waveform<D>(display: &mut D, samples: &[i16; WAVEFORM_SAMPLE_COUNT]) -> Result<(), D::Error>
@@ -343,6 +426,8 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
     let mut volume_settings = Settings::new(NO_MENU_EVENT.clone());
     volume_settings.add("Volume".to_string());
     let mut display_setting = None;
+    let mut envelope_values = INITIAL_ENVELOPE_VALUES;
+    let mut envelope_edit_mode = false;
     let mut waveform_bytes = [0u8; WAVEFORM_BYTE_COUNT];
     loop {
         let _ = display.clear(BinaryColor::Off);
@@ -365,6 +450,9 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
                         .draw(&mut display);
                     let _ = Text::new(name, Point::new(48, 40), text_style).draw(&mut display);
                     let _ = draw_screen_border(&mut display);
+                }
+                DisplaySetting::Envelope => {
+                    let _ = draw_envelope(&mut display, &envelope_values);
                 }
             },
             None => {
@@ -420,6 +508,21 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
             CHORD_CHANGED_EVENT_IDENTIFIER => {
                 let name = CHORD_NAMES.get(event.id as usize).copied().unwrap_or("No chord");
                 display_setting = Some(DisplaySetting::Chord(name));
+            }
+            ENVELOPE_CHANGED_EVENT_IDENTIFIER => {
+                if event.id == ENVELOPE_MODE_EVENT_ID {
+                    envelope_edit_mode = event.value != 0;
+                    display_setting = if envelope_edit_mode {
+                        Some(DisplaySetting::Envelope)
+                    } else {
+                        None
+                    };
+                } else if let Some(value) = envelope_values.get_mut(event.id as usize) {
+                    *value = event.value.min(if event.id == 2 { 100 } else { 127 }) as u8;
+                    if envelope_edit_mode {
+                        display_setting = Some(DisplaySetting::Envelope);
+                    }
+                }
             }
             _ => {}
         }

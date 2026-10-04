@@ -59,7 +59,7 @@ const REMAP_MIDI: [u8; 25] = [
 const REMAP_MIDI_LED: [u8; 25] = [
     99, 07, 12, 17, 22, //00..04
     03, 08, 13, 18, 23, //05..09
-    04, 09, 99, 19, 99, //10..14
+    04, 09, 99, 19, 24, //10..14
     99, 10, 15, 20, 25, //15..19
     06, 11, 16, 21, 99, //20..24
 ];
@@ -80,6 +80,11 @@ const MARGIN: i16 = 2;
 const DEBUG: bool = false;
 pub const WAVEFORM_CHANGED_EVENT_IDENTIFIER: u8 = 250;
 pub const VOLUME_CHANGED_EVENT_IDENTIFIER: u8 = 249;
+pub const ENVELOPE_CHANGED_EVENT_IDENTIFIER: u8 = 247;
+pub const ENVELOPE_MODE_EVENT_ID: u8 = 4;
+pub const ENVELOPE_KEY_ID: u8 = 14;
+pub const ENVELOPE_KEY_LED_ID: u8 = 24;
+pub const INITIAL_ENVELOPE_VALUES: [u8; 4] = [20, 20, 80, 20];
 
 #[embassy_executor::task]
 pub async fn mapping_task() {
@@ -95,6 +100,8 @@ pub async fn mapping_task() {
 
     let mut volume: u8 = 50;
     let mut voice: u8 = 0;
+    let mut envelope_values = INITIAL_ENVELOPE_VALUES;
+    let mut envelope_edit_mode = false;
 
     let mut lane = 0;
     let mut pattern = 0;
@@ -279,55 +286,92 @@ pub async fn mapping_task() {
                         }
             */
             encoder::ENCODER_EVENT_ROTATION => {
-                //enc 0
-                if event.id == 0 {
-                    if event.value == encoder::ENCODER_CLOCKWISE {
-                        volume = volume.saturating_add(5).min(127);
-                    } else {
-                        volume = volume.saturating_sub(5);
-                    }
-
-                    CODEC_SIGNAL
-                        .send(CodecEvent {
-                            event: CodecEventType::ChangeVolume,
-                            value: volume as u16,
-                        })
-                        .await;
-                    NAVIGATION_SIGNAL
-                        .send(Event {
-                            event_identifier: VOLUME_CHANGED_EVENT_IDENTIFIER,
-                            id: 0,
-                            value: volume as u16,
-                        })
-                        .await;
-                }
-                //enc 1
-                  if event.id == 1 {
-                    if event.value == encoder::ENCODER_CLOCKWISE {
-                        voice = voice.saturating_add(1).min(25);
-                    } else {
-                        voice = voice.saturating_sub(1);
-                    }
-
-                    let message = midi_msg::MidiMsg::ChannelVoice {
-                        channel: if synth_active {
-                            Channel::Ch1
+                if envelope_edit_mode {
+                    if let Some(value) = envelope_values.get_mut(event.id as usize) {
+                        let maximum = if event.id == 2 { 100 } else { 127 };
+                        *value = if event.value == encoder::ENCODER_CLOCKWISE {
+                            value.saturating_add(1).min(maximum)
                         } else {
-                            Channel::Ch2
-                        },
-                        msg: midi_msg::ChannelVoiceMsg::ControlChange {
-                            control: midi_msg::ControlChange::SoundControl2(voice),
-                        },
-                    };
+                            value.saturating_sub(1)
+                        };
 
-                    sender.publish(message).await;
-                    NAVIGATION_SIGNAL
-                        .send(Event {
-                            event_identifier: WAVEFORM_CHANGED_EVENT_IDENTIFIER,
-                            id: voice,
-                            value: voice as u16,
-                        })
-                        .await;
+                        let control = match event.id {
+                            0 => midi_msg::ControlChange::AttackTime(*value),
+                            1 => midi_msg::ControlChange::DecayTime(*value),
+                            2 => midi_msg::ControlChange::SoundControl3(*value),
+                            3 => midi_msg::ControlChange::ReleaseTime(*value),
+                            _ => unreachable!(),
+                        };
+                        sender
+                            .publish(midi_msg::MidiMsg::ChannelVoice {
+                                channel: if synth_active {
+                                    Channel::Ch1
+                                } else {
+                                    Channel::Ch2
+                                },
+                                msg: midi_msg::ChannelVoiceMsg::ControlChange { control },
+                            })
+                            .await;
+                        NAVIGATION_SIGNAL
+                            .send(Event {
+                                event_identifier: ENVELOPE_CHANGED_EVENT_IDENTIFIER,
+                                id: event.id,
+                                value: *value as u16,
+                            })
+                            .await;
+                    }
+                } else {
+                    //enc 0
+                    if event.id == 0 {
+                        if event.value == encoder::ENCODER_CLOCKWISE {
+                            volume = volume.saturating_add(5).min(127);
+                        } else {
+                            volume = volume.saturating_sub(5);
+                        }
+
+                        CODEC_SIGNAL
+                            .send(CodecEvent {
+                                event: CodecEventType::ChangeVolume,
+                                value: volume as u16,
+                            })
+                            .await;
+                        NAVIGATION_SIGNAL
+                            .send(Event {
+                                event_identifier: VOLUME_CHANGED_EVENT_IDENTIFIER,
+                                id: 0,
+                                value: volume as u16,
+                            })
+                            .await;
+                    }
+
+                    //enc 1
+                    if event.id == 1 {
+                        if event.value == encoder::ENCODER_CLOCKWISE {
+                            voice = voice.saturating_add(1).min(25);
+                        } else {
+                            voice = voice.saturating_sub(1);
+                        }
+
+                        let message = midi_msg::MidiMsg::ChannelVoice {
+                            channel: if synth_active {
+                                Channel::Ch1
+                            } else {
+                                Channel::Ch2
+                            },
+                            msg: midi_msg::ChannelVoiceMsg::ControlChange {
+                                control: midi_msg::ControlChange::SoundControl2(voice),
+                            },
+                        };
+
+                        sender.publish(message).await;
+                        NAVIGATION_SIGNAL
+                            .send(Event {
+                                event_identifier: WAVEFORM_CHANGED_EVENT_IDENTIFIER,
+                                id: voice,
+                                value: voice as u16,
+                            })
+                            .await;
+                    }
                 }
             }
             keyboard_input::KEYPAD_EVENT_DOWN => {
@@ -336,6 +380,17 @@ pub async fn mapping_task() {
 
                 if seq_active {
                     remap = REMAP_SEQ[event.id as usize];
+                }
+
+                if event.id == ENVELOPE_KEY_ID && !seq_active && synth_active {
+                    envelope_edit_mode = !envelope_edit_mode;
+                    NAVIGATION_SIGNAL
+                        .send(Event {
+                            event_identifier: ENVELOPE_CHANGED_EVENT_IDENTIFIER,
+                            id: ENVELOPE_MODE_EVENT_ID,
+                            value: envelope_edit_mode as u16,
+                        })
+                        .await;
                 }
 
                 if remap != 99 {
@@ -524,10 +579,21 @@ pub async fn mapping_task() {
                     }
                 };
                 if !seq_active {
+                    if event.id == ENVELOPE_KEY_ID {
+                        led_remap = ENVELOPE_KEY_LED_ID;
+                    }
                     if led_remap != 99 {
                         LED_MESSAGE_CHANNEL
                             .send(LedMessage {
-                                color: COLOR,
+                                color: if event.id == ENVELOPE_KEY_ID {
+                                    if envelope_edit_mode {
+                                        colors::BLUE
+                                    } else {
+                                        colors::BLACK
+                                    }
+                                } else {
+                                    COLOR
+                                },
                                 id: led_remap,
                                 //  brightness: BRIGTHNESS,
                             })
@@ -539,6 +605,9 @@ pub async fn mapping_task() {
             keyboard_input::KEYPAD_EVENT_UP => {
                 let remap = REMAP_MIDI[event.id as usize];
                 let mut led_remap = REMAP_MIDI_LED[event.id as usize];
+                if event.id == ENVELOPE_KEY_ID && !seq_active {
+                    led_remap = ENVELOPE_KEY_LED_ID;
+                }
 
                 if remap != 99 {
                     let notes = active_notes[event.id as usize].take().unwrap_or_else(|| {
@@ -572,13 +641,15 @@ pub async fn mapping_task() {
                 };
                 if !seq_active {
                     if led_remap != 99 {
-                        LED_MESSAGE_CHANNEL
-                            .send(LedMessage {
-                                color: colors::BLACK,
-                                id: led_remap,
-                                //brightness: BRIGTHNESS,
-                            })
-                            .await;
+                        if event.id != ENVELOPE_KEY_ID || !envelope_edit_mode {
+                            LED_MESSAGE_CHANNEL
+                                .send(LedMessage {
+                                    color: colors::BLACK,
+                                    id: led_remap,
+                                    //brightness: BRIGTHNESS,
+                                })
+                                .await;
+                        }
                     }
                 }
             }

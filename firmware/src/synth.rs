@@ -272,6 +272,15 @@ pub fn synth_loop() {
                                                     );
                                                 }
 
+                                                midi_msg::ControlChange::SoundControl3(value) => {
+                                                    synth.change_all_envelopes(
+                                                        None,
+                                                        None,
+                                                        Some(value.min(100) as i16),
+                                                        None,
+                                                    );
+                                                }
+
                                                 midi_msg::ControlChange::ReleaseTime(value) => {
                                                     let release_time = if value == 0 {
                                                         5
