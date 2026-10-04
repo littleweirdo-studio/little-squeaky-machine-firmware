@@ -13,6 +13,8 @@ mod wav_to_raw;
 use serde::Deserialize;
 use serde::Serialize;
 
+const WAVEFORM_NAMES_KEY: u32 = 600;
+
 #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 pub struct SoundBank {
     pub name: String,
@@ -27,7 +29,7 @@ fn main() {
     println!("Generate optimized data for Little Weirdo using original sources.\n");
     patch::generate_patches();
     sampler_patch::generate_sampler_patches();
-    wav_to_raw::generate_waveforms("data/waveforms/src", "data/waveforms");
+    let waveform_names = wav_to_raw::generate_waveforms("data/waveforms/src", "data/waveforms");
     wav_to_raw::generate_waveforms("data/samples/src", "data/samples");
 
     println!("\nCreate filesystem en store generated optimized data. \n");
@@ -61,6 +63,12 @@ fn main() {
         "raw".to_string(),
         700,
     );
+    let mut waveform_names_buffer = vec![0u8; 4096];
+    let waveform_names_bytes = postcard::to_slice(&waveform_names, &mut waveform_names_buffer)
+        .expect("Failed to serialize waveform names");
+    filesystem
+        .write_key_value(WAVEFORM_NAMES_KEY, waveform_names_bytes)
+        .expect("Failed to store waveform names");
     let samples_count = store_items(
         &mut filesystem,
         "data/samples".to_string(),

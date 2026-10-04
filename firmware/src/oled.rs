@@ -1,12 +1,14 @@
 extern crate alloc;
 use alloc::string::ToString;
-use alloc::{format, vec};
+use alloc::string::String;
+use alloc::{format, vec, vec::Vec};
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 // use embassy_futures::join::join;
 use embassy_time::{Duration, Timer};
 use embedded_graphics::mono_font::{MonoTextStyle, ascii::FONT_6X10};
 use embedded_graphics::pixelcolor::BinaryColor;
 use embedded_graphics::prelude::{DrawTarget, Point};
+use embedded_graphics::primitives::{Line, PrimitiveStyle, StyledDrawable};
 use embedded_graphics::text::Text;
 use embedded_graphics::Drawable;
 use esp_alloc as _;
@@ -30,38 +32,44 @@ use crate::I2c1Bus;
 use crate::synth::SoundBank;
 use crate::mapping::{VOLUME_CHANGED_EVENT_IDENTIFIER, WAVEFORM_CHANGED_EVENT_IDENTIFIER};
 
-const WAVEFORM_NAMES: [&str; 26] = [
-    "Sine",
-    "Saw",
-    "Square",
-    "Triangle",
-    "Electric Bass",
-    "Cello",
-    "Violin",
-    "Electric Organ",
-    "Electric Piano",
-    "Overtone",
-    "Granular 0001",
-    "Granular 0002",
-    "Granular 0003",
-    "Granular 0004",
-    "Granular 0005",
-    "Granular 0006",
-    "Granular 0007",
-    "Granular 0008",
-    "Granular 0009",
-    "Granular 0010",
-    "Granular 0011",
-    "Granular 0012",
-    "Granular 0013",
-    "Granular 0014",
-    "Granular 0015",
-    "Granular 0016",
-];
+const WAVEFORM_SAMPLE_COUNT: usize = 600;
+const WAVEFORM_BYTE_COUNT: usize = WAVEFORM_SAMPLE_COUNT * 2;
+const WAVEFORM_NAMES_KEY: u32 = 600;
 
 enum DisplaySetting {
-    Waveform(&'static str),
+    Waveform { name: String, samples: [i16; WAVEFORM_SAMPLE_COUNT] },
     Volume(u16),
+}
+
+fn draw_waveform<D>(display: &mut D, samples: &[i16; WAVEFORM_SAMPLE_COUNT]) -> Result<(), D::Error>
+where
+    D: DrawTarget<Color = BinaryColor>,
+{
+    let max_amplitude = samples
+        .iter()
+        .map(|sample| (*sample as i32).abs())
+        .max()
+        .unwrap_or(1)
+        .max(1);
+    let center_y = 47;
+    let amplitude_height = 15;
+    let line_style = PrimitiveStyle::with_stroke(BinaryColor::On, 1);
+
+    Line::new(Point::new(0, center_y), Point::new(127, center_y))
+        .draw_styled(&line_style, display)?;
+
+    for x in 0..127 {
+        let sample_index = x as usize * (WAVEFORM_SAMPLE_COUNT - 1) / 127;
+        let next_sample_index = (x as usize + 1) * (WAVEFORM_SAMPLE_COUNT - 1) / 127;
+        let y = center_y
+            - (samples[sample_index] as i32 * amplitude_height / max_amplitude) as i32;
+        let next_y = center_y
+            - (samples[next_sample_index] as i32 * amplitude_height / max_amplitude) as i32;
+        Line::new(Point::new(x, y), Point::new(x + 1, next_y))
+            .draw_styled(&line_style, display)?;
+    }
+
+    Ok(())
 }
 
 #[embassy_executor::task]
@@ -95,6 +103,34 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
 
     let _ = filesystem.read_key_value(000, buf.as_mut_slice());
     let sound_bank: SoundBank = postcard::from_bytes(&buf).unwrap();
+    let waveform_names = match filesystem.size_of_key_value(WAVEFORM_NAMES_KEY) {
+        Ok(size) if size > 0 => {
+            let mut names_buffer = vec![0u8; size as usize];
+            match filesystem.read_key_value(WAVEFORM_NAMES_KEY, &mut names_buffer) {
+                Ok(bytes_read) => match postcard::from_bytes::<Vec<String>>(
+                    &names_buffer[..bytes_read as usize],
+                ) {
+                    Ok(names) => Some(names),
+                    Err(error) => {
+                        esp_println::println!("failed to decode waveform names: {:?}", error);
+                        None
+                    }
+                },
+                Err(error) => {
+                    esp_println::println!("failed to read waveform names: {:?}", error);
+                    None
+                }
+            }
+        }
+        Ok(_) => {
+            esp_println::println!("waveform names are missing from the soundbank");
+            None
+        }
+        Err(error) => {
+            esp_println::println!("failed to locate waveform names: {:?}", error);
+            None
+        }
+    };
  
     let mut main_menu = menu::Menu::new(NO_MENU_EVENT.clone(), NO_ACTIVITY_EVENT.clone(), MenuIcon::Sine);
 /*     main_menu.add(
@@ -261,15 +297,16 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
     */
     let mut active_item = ActiveItem::Menu(&mut main_menu);
     let mut display_setting = None;
+    let mut waveform_bytes = [0u8; WAVEFORM_BYTE_COUNT];
     loop {
         let _ = display.clear(BinaryColor::Off);
         if let Some(setting) = &display_setting {
             let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
             match setting {
-                DisplaySetting::Waveform(waveform_name) => {
-                    let _ = Text::new("WAVEFORM", Point::new(0, 20), text_style).draw(&mut display);
-                    let _ = Text::new(waveform_name, Point::new(0, 40), text_style)
-                        .draw(&mut display);
+                DisplaySetting::Waveform { name, samples } => {
+                    let _ = Text::new("WAVEFORM", Point::new(0, 13), text_style).draw(&mut display);
+                    let _ = Text::new(name, Point::new(0, 26), text_style).draw(&mut display);
+                    let _ = draw_waveform(&mut display, samples);
                 }
                 DisplaySetting::Volume(volume) => {
                     let _ = Text::new("VOLUME", Point::new(0, 20), text_style).draw(&mut display);
@@ -288,13 +325,43 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
         let event = NAVIGATION_SIGNAL.receive().await;
         match event.event_identifier {
             WAVEFORM_CHANGED_EVENT_IDENTIFIER => {
-                display_setting = match WAVEFORM_NAMES.get(event.id as usize) {
-                    Some(name) => Some(DisplaySetting::Waveform(name)),
-                    None => {
-                        esp_println::println!("waveform name missing for index {}", event.id);
-                        None
+                if let Some(name) = waveform_names
+                    .as_ref()
+                    .and_then(|names| names.get(event.id as usize))
+                {
+                    match filesystem.read_key_value(700 + event.id as u32, &mut waveform_bytes) {
+                        Ok(bytes_read) if bytes_read >= WAVEFORM_BYTE_COUNT as u32 => {
+                            let mut samples = [0i16; WAVEFORM_SAMPLE_COUNT];
+                            for (index, sample) in samples.iter_mut().enumerate() {
+                                let offset = index * 2;
+                                *sample = i16::from_le_bytes([
+                                    waveform_bytes[offset],
+                                    waveform_bytes[offset + 1],
+                                ]);
+                            }
+                            display_setting = Some(DisplaySetting::Waveform {
+                                name: name.clone(),
+                                samples,
+                            });
+                        }
+                        Ok(bytes_read) => {
+                            esp_println::println!(
+                                "waveform {} has only {} sample bytes",
+                                event.id,
+                                bytes_read
+                            );
+                        }
+                        Err(error) => {
+                            esp_println::println!(
+                                "failed to read waveform {}: {:?}",
+                                event.id,
+                                error
+                            );
+                        }
                     }
-                };
+                } else {
+                    esp_println::println!("waveform name missing for index {}", event.id);
+                }
             }
             VOLUME_CHANGED_EVENT_IDENTIFIER => {
                 display_setting = Some(DisplaySetting::Volume(event.value));

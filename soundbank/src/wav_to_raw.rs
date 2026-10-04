@@ -11,7 +11,7 @@ use hound::WavReader;
 use tera::{Context, Tera};
 
 // Main function - entry point of the program
-pub fn generate_waveforms(source: &str, destination: &str) {
+pub fn generate_waveforms(source: &str, destination: &str) -> Vec<String> {
     println!(":: Generate waveforms.");
     // Get the original soundbank source path
     let soundbank_original_source_path = Path::new(source);
@@ -37,6 +37,7 @@ pub fn generate_waveforms(source: &str, destination: &str) {
     let tera = Tera::new("templates/**/*").expect("Failed to load templates");
     let mut context = Context::new();
     let mut entries = Vec::new();
+    let mut waveform_names = Vec::new();
 
     let soundbank_reference_file_name = Path::new(soundbank_source_path).join("README.md");
 
@@ -49,9 +50,17 @@ pub fn generate_waveforms(source: &str, destination: &str) {
             && open.spec().bits_per_sample == 16
             && open.spec().sample_rate == 44100
         {
+            let original_name = entry.file_name().to_string_lossy().into_owned();
+            let waveform_name = entry
+                .path()
+                .file_stem()
+                .unwrap()
+                .to_string_lossy()
+                .into_owned();
+            waveform_names.push(waveform_name);
             entries.push(serde_json::json!({
                 "index": counter,
-                "original": entry.file_name().to_string_lossy(),
+                "original": original_name,
                 "size":  open.samples::<i16>().len(),
             }));
 
@@ -92,4 +101,5 @@ pub fn generate_waveforms(source: &str, destination: &str) {
 
     let mut readme_file = File::create(soundbank_reference_file_name).expect("Failed to open file");
     let _ = readme_file.write(rendered.as_bytes());
+    waveform_names
 }
