@@ -33,6 +33,8 @@ use crate::{
     mapping::{
         OVERDRIVE_CHANGED_EVENT_IDENTIFIER, OVERDRIVE_ENABLE_CONTROL, OVERDRIVE_KIND_CONTROL,
         OVERDRIVE_STATUS_CONTROL, OVERDRIVE_THRESHOLD_CONTROL,
+        DELAY_CHANGED_EVENT_IDENTIFIER, DELAY_ENABLE_CONTROL, DELAY_FEEDBACK_CONTROL,
+        DELAY_MIX_CONTROL, DELAY_STATUS_CONTROL, DELAY_TIME_CONTROL,
     },
 };
 
@@ -63,6 +65,27 @@ fn notify_overdrive_settings(synth: &Synth) {
     }
 }
 
+fn notify_delay_settings(synth: &Synth) {
+    let (enabled, time, mix, feedback) = synth.delay_settings();
+    for (id, value) in [
+        (0, enabled as u16),
+        (1, time),
+        (2, mix as u16),
+        (3, feedback as u16),
+    ] {
+        if NAVIGATION_SIGNAL
+            .try_send(Event {
+                event_identifier: DELAY_CHANGED_EVENT_IDENTIFIER,
+                id,
+                value,
+            })
+            .is_err()
+        {
+            println!("delay display event dropped: navigation queue full");
+        }
+    }
+}
+
 pub fn synth_loop() {
     const SAMPLE_RATE: u32 = 44100;
     const AMOUNT_OF_SAMPLES_BUFFERING: usize = 1100;
@@ -81,7 +104,7 @@ pub fn synth_loop() {
     }
 
     let mut filesystem: WeirdoFileSystem<FlashStorage> =
-        WeirdoFileSystem::new(storage, 0x00220000, 0x100000);
+        WeirdoFileSystem::new(storage, 0x00220000, 0x200000);
 
     //get settings
 
@@ -344,6 +367,40 @@ pub fn synth_loop() {
                                                     if control == OVERDRIVE_STATUS_CONTROL =>
                                                 {
                                                     notify_overdrive_settings(&synth);
+                                                }
+
+                                                midi_msg::ControlChange::CC { control, .. }
+                                                    if control == DELAY_ENABLE_CONTROL =>
+                                                {
+                                                    synth.toggle_delay();
+                                                    notify_delay_settings(&synth);
+                                                }
+
+                                                midi_msg::ControlChange::CC { control, value }
+                                                    if control == DELAY_TIME_CONTROL =>
+                                                {
+                                                    synth.adjust_delay_time(value != 0);
+                                                    notify_delay_settings(&synth);
+                                                }
+
+                                                midi_msg::ControlChange::CC { control, value }
+                                                    if control == DELAY_MIX_CONTROL =>
+                                                {
+                                                    synth.adjust_delay_mix(value != 0);
+                                                    notify_delay_settings(&synth);
+                                                }
+
+                                                midi_msg::ControlChange::CC { control, value }
+                                                    if control == DELAY_FEEDBACK_CONTROL =>
+                                                {
+                                                    synth.adjust_delay_feedback(value != 0);
+                                                    notify_delay_settings(&synth);
+                                                }
+
+                                                midi_msg::ControlChange::CC { control, .. }
+                                                    if control == DELAY_STATUS_CONTROL =>
+                                                {
+                                                    notify_delay_settings(&synth);
                                                 }
 
                                                 _ => {}

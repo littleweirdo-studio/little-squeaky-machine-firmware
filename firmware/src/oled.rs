@@ -34,8 +34,9 @@ use crate::I2c1Bus;
 use crate::synth::SoundBank;
 use crate::mapping::{
     CHORD_CHANGED_EVENT_IDENTIFIER, CHORD_NAMES, ENVELOPE_CHANGED_EVENT_IDENTIFIER,
-    ENVELOPE_MODE_EVENT_ID, INITIAL_ENVELOPE_VALUES, OVERDRIVE_CHANGED_EVENT_IDENTIFIER,
-    OVERDRIVE_MODE_EVENT_ID, VOLUME_CHANGED_EVENT_IDENTIFIER, WAVEFORM_CHANGED_EVENT_IDENTIFIER,
+    DELAY_CHANGED_EVENT_IDENTIFIER, DELAY_MODE_EVENT_ID, ENVELOPE_MODE_EVENT_ID,
+    INITIAL_ENVELOPE_VALUES, OVERDRIVE_CHANGED_EVENT_IDENTIFIER, OVERDRIVE_MODE_EVENT_ID,
+    VOLUME_CHANGED_EVENT_IDENTIFIER, WAVEFORM_CHANGED_EVENT_IDENTIFIER,
 };
 
 const WAVEFORM_SAMPLE_COUNT: usize = 600;
@@ -60,6 +61,7 @@ enum DisplaySetting {
     Chord(&'static str),
     Envelope,
     Overdrive,
+    Delay,
 }
 
 fn draw_envelope<D>(display: &mut D, values: &[u8; 4]) -> Result<(), D::Error>
@@ -184,6 +186,58 @@ where
     Text::new(
         &format!("Threshold: {}", threshold_text),
         Point::new(7, 53),
+        text_style,
+    )
+    .draw(display)?;
+    draw_screen_border(display)
+}
+
+fn draw_delay<D>(
+    display: &mut D,
+    enabled: Option<bool>,
+    time_ms: Option<u16>,
+    mix_percentage: Option<u8>,
+    feedback_percentage: Option<u8>,
+) -> Result<(), D::Error>
+where
+    D: DrawTarget<Color = BinaryColor>,
+{
+    let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
+    let enabled_text = match enabled {
+        Some(true) => "ON",
+        Some(false) => "OFF",
+        None => "--",
+    };
+    let time_text = time_ms
+        .map(|value| format!("{}ms", value))
+        .unwrap_or_else(|| "--".to_string());
+    let mix_text = mix_percentage
+        .map(|value| format!("{}%", value))
+        .unwrap_or_else(|| "--".to_string());
+    let feedback_text = feedback_percentage
+        .map(|value| {
+            if value == 0 {
+                "OFF".to_string()
+            } else {
+                format!("{}%", value)
+            }
+        })
+        .unwrap_or_else(|| "--".to_string());
+
+    Text::new("DELAY", Point::new(7, 16), text_style).draw(display)?;
+    Text::new(
+        &format!("Enable: {}", enabled_text),
+        Point::new(7, 29),
+        text_style,
+    )
+    .draw(display)?;
+    Text::new(&format!("Time: {}", time_text), Point::new(7, 41), text_style)
+        .draw(display)?;
+    Text::new(&format!("Mix: {}", mix_text), Point::new(7, 53), text_style)
+        .draw(display)?;
+    Text::new(
+        &format!("FB: {}", feedback_text),
+        Point::new(72, 53),
         text_style,
     )
     .draw(display)?;
@@ -348,11 +402,14 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
     );
     */
     main_menu.add(
-        "ABOUT".to_string(),
+         "LttL Hi SQυεΛκY Things Machine v1.0 ♫ §QυεΛΛΛΛκκ Cαη ħαρρεη α⊥ αηψ тıмε! ©'26 HST∞LAB ♥♪♥".to_string(),
         MenuIcon::Information,
         NO_ACTIVITY_EVENT.clone(),
         NO_ACTIVITY_EVENT.clone(),
     );
+
+
+
 /* 
     let mut synth_menu = menu::Menu::new(
         EventType::MainMenu,
@@ -480,6 +537,11 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
     let mut overdrive_enabled = None;
     let mut overdrive_kind = None;
     let mut overdrive_threshold = None;
+    let mut delay_edit_mode = false;
+    let mut delay_enabled = None;
+    let mut delay_time_ms = None;
+    let mut delay_mix_percentage = None;
+    let mut delay_feedback_percentage = None;
     let mut waveform_bytes = [0u8; WAVEFORM_BYTE_COUNT];
     loop {
         let _ = display.clear(BinaryColor::Off);
@@ -512,6 +574,15 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
                         overdrive_enabled,
                         overdrive_kind,
                         overdrive_threshold,
+                    );
+                }
+                DisplaySetting::Delay => {
+                    let _ = draw_delay(
+                        &mut display,
+                        delay_enabled,
+                        delay_time_ms,
+                        delay_mix_percentage,
+                        delay_feedback_percentage,
                     );
                 }
             },
@@ -609,6 +680,41 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
                     overdrive_threshold = Some(event.value);
                     if overdrive_edit_mode {
                         display_setting = Some(DisplaySetting::Overdrive);
+                    }
+                }
+                _ => {}
+            },
+            DELAY_CHANGED_EVENT_IDENTIFIER => match event.id {
+                DELAY_MODE_EVENT_ID => {
+                    delay_edit_mode = event.value != 0;
+                    display_setting = if delay_edit_mode {
+                        Some(DisplaySetting::Delay)
+                    } else {
+                        None
+                    };
+                }
+                0 => {
+                    delay_enabled = Some(event.value != 0);
+                    if delay_edit_mode {
+                        display_setting = Some(DisplaySetting::Delay);
+                    }
+                }
+                1 => {
+                    delay_time_ms = Some(event.value);
+                    if delay_edit_mode {
+                        display_setting = Some(DisplaySetting::Delay);
+                    }
+                }
+                2 => {
+                    delay_mix_percentage = Some(event.value.min(100) as u8);
+                    if delay_edit_mode {
+                        display_setting = Some(DisplaySetting::Delay);
+                    }
+                }
+                3 => {
+                    delay_feedback_percentage = Some(event.value.min(100) as u8);
+                    if delay_edit_mode {
+                        display_setting = Some(DisplaySetting::Delay);
                     }
                 }
                 _ => {}
