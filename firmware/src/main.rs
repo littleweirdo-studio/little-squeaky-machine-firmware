@@ -95,7 +95,8 @@ async fn main(spawner: Spawner) {
     );
     let peripherals = esp_hal::init(config);
 
-    let config = esp_hal::i2c::master::Config::default();
+    let config =
+        esp_hal::i2c::master::Config::default().with_frequency(esp_hal::time::Rate::from_khz(400));
     let i2c = esp_hal::i2c::master::I2c::new(peripherals.I2C0, config)
         .unwrap()
         .with_sda(peripherals.GPIO47)

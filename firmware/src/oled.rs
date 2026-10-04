@@ -24,7 +24,7 @@ use little_weirdo_gui::about::About;
 use little_weirdo_gui::menu::{self, MenuIcon};
 use little_weirdo_gui::settings::Settings;
 use little_weirdo_gui::{
-    ActiveItem, NAVIGATION_SIGNAL, Navigatable, NO_ACTIVITY_EVENT, NO_MENU_EVENT,
+    ActiveItem, Event, NAVIGATION_SIGNAL, Navigatable, NO_ACTIVITY_EVENT, NO_MENU_EVENT,
 };
 use ssd1306::prelude::DisplayRotation;
 use ssd1306::size::DisplaySize128x64;
@@ -591,137 +591,155 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
             }
         }
         let _ = display.flush().await;
-        let event = NAVIGATION_SIGNAL.receive().await;
-        match event.event_identifier {
-            WAVEFORM_CHANGED_EVENT_IDENTIFIER => {
-                if let Some(name) = waveform_names
-                    .as_ref()
-                    .and_then(|names| names.get(event.id as usize))
-                {
-                    match filesystem.read_key_value(700 + event.id as u32, &mut waveform_bytes) {
-                        Ok(bytes_read) if bytes_read >= WAVEFORM_BYTE_COUNT as u32 => {
-                            let mut samples = [0i16; WAVEFORM_SAMPLE_COUNT];
-                            for (index, sample) in samples.iter_mut().enumerate() {
-                                let offset = index * 2;
-                                *sample = i16::from_le_bytes([
-                                    waveform_bytes[offset],
-                                    waveform_bytes[offset + 1],
-                                ]);
-                            }
-                            display_setting = Some(DisplaySetting::Waveform {
-                                name: name.clone(),
-                                samples,
-                            });
-                        }
-                        Ok(bytes_read) => {
-                            esp_println::println!(
-                                "waveform {} has only {} sample bytes",
-                                event.id,
-                                bytes_read
-                            );
-                        }
-                        Err(error) => {
-                            esp_println::println!(
-                                "failed to read waveform {}: {:?}",
-                                event.id,
-                                error
-                            );
-                        }
-                    }
-                } else {
-                    esp_println::println!("waveform name missing for index {}", event.id);
+        let mut events: [Option<Event>; 50] = core::array::from_fn(|_| None);
+        events[0] = Some(NAVIGATION_SIGNAL.receive().await);
+        let mut event_count = 1;
+        while event_count < events.len() {
+            match NAVIGATION_SIGNAL.try_receive() {
+                Ok(event) => {
+                    events[event_count] = Some(event);
+                    event_count += 1;
                 }
+                Err(_) => break,
             }
-            VOLUME_CHANGED_EVENT_IDENTIFIER => {
-                volume_settings.update_bar(0, (event.value.min(127) * 100 / 127) as u8);
-                display_setting = Some(DisplaySetting::Volume);
-            }
-            CHORD_CHANGED_EVENT_IDENTIFIER => {
-                let name = CHORD_NAMES.get(event.id as usize).copied().unwrap_or("No chord");
-                display_setting = Some(DisplaySetting::Chord(name));
-            }
-            ENVELOPE_CHANGED_EVENT_IDENTIFIER => {
-                if event.id == ENVELOPE_MODE_EVENT_ID {
-                    envelope_edit_mode = event.value != 0;
-                    display_setting = if envelope_edit_mode {
-                        Some(DisplaySetting::Envelope)
-                    } else {
-                        None
-                    };
-                } else if let Some(value) = envelope_values.get_mut(event.id as usize) {
-                    *value = event.value.min(if event.id == 2 { 100 } else { 127 }) as u8;
-                    if envelope_edit_mode {
-                        display_setting = Some(DisplaySetting::Envelope);
-                    }
-                }
-            }
-            OVERDRIVE_CHANGED_EVENT_IDENTIFIER => match event.id {
-                OVERDRIVE_MODE_EVENT_ID => {
-                    overdrive_edit_mode = event.value != 0;
-                    display_setting = if overdrive_edit_mode {
-                        Some(DisplaySetting::Overdrive)
-                    } else {
-                        None
-                    };
-                }
-                0 => {
-                    overdrive_enabled = Some(event.value != 0);
-                    if overdrive_edit_mode {
-                        display_setting = Some(DisplaySetting::Overdrive);
-                    }
-                }
-                1 => {
-                    overdrive_kind = Some(event.value.min(2) as u8);
-                    if overdrive_edit_mode {
-                        display_setting = Some(DisplaySetting::Overdrive);
-                    }
-                }
-                2 => {
-                    overdrive_threshold = Some(event.value);
-                    if overdrive_edit_mode {
-                        display_setting = Some(DisplaySetting::Overdrive);
-                    }
-                }
-                _ => {}
-            },
-            DELAY_CHANGED_EVENT_IDENTIFIER => match event.id {
-                DELAY_MODE_EVENT_ID => {
-                    delay_edit_mode = event.value != 0;
-                    display_setting = if delay_edit_mode {
-                        Some(DisplaySetting::Delay)
-                    } else {
-                        None
-                    };
-                }
-                0 => {
-                    delay_enabled = Some(event.value != 0);
-                    if delay_edit_mode {
-                        display_setting = Some(DisplaySetting::Delay);
-                    }
-                }
-                1 => {
-                    delay_time_ms = Some(event.value);
-                    if delay_edit_mode {
-                        display_setting = Some(DisplaySetting::Delay);
-                    }
-                }
-                2 => {
-                    delay_mix_percentage = Some(event.value.min(100) as u8);
-                    if delay_edit_mode {
-                        display_setting = Some(DisplaySetting::Delay);
-                    }
-                }
-                3 => {
-                    delay_feedback_percentage = Some(event.value.min(100) as u8);
-                    if delay_edit_mode {
-                        display_setting = Some(DisplaySetting::Delay);
-                    }
-                }
-                _ => {}
-            },
-            _ => {}
         }
-      /* 
+
+        for event in events[..event_count].iter().flatten() {
+            match event.event_identifier {
+                WAVEFORM_CHANGED_EVENT_IDENTIFIER => {
+                    if let Some(name) = waveform_names
+                        .as_ref()
+                        .and_then(|names| names.get(event.id as usize))
+                    {
+                        match filesystem.read_key_value(700 + event.id as u32, &mut waveform_bytes)
+                        {
+                            Ok(bytes_read) if bytes_read >= WAVEFORM_BYTE_COUNT as u32 => {
+                                let mut samples = [0i16; WAVEFORM_SAMPLE_COUNT];
+                                for (index, sample) in samples.iter_mut().enumerate() {
+                                    let offset = index * 2;
+                                    *sample = i16::from_le_bytes([
+                                        waveform_bytes[offset],
+                                        waveform_bytes[offset + 1],
+                                    ]);
+                                }
+                                display_setting = Some(DisplaySetting::Waveform {
+                                    name: name.clone(),
+                                    samples,
+                                });
+                            }
+                            Ok(bytes_read) => {
+                                esp_println::println!(
+                                    "waveform {} has only {} sample bytes",
+                                    event.id,
+                                    bytes_read
+                                );
+                            }
+                            Err(error) => {
+                                esp_println::println!(
+                                    "failed to read waveform {}: {:?}",
+                                    event.id,
+                                    error
+                                );
+                            }
+                        }
+                    } else {
+                        esp_println::println!("waveform name missing for index {}", event.id);
+                    }
+                }
+                VOLUME_CHANGED_EVENT_IDENTIFIER => {
+                    volume_settings.update_bar(0, (event.value.min(127) * 100 / 127) as u8);
+                    display_setting = Some(DisplaySetting::Volume);
+                }
+                CHORD_CHANGED_EVENT_IDENTIFIER => {
+                    let name = CHORD_NAMES
+                        .get(event.id as usize)
+                        .copied()
+                        .unwrap_or("No chord");
+                    display_setting = Some(DisplaySetting::Chord(name));
+                }
+                ENVELOPE_CHANGED_EVENT_IDENTIFIER => {
+                    if event.id == ENVELOPE_MODE_EVENT_ID {
+                        envelope_edit_mode = event.value != 0;
+                        display_setting = if envelope_edit_mode {
+                            Some(DisplaySetting::Envelope)
+                        } else {
+                            None
+                        };
+                    } else if let Some(value) = envelope_values.get_mut(event.id as usize) {
+                        *value = event.value.min(if event.id == 2 { 100 } else { 127 }) as u8;
+                        if envelope_edit_mode {
+                            display_setting = Some(DisplaySetting::Envelope);
+                        }
+                    }
+                }
+                OVERDRIVE_CHANGED_EVENT_IDENTIFIER => match event.id {
+                    OVERDRIVE_MODE_EVENT_ID => {
+                        overdrive_edit_mode = event.value != 0;
+                        display_setting = if overdrive_edit_mode {
+                            Some(DisplaySetting::Overdrive)
+                        } else {
+                            None
+                        };
+                    }
+                    0 => {
+                        overdrive_enabled = Some(event.value != 0);
+                        if overdrive_edit_mode {
+                            display_setting = Some(DisplaySetting::Overdrive);
+                        }
+                    }
+                    1 => {
+                        overdrive_kind = Some(event.value.min(2) as u8);
+                        if overdrive_edit_mode {
+                            display_setting = Some(DisplaySetting::Overdrive);
+                        }
+                    }
+                    2 => {
+                        overdrive_threshold = Some(event.value);
+                        if overdrive_edit_mode {
+                            display_setting = Some(DisplaySetting::Overdrive);
+                        }
+                    }
+                    _ => {}
+                },
+                DELAY_CHANGED_EVENT_IDENTIFIER => match event.id {
+                    DELAY_MODE_EVENT_ID => {
+                        delay_edit_mode = event.value != 0;
+                        display_setting = if delay_edit_mode {
+                            Some(DisplaySetting::Delay)
+                        } else {
+                            None
+                        };
+                    }
+                    0 => {
+                        delay_enabled = Some(event.value != 0);
+                        if delay_edit_mode {
+                            display_setting = Some(DisplaySetting::Delay);
+                        }
+                    }
+                    1 => {
+                        delay_time_ms = Some(event.value);
+                        if delay_edit_mode {
+                            display_setting = Some(DisplaySetting::Delay);
+                        }
+                    }
+                    2 => {
+                        delay_mix_percentage = Some(event.value.min(100) as u8);
+                        if delay_edit_mode {
+                            display_setting = Some(DisplaySetting::Delay);
+                        }
+                    }
+                    3 => {
+                        delay_feedback_percentage = Some(event.value.min(100) as u8);
+                        if delay_edit_mode {
+                            display_setting = Some(DisplaySetting::Delay);
+                        }
+                    }
+                    _ => {}
+                },
+                _ => {}
+            }
+        }
+        /*
         match event.event {
             EventType::ControlSettings => {
                 active_item = ActiveItem::Settings(&mut control_settings);
