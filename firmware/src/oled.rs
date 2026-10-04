@@ -7,8 +7,10 @@ use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 use embassy_time::{Duration, Timer};
 use embedded_graphics::mono_font::{MonoTextStyle, ascii::FONT_6X10};
 use embedded_graphics::pixelcolor::BinaryColor;
-use embedded_graphics::prelude::{DrawTarget, Point};
-use embedded_graphics::primitives::{Line, PrimitiveStyle, StyledDrawable};
+use embedded_graphics::prelude::{DrawTarget, Point, Size};
+use embedded_graphics::primitives::{
+    Circle, Line, PrimitiveStyle, Rectangle, RoundedRectangle, StyledDrawable,
+};
 use embedded_graphics::text::Text;
 use embedded_graphics::Drawable;
 use esp_alloc as _;
@@ -39,6 +41,18 @@ const WAVEFORM_SAMPLE_COUNT: usize = 600;
 const WAVEFORM_BYTE_COUNT: usize = WAVEFORM_SAMPLE_COUNT * 2;
 const WAVEFORM_NAMES_KEY: u32 = 600;
 
+fn draw_screen_border<D>(display: &mut D) -> Result<(), D::Error>
+where
+    D: DrawTarget<Color = BinaryColor>,
+{
+    let line_style = PrimitiveStyle::with_stroke(BinaryColor::On, 1);
+    RoundedRectangle::with_equal_corners(
+        Rectangle::new(Point::new(3, 3), Size::new(122, 58)),
+        Size::new(5, 5),
+    )
+    .draw_styled(&line_style, display)
+}
+
 enum DisplaySetting {
     Waveform { name: String, samples: [i16; WAVEFORM_SAMPLE_COUNT] },
     Volume,
@@ -55,23 +69,49 @@ where
         .max()
         .unwrap_or(1)
         .max(1);
+    let plot_left = 7;
+    let plot_width = 114;
     let center_y = 47;
-    let amplitude_height = 15;
+    let amplitude_height = 10;
     let line_style = PrimitiveStyle::with_stroke(BinaryColor::On, 1);
 
-    Line::new(Point::new(0, center_y), Point::new(127, center_y))
+    Line::new(
+        Point::new(plot_left, center_y),
+        Point::new(plot_left + plot_width, center_y),
+    )
         .draw_styled(&line_style, display)?;
 
-    for x in 0..127 {
-        let sample_index = x as usize * (WAVEFORM_SAMPLE_COUNT - 1) / 127;
-        let next_sample_index = (x as usize + 1) * (WAVEFORM_SAMPLE_COUNT - 1) / 127;
+    for x in 0..plot_width {
+        let sample_index = x as usize * (WAVEFORM_SAMPLE_COUNT - 1) / plot_width as usize;
+        let next_sample_index =
+            (x as usize + 1) * (WAVEFORM_SAMPLE_COUNT - 1) / plot_width as usize;
         let y = center_y
             - (samples[sample_index] as i32 * amplitude_height / max_amplitude) as i32;
         let next_y = center_y
             - (samples[next_sample_index] as i32 * amplitude_height / max_amplitude) as i32;
-        Line::new(Point::new(x, y), Point::new(x + 1, next_y))
+        let plot_x = plot_left + x;
+        Line::new(Point::new(plot_x, y), Point::new(plot_x + 1, next_y))
             .draw_styled(&line_style, display)?;
     }
+
+    Ok(())
+}
+
+fn draw_chord_icon<D>(display: &mut D) -> Result<(), D::Error>
+where
+    D: DrawTarget<Color = BinaryColor>,
+{
+    let note_style = PrimitiveStyle::with_fill(BinaryColor::On);
+    let stem_style = PrimitiveStyle::with_stroke(BinaryColor::On, 2);
+
+    Circle::new(Point::new(8, 38), 8).draw_styled(&note_style, display)?;
+    Circle::new(Point::new(19, 30), 8).draw_styled(&note_style, display)?;
+    Circle::new(Point::new(30, 22), 8).draw_styled(&note_style, display)?;
+
+    Line::new(Point::new(15, 41), Point::new(15, 17)).draw_styled(&stem_style, display)?;
+    Line::new(Point::new(26, 33), Point::new(26, 12)).draw_styled(&stem_style, display)?;
+    Line::new(Point::new(37, 25), Point::new(37, 7)).draw_styled(&stem_style, display)?;
+    Line::new(Point::new(15, 17), Point::new(37, 7)).draw_styled(&stem_style, display)?;
 
     Ok(())
 }
@@ -310,18 +350,21 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
             Some(setting) => match setting {
                 DisplaySetting::Waveform { name, samples } => {
                     let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
-                    let _ = Text::new("WAVEFORM", Point::new(0, 13), text_style).draw(&mut display);
-                    let _ = Text::new(name, Point::new(0, 26), text_style).draw(&mut display);
+                    let _ = Text::new("WAVEFORM", Point::new(7, 15), text_style).draw(&mut display);
+                    let _ = Text::new(name, Point::new(7, 27), text_style).draw(&mut display);
                     let _ = draw_waveform(&mut display, samples);
+                    let _ = draw_screen_border(&mut display);
                 }
                 DisplaySetting::Volume => {
                     let _ = volume_settings.draw(&mut display);
                 }
                 DisplaySetting::Chord(name) => {
                     let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
-                    let _ = Text::new("SELECTED CHORD", Point::new(0, 20), text_style)
+                    let _ = draw_chord_icon(&mut display);
+                    let _ = Text::new("CHORD", Point::new(48, 22), text_style)
                         .draw(&mut display);
-                    let _ = Text::new(name, Point::new(0, 38), text_style).draw(&mut display);
+                    let _ = Text::new(name, Point::new(48, 40), text_style).draw(&mut display);
+                    let _ = draw_screen_border(&mut display);
                 }
             },
             None => {
