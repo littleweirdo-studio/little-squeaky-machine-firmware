@@ -30,7 +30,10 @@ use ssd1306::{I2CDisplayInterface, Ssd1306Async};
 
 use crate::I2c1Bus;
 use crate::synth::SoundBank;
-use crate::mapping::{VOLUME_CHANGED_EVENT_IDENTIFIER, WAVEFORM_CHANGED_EVENT_IDENTIFIER};
+use crate::mapping::{
+    CHORD_CHANGED_EVENT_IDENTIFIER, CHORD_NAMES, VOLUME_CHANGED_EVENT_IDENTIFIER,
+    WAVEFORM_CHANGED_EVENT_IDENTIFIER,
+};
 
 const WAVEFORM_SAMPLE_COUNT: usize = 600;
 const WAVEFORM_BYTE_COUNT: usize = WAVEFORM_SAMPLE_COUNT * 2;
@@ -39,6 +42,7 @@ const WAVEFORM_NAMES_KEY: u32 = 600;
 enum DisplaySetting {
     Waveform { name: String, samples: [i16; WAVEFORM_SAMPLE_COUNT] },
     Volume,
+    Chord(&'static str),
 }
 
 fn draw_waveform<D>(display: &mut D, samples: &[i16; WAVEFORM_SAMPLE_COUNT]) -> Result<(), D::Error>
@@ -313,6 +317,12 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
                 DisplaySetting::Volume => {
                     let _ = volume_settings.draw(&mut display);
                 }
+                DisplaySetting::Chord(name) => {
+                    let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
+                    let _ = Text::new("SELECTED CHORD", Point::new(0, 20), text_style)
+                        .draw(&mut display);
+                    let _ = Text::new(name, Point::new(0, 38), text_style).draw(&mut display);
+                }
             },
             None => {
                 let _ = active_item.draw(&mut display);
@@ -363,6 +373,10 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
             VOLUME_CHANGED_EVENT_IDENTIFIER => {
                 volume_settings.update_bar(0, (event.value.min(127) * 100 / 127) as u8);
                 display_setting = Some(DisplaySetting::Volume);
+            }
+            CHORD_CHANGED_EVENT_IDENTIFIER => {
+                let name = CHORD_NAMES.get(event.id as usize).copied().unwrap_or("No chord");
+                display_setting = Some(DisplaySetting::Chord(name));
             }
             _ => {}
         }

@@ -16,6 +16,18 @@ use crate::{
 
 const COLOR: RGB8 = colors::DEEP_PINK;
 
+pub const CHORD_CHANGED_EVENT_IDENTIFIER: u8 = 248;
+pub const CHORD_NAMES: [&str; 8] = [
+    "Major",
+    "Minor",
+    "Diminished",
+    "Augmented",
+    "Suspended 2",
+    "Suspended 4",
+    "Major 7",
+    "Minor 7",
+];
+
 // Touch pads 0..7 select major, minor, diminished, augmented, sus2, sus4, maj7, and min7.
 const CHORD_INTERVALS: [&[u8]; 8] = [
     &[0, 4, 7],
@@ -103,11 +115,25 @@ pub async fn mapping_task() {
             TOUCH_BUTTON_EVENT_DOWN => {
                 if (event.id as usize) < CHORD_INTERVALS.len() {
                     selected_chord = Some(event.id as usize);
+                    NAVIGATION_SIGNAL
+                        .send(Event {
+                            event_identifier: CHORD_CHANGED_EVENT_IDENTIFIER,
+                            id: event.id,
+                            value: 0,
+                        })
+                        .await;
                 }
             }
             TOUCH_BUTTON_EVENT_UP => {
                 if selected_chord == Some(event.id as usize) {
                     selected_chord = None;
+                    NAVIGATION_SIGNAL
+                        .send(Event {
+                            event_identifier: CHORD_CHANGED_EVENT_IDENTIFIER,
+                            id: CHORD_NAMES.len() as u8,
+                            value: 0,
+                        })
+                        .await;
                 }
             }
             /*
