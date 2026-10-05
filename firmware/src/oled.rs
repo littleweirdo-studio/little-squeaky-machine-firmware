@@ -4,7 +4,8 @@ use alloc::string::ToString;
 use alloc::{format, vec, vec::Vec};
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 // use embassy_futures::join::join;
-use embassy_time::{Duration, Timer};
+use embassy_futures::select::{Either, select};
+use embassy_time::{Duration, Instant, Timer};
 use embedded_graphics::mono_font::{MonoTextStyle, ascii::FONT_6X10};
 use embedded_graphics::pixelcolor::BinaryColor;
 use embedded_graphics::prelude::{DrawTarget, Point, Size};
@@ -19,11 +20,7 @@ use esp_hal::peripherals::Peripherals;
 // use esp_println::println;
 use esp_storage::FlashStorage;
 use little_weirdo_filesystem::WeirdoFileSystem;
-use little_weirdo_gui::menu::{self, MenuIcon};
-use little_weirdo_gui::settings::Settings;
-use little_weirdo_gui::{
-    ActiveItem, Event, NAVIGATION_SIGNAL, NO_ACTIVITY_EVENT, NO_MENU_EVENT,
-};
+use little_weirdo_gui::{Event, NAVIGATION_SIGNAL};
 use ssd1306::prelude::DisplayRotation;
 use ssd1306::size::DisplaySize128x64;
 use ssd1306::{I2CDisplayInterface, Ssd1306Async};
@@ -34,13 +31,16 @@ use crate::synth::SoundBank;
 use crate::mapping::{
     BRIGHTNESS_CHANGED_EVENT_IDENTIFIER, CHORD_CHANGED_EVENT_IDENTIFIER, CHORD_NAMES,
     DELAY_CHANGED_EVENT_IDENTIFIER, DELAY_MODE_EVENT_ID, ENVELOPE_CHANGED_EVENT_IDENTIFIER,
-    ENVELOPE_MODE_EVENT_ID, INITIAL_ENVELOPE_VALUES, OVERDRIVE_CHANGED_EVENT_IDENTIFIER,
-    OVERDRIVE_MODE_EVENT_ID, VOLUME_CHANGED_EVENT_IDENTIFIER, WAVEFORM_CHANGED_EVENT_IDENTIFIER,
+    ENVELOPE_MODE_EVENT_ID, INITIAL_ENVELOPE_VALUES, INITIAL_KEYPAD_OCTAVE_SHIFT, INITIAL_VOLUME,
+    ENCODER_USED_EVENT_IDENTIFIER, KEYPAD_OCTAVE_CHANGED_EVENT_IDENTIFIER,
+    OVERDRIVE_CHANGED_EVENT_IDENTIFIER, OVERDRIVE_MODE_EVENT_ID,
+    VOLUME_CHANGED_EVENT_IDENTIFIER, WAVEFORM_CHANGED_EVENT_IDENTIFIER,
 };
 
 const WAVEFORM_SAMPLE_COUNT: usize = 600;
 const WAVEFORM_BYTE_COUNT: usize = WAVEFORM_SAMPLE_COUNT * 2;
 const WAVEFORM_NAMES_KEY: u32 = 600;
+const WELCOME_SCREEN_DURATION: Duration = Duration::from_secs(3);
 
 fn draw_screen_border<D>(display: &mut D) -> Result<(), D::Error>
 where
@@ -56,12 +56,66 @@ where
 
 enum DisplaySetting {
     Waveform { name: String, samples: [i16; WAVEFORM_SAMPLE_COUNT] },
-    Volume,
-    Brightness,
+    Controls,
     Chord(&'static str),
     Envelope,
     Overdrive,
     Delay,
+}
+
+fn draw_controls<D>(
+    display: &mut D,
+    volume: u8,
+    octave_shift: i8,
+    brightness: u8,
+) -> Result<(), D::Error>
+where
+    D: DrawTarget<Color = BinaryColor>,
+{
+    let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
+    let volume_percent = volume.min(127) as u16 * 100 / 127;
+    let brightness_percent = brightness as u16 * 100 / u8::MAX as u16;
+
+    Text::new("CONTROLS", Point::new(7, 16), text_style).draw(display)?;
+    Text::new(
+        &format!("Volume: {}%", volume_percent),
+        Point::new(7, 29),
+        text_style,
+    )
+    .draw(display)?;
+    Text::new(
+        &format!("Keypad octave: {:+}", octave_shift),
+        Point::new(7, 41),
+        text_style,
+    )
+    .draw(display)?;
+    Text::new(
+        &format!("Brightness: {}%", brightness_percent),
+        Point::new(7, 53),
+        text_style,
+    )
+    .draw(display)?;
+    draw_screen_border(display)
+}
+
+fn draw_welcome<D>(display: &mut D) -> Result<(), D::Error>
+where
+    D: DrawTarget<Color = BinaryColor>,
+{
+    Rectangle::new(Point::zero(), Size::new(128, 64))
+        .draw_styled(&PrimitiveStyle::with_fill(BinaryColor::On), display)?;
+    let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::Off);
+    Text::new("Welcome to", Point::new(34, 24), text_style).draw(display)?;
+    Text::new("LttL Squeaky", Point::new(28, 36), text_style).draw(display)?;
+    Text::new("Machine", Point::new(43, 48), text_style).draw(display)?;
+    RoundedRectangle::with_equal_corners(
+        Rectangle::new(Point::new(3, 3), Size::new(122, 58)),
+        Size::new(5, 5),
+    )
+    .draw_styled(
+        &PrimitiveStyle::with_stroke(BinaryColor::Off, 1),
+        display,
+    )
 }
 
 fn draw_envelope<D>(display: &mut D, values: &[u8; 4]) -> Result<(), D::Error>
@@ -360,8 +414,7 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
             None
         }
     };
- 
-    let mut main_menu = menu::Menu::new(NO_MENU_EVENT.clone(), NO_ACTIVITY_EVENT.clone(), MenuIcon::Sine);
+
 /*     main_menu.add(
         "SYNTH".to_string(),
         MenuIcon::Sine,
@@ -401,15 +454,6 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
         EventType::NoActive,
     );
     */
-    main_menu.add(
-         "LttL Hi SQυεΛκY Things Machine v1.0 ♫ §QυεΛΛΛΛκκ Cαη ħαρρεη α⊥ αηψ тıмε! ©'26 HST∞LAB ♥♪♥".to_string(),
-        MenuIcon::Information,
-        NO_ACTIVITY_EVENT.clone(),
-        NO_ACTIVITY_EVENT.clone(),
-    );
-
-
-
 /* 
     let mut synth_menu = menu::Menu::new(
         EventType::MainMenu,
@@ -527,13 +571,12 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
     let mut control_menu_active = false;
 
     */
-    let active_item = ActiveItem::Menu(&mut main_menu);
-    let mut volume_settings = Settings::new(NO_MENU_EVENT.clone());
-    volume_settings.add("Volume".to_string());
-    let mut brightness_settings = Settings::new(NO_MENU_EVENT.clone());
-    brightness_settings.add("Brightness".to_string());
-    brightness_settings.update_bar(0, (INITIAL_BRIGHTNESS as u16 * 100 / u8::MAX as u16) as u8);
-    let mut display_setting = None;
+    let mut welcome_visible = true;
+    let welcome_deadline = Instant::now() + WELCOME_SCREEN_DURATION;
+    let mut display_setting = Some(DisplaySetting::Controls);
+    let mut volume = INITIAL_VOLUME;
+    let mut keypad_octave_shift = INITIAL_KEYPAD_OCTAVE_SHIFT;
+    let mut brightness = INITIAL_BRIGHTNESS;
     let mut envelope_values = INITIAL_ENVELOPE_VALUES;
     let mut envelope_edit_mode = false;
     let mut overdrive_edit_mode = false;
@@ -548,6 +591,9 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
     let mut waveform_bytes = [0u8; WAVEFORM_BYTE_COUNT];
     loop {
         let _ = display.clear(BinaryColor::Off);
+        if welcome_visible {
+            let _ = draw_welcome(&mut display);
+        } else {
         match &display_setting {
             Some(setting) => match setting {
                 DisplaySetting::Waveform { name, samples } => {
@@ -557,11 +603,13 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
                     let _ = draw_waveform(&mut display, samples);
                     let _ = draw_screen_border(&mut display);
                 }
-                DisplaySetting::Volume => {
-                    let _ = volume_settings.draw(&mut display);
-                }
-                DisplaySetting::Brightness => {
-                    let _ = brightness_settings.draw(&mut display);
+                DisplaySetting::Controls => {
+                    let _ = draw_controls(
+                        &mut display,
+                        volume,
+                        keypad_octave_shift,
+                        brightness,
+                    );
                 }
                 DisplaySetting::Chord(name) => {
                     let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
@@ -593,12 +641,23 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
                 }
             },
             None => {
-                active_item.draw(&mut display);
+                let _ = draw_controls(&mut display, volume, keypad_octave_shift, brightness);
             }
+        }
         }
         let _ = display.flush().await;
         let mut events: [Option<Event>; 50] = core::array::from_fn(|_| None);
-        events[0] = Some(NAVIGATION_SIGNAL.receive().await);
+        if welcome_visible {
+            match select(NAVIGATION_SIGNAL.receive(), Timer::at(welcome_deadline)).await {
+                Either::First(event) => events[0] = Some(event),
+                Either::Second(()) => {
+                    welcome_visible = false;
+                    continue;
+                }
+            }
+        } else {
+            events[0] = Some(NAVIGATION_SIGNAL.receive().await);
+        }
         let mut event_count = 1;
         while event_count < events.len() {
             match NAVIGATION_SIGNAL.try_receive() {
@@ -611,6 +670,10 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
         }
 
         for event in events[..event_count].iter().flatten() {
+            if event.event_identifier == ENCODER_USED_EVENT_IDENTIFIER {
+                welcome_visible = false;
+                continue;
+            }
             match event.event_identifier {
                 WAVEFORM_CHANGED_EVENT_IDENTIFIER => {
                     if let Some(name) = waveform_names
@@ -653,15 +716,12 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
                     }
                 }
                 VOLUME_CHANGED_EVENT_IDENTIFIER => {
-                    volume_settings.update_bar(0, (event.value.min(127) * 100 / 127) as u8);
-                    display_setting = Some(DisplaySetting::Volume);
+                    volume = event.value.min(127) as u8;
+                    display_setting = Some(DisplaySetting::Controls);
                 }
                 BRIGHTNESS_CHANGED_EVENT_IDENTIFIER => {
-                    brightness_settings.update_bar(
-                        0,
-                        (event.value.min(u8::MAX as u16) * 100 / u8::MAX as u16) as u8,
-                    );
-                    display_setting = Some(DisplaySetting::Brightness);
+                    brightness = event.value.min(u8::MAX as u16) as u8;
+                    display_setting = Some(DisplaySetting::Controls);
                 }
                 CHORD_CHANGED_EVENT_IDENTIFIER => {
                     let name = CHORD_NAMES
@@ -669,6 +729,10 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
                         .copied()
                         .unwrap_or("No chord");
                     display_setting = Some(DisplaySetting::Chord(name));
+                }
+                KEYPAD_OCTAVE_CHANGED_EVENT_IDENTIFIER => {
+                    keypad_octave_shift = event.value as u8 as i8;
+                    display_setting = Some(DisplaySetting::Controls);
                 }
                 ENVELOPE_CHANGED_EVENT_IDENTIFIER => {
                     if event.id == ENVELOPE_MODE_EVENT_ID {

@@ -15,6 +15,8 @@ use crate::{
 const COLOR: RGB8 = colors::DEEP_PINK;
 
 pub const CHORD_CHANGED_EVENT_IDENTIFIER: u8 = 248;
+pub const KEYPAD_OCTAVE_CHANGED_EVENT_IDENTIFIER: u8 = 243;
+pub const ENCODER_USED_EVENT_IDENTIFIER: u8 = 242;
 pub const CHORD_NAMES: [&str; 8] = [
     "Major",
     "Minor",
@@ -73,6 +75,10 @@ const REMAP_SEQ: [u8; 25] = [
 
 const VEL: u8 = 70;
 const LED_BRIGHTNESS_STEP: u8 = 5;
+const MIN_KEYPAD_OCTAVE_SHIFT: i8 = -4;
+const MAX_KEYPAD_OCTAVE_SHIFT: i8 = 3;
+pub const INITIAL_VOLUME: u8 = 50;
+pub const INITIAL_KEYPAD_OCTAVE_SHIFT: i8 = 0;
 
 const DEBUG: bool = false;
 
@@ -157,10 +163,11 @@ pub async fn mapping_task() {
     let sender = MIDI_MESSAGE_CHANNEL.publisher().unwrap();
     //C4
     let base = 35 + 24;
+    let mut keypad_octave_shift = INITIAL_KEYPAD_OCTAVE_SHIFT;
     let synth_active = true;
     let seq_active = false;
 
-    let mut volume: u8 = 50;
+    let mut volume = INITIAL_VOLUME;
     let mut voice: u8 = 0;
     let mut led_brightness = INITIAL_BRIGHTNESS;
     let mut envelope_values = INITIAL_ENVELOPE_VALUES;
@@ -349,6 +356,13 @@ pub async fn mapping_task() {
                         }
             */
             encoder::ENCODER_EVENT_ROTATION => {
+                NAVIGATION_SIGNAL
+                    .send(Event {
+                        event_identifier: ENCODER_USED_EVENT_IDENTIFIER,
+                        id: event.id,
+                        value: event.value,
+                    })
+                    .await;
                 if envelope_edit_mode {
                     if let Some((control, value)) =
                         handle_envelope_submenu(&event, &mut envelope_values)
@@ -444,6 +458,30 @@ pub async fn mapping_task() {
                                 value: voice as u16,
                             })
                             .await;
+                    }
+
+                    //enc 2
+                    if event.id == 2 {
+                        let next_shift = if event.value == encoder::ENCODER_CLOCKWISE {
+                            keypad_octave_shift
+                                .saturating_add(1)
+                                .min(MAX_KEYPAD_OCTAVE_SHIFT)
+                        } else {
+                            keypad_octave_shift
+                                .saturating_sub(1)
+                                .max(MIN_KEYPAD_OCTAVE_SHIFT)
+                        };
+
+                        if next_shift != keypad_octave_shift {
+                            keypad_octave_shift = next_shift;
+                            NAVIGATION_SIGNAL
+                                .send(Event {
+                                    event_identifier: KEYPAD_OCTAVE_CHANGED_EVENT_IDENTIFIER,
+                                    id: 0,
+                                    value: keypad_octave_shift as u8 as u16,
+                                })
+                                .await;
+                        }
                     }
 
                     //enc 3
@@ -636,7 +674,9 @@ pub async fn mapping_task() {
                             .unwrap_or(&[0]);
                         let mut notes = ActiveNotes::default();
                         for (index, interval) in intervals.iter().enumerate() {
-                            let note = base + remap + *interval;
+                            let note = ((base + remap + *interval) as i16
+                                + keypad_octave_shift as i16 * 12)
+                                as u8;
                             notes.notes[index] = note;
                             notes.len += 1;
                             let message = midi_msg::MidiMsg::ChannelVoice {
@@ -853,7 +893,8 @@ pub async fn mapping_task() {
                 if remap != 99 {
                     let notes = active_notes[event.id as usize].take().unwrap_or_else(|| {
                         let mut notes = ActiveNotes::default();
-                        notes.notes[0] = base + remap;
+                        notes.notes[0] =
+                            ((base + remap) as i16 + keypad_octave_shift as i16 * 12) as u8;
                         notes.len = 1;
                         notes
                     });
