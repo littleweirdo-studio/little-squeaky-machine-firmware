@@ -78,30 +78,39 @@ const VEL: u8 = 70;
 const MARGIN: i16 = 2;
 
 const DEBUG: bool = false;
+
+
+// defined events
 pub const WAVEFORM_CHANGED_EVENT_IDENTIFIER: u8 = 250;
+//
 pub const VOLUME_CHANGED_EVENT_IDENTIFIER: u8 = 249;
+//
 pub const ENVELOPE_CHANGED_EVENT_IDENTIFIER: u8 = 247;
 pub const ENVELOPE_MODE_EVENT_ID: u8 = 4;
 pub const ENVELOPE_KEY_ID: u8 = 14;
-pub const ENVELOPE_KEY_LED_ID: u8 = 24;
 pub const INITIAL_ENVELOPE_VALUES: [u8; 4] = [20, 20, 80, 20];
+//
 pub const OVERDRIVE_CHANGED_EVENT_IDENTIFIER: u8 = 246;
 pub const OVERDRIVE_MODE_EVENT_ID: u8 = 3;
 pub const OVERDRIVE_KEY_ID: u8 = 15;
-pub const OVERDRIVE_KEY_LED_ID: u8 = 5;
 pub const OVERDRIVE_ENABLE_CONTROL: u8 = 110;
 pub const OVERDRIVE_KIND_CONTROL: u8 = 111;
 pub const OVERDRIVE_THRESHOLD_CONTROL: u8 = 112;
 pub const OVERDRIVE_STATUS_CONTROL: u8 = 113;
+//
 pub const DELAY_CHANGED_EVENT_IDENTIFIER: u8 = 245;
 pub const DELAY_MODE_EVENT_ID: u8 = 5;
-pub const DELAY_KEY_ID: u8 = 12;
-pub const DELAY_KEY_LED_ID: u8 = 14;
 pub const DELAY_ENABLE_CONTROL: u8 = 114;
 pub const DELAY_TIME_CONTROL: u8 = 115;
 pub const DELAY_MIX_CONTROL: u8 = 116;
 pub const DELAY_FEEDBACK_CONTROL: u8 = 117;
 pub const DELAY_STATUS_CONTROL: u8 = 118;
+
+// led assignment
+pub const OVERDRIVE_KEY_LED_ID: u8 = 5;
+pub const DELAY_KEY_ID: u8 = 12;
+pub const DELAY_KEY_LED_ID: u8 = 14;
+pub const ENVELOPE_KEY_LED_ID: u8 = 24;
 
 #[embassy_executor::task]
 pub async fn mapping_task() {
@@ -110,10 +119,6 @@ pub async fn mapping_task() {
     let mut base = 35 + 24;
     let mut synth_active = true;
     let mut seq_active = false;
-    let mut last_value_pot0: u16 = 300;
-    let mut last_value_pot1: u16 = 300;
-    let mut last_value_pot2: u16 = 300;
-    let mut last_value_pot3: u16 = 300;
 
     let mut volume: u8 = 50;
     let mut voice: u8 = 0;
