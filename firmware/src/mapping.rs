@@ -1,16 +1,14 @@
-use embassy_executor::SendSpawner;
 use esp_println::println;
-use little_weirdo::sequencer::{AMOUNT_OF_LANES, MAX_AMOUNT_OF_PATTERNS};
+use little_weirdo::sequencer::MAX_AMOUNT_OF_PATTERNS;
 use little_weirdo_gui::{Event, MAPPING_SIGNAL, NAVIGATION_SIGNAL};
 use midi_msg::Channel;
 use smart_leds::{RGB8, colors};
 
 use crate::{
-    MIDI_MESSAGE_CHANNEL, MIDI_OUT_MESSAGE_CHANNEL,
+    MIDI_MESSAGE_CHANNEL,
     codec::{CODEC_SIGNAL, CodecEvent, CodecEventType},
     encoder, keyboard_input,
     led::{INITIAL_BRIGHTNESS, LED_BRIGHTNESS_CHANNEL, LED_MESSAGE_CHANNEL, LedMessage},
-    sequence::sequence_task,
     touch_input::{TOUCH_BUTTON_EVENT_DOWN, TOUCH_BUTTON_EVENT_UP},
 };
 
@@ -161,9 +159,9 @@ fn handle_delay_submenu(event: &Event) -> Option<(u8, u8)> {
 pub async fn mapping_task() {
     let sender = MIDI_MESSAGE_CHANNEL.publisher().unwrap();
     //C4
-    let mut base = 35 + 24;
-    let mut synth_active = true;
-    let mut seq_active = false;
+    let base = 35 + 24;
+    let synth_active = true;
+    let seq_active = false;
 
     let mut volume: u8 = 50;
     let mut voice: u8 = 0;
@@ -189,8 +187,8 @@ pub async fn mapping_task() {
             );
         };
         match event.event_identifier {
-            TOUCH_BUTTON_EVENT_DOWN => {
-                if (event.id as usize) < CHORD_INTERVALS.len() {
+            TOUCH_BUTTON_EVENT_DOWN
+                if (event.id as usize) < CHORD_INTERVALS.len() => {
                     selected_chord = Some(event.id as usize);
                     NAVIGATION_SIGNAL
                         .send(Event {
@@ -200,9 +198,8 @@ pub async fn mapping_task() {
                         })
                         .await;
                 }
-            }
-            TOUCH_BUTTON_EVENT_UP => {
-                if selected_chord == Some(event.id as usize) {
+            TOUCH_BUTTON_EVENT_UP
+                if selected_chord == Some(event.id as usize) => {
                     selected_chord = None;
                     NAVIGATION_SIGNAL
                         .send(Event {
@@ -212,7 +209,6 @@ pub async fn mapping_task() {
                         })
                         .await;
                 }
-            }
             /*
                         EventType::PotMeterChange => {
                             //println!("potmeter changed = {}, {}", event.id, event.value );
@@ -458,7 +454,6 @@ pub async fn mapping_task() {
                         led_brightness = if event.value == encoder::ENCODER_CLOCKWISE {
                             led_brightness
                                 .saturating_add(LED_BRIGHTNESS_STEP)
-                                .min(MAX_LED_BRIGHTNESS)
                         } else {
                             led_brightness.saturating_sub(LED_BRIGHTNESS_STEP)
                         };
@@ -673,10 +668,10 @@ pub async fn mapping_task() {
                 } else {
                     println!("no node {}", event.id);
                     match event.id {
-                        13 => {
-                            if seq_active {
-                                if pattern > 0 {
-                                    pattern = pattern - 1;
+                        13
+                            if seq_active
+                                && pattern > 0 => {
+                                    pattern -= 1;
                                     println!("pattern {}", pattern);
                                     /*
                                     SEQUENCE_KEY_CHANNEL
@@ -687,17 +682,11 @@ pub async fn mapping_task() {
                                         })
                                         .await;*/
                                 }
-                            } else {
-                                //  if synth_active {
-                                // base -= 12;
-                                // }
-                            }
-                        }
-                        14 => {
+                        14
                             //if synth_active { base += 12; }
-                            if seq_active {
-                                if pattern < (MAX_AMOUNT_OF_PATTERNS - 1) as u16 {
-                                    pattern = pattern + 1;
+                            if seq_active
+                                && pattern < (MAX_AMOUNT_OF_PATTERNS - 1) as u16 => {
+                                    pattern += 1;
                                     println!("pattern {}", pattern);
                                     /*
                                     SEQUENCE_KEY_CHANNEL
@@ -709,12 +698,8 @@ pub async fn mapping_task() {
                                         .await;
                                     */
                                 }
-                            } else {
-                                //  base += 12;
-                            }
-                        }
-                        18 => {
-                            if seq_active {
+                        18
+                            if seq_active => {
                                 /*
                                 SEQUENCE_KEY_CHANNEL
                                     .send(KeyEvent {
@@ -725,9 +710,8 @@ pub async fn mapping_task() {
                                     .await;
                                 */
                             }
-                        }
-                        23 => {
-                            if seq_active {
+                        23
+                            if seq_active => {
                                 /*
                                 SEQUENCE_KEY_CHANNEL
                                     .send(KeyEvent {
@@ -740,7 +724,6 @@ pub async fn mapping_task() {
                             }
 
                             //TILT_SIGNAL.send(EventType::TiltNoteDown).await;
-                        }
                         19 => {
                             /*
                             NAVIGATION_SIGNAL
@@ -754,11 +737,11 @@ pub async fn mapping_task() {
                             //TILT_SIGNAL.send(EventType::TiltNoteDown).await;
                         }
                         //C2
-                        20 => {
+                        20
                             //   base = 36;
-                            if seq_active {
-                                if lane > 0 {
-                                    lane = lane - 1;
+                            if seq_active
+                                && lane > 0 => {
+                                    lane -= 1;
                                     /*
                                     SEQUENCE_KEY_CHANNEL
                                         .send(KeyEvent {
@@ -769,7 +752,6 @@ pub async fn mapping_task() {
                                         .await;
                                     */
                                 }
-                            }
                             /*
                             NAVIGATION_SIGNAL
                                 .send(KeyEvent {
@@ -779,7 +761,6 @@ pub async fn mapping_task() {
                                 })
                                 .await;
                             */
-                        }
                         //C3
                         21 => {
                             //    base = 48;
@@ -896,15 +877,12 @@ pub async fn mapping_task() {
                     }
                 } else {
                     // println!("event {:?}", event.id);
-                    match event.id {
-                        23 => {
-                            // TILT_SIGNAL.send(EventType::TiltNoteUp).await;
-                        }
-                        _ => {}
+                    if event.id == 23 {
+                        // TILT_SIGNAL.send(EventType::TiltNoteUp).await;
                     }
                 };
-                if !seq_active {
-                    if led_remap != 99 {
+                if !seq_active
+                    && led_remap != 99 {
                         let keep_edit_led = (event.id == ENVELOPE_KEY_ID && envelope_edit_mode)
                             || (event.id == OVERDRIVE_KEY_ID && overdrive_edit_mode)
                             || (event.id == DELAY_KEY_ID && delay_edit_mode);
@@ -918,9 +896,8 @@ pub async fn mapping_task() {
                                 .await;
                         }
                     }
-                }
             }
-            e => {
+            _e => {
                 /*
                 NAVIGATION_SIGNAL
                     .send(KeyEvent {

@@ -79,7 +79,7 @@ pub async fn keyboard_input_task() {
                 let &(mut status) = matrix.get(col_counter, row_counter).unwrap();
                 if row.is_high() {
                     if status.counter == 5 {
-                        if status.key_down_trigger == false {
+                        if !status.key_down_trigger {
                             if DEBUG {
                                 esp_println::println!(
                                     "key down ({})",
@@ -96,12 +96,12 @@ pub async fn keyboard_input_task() {
                             status.key_down_trigger = true;
                         }
                     } else {
-                        status.counter = status.counter + 1;
+                        status.counter += 1;
                     }
                 } else {
                     if status.counter > 0 {
-                        status.counter = status.counter - 1;
-                        if (status.counter == 0) && (status.key_down_trigger == true) {
+                        status.counter -= 1;
+                        if (status.counter == 0) && (status.key_down_trigger) {
                             if DEBUG {
                                 esp_println::println!(
                                     "key up   ({})",

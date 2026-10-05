@@ -282,192 +282,185 @@ pub fn synth_loop() {
             loop {
                 //TODO fix this hack
                 if midi_message_receiver.available() > 0 {
-                    match midi_message_receiver.try_next_message_pure() {
-                        Some(msg) => {
-                            match msg {
-                                midi_msg::MidiMsg::ChannelVoice { channel, msg } => {
-                                    match channel {
-                                        Channel::Ch2 => match msg {
-                                            midi_msg::ChannelVoiceMsg::ProgramChange {
-                                                program,
-                                            } => {
-                                                synth.load_patch(program);
-                                            }
-
-                                            midi_msg::ChannelVoiceMsg::NoteOn {
-                                                note,
-                                                velocity,
-                                            } => {
-                                                println!("note on");
-                                                synth.note_on(note, velocity);
-                                            }
-                                            midi_msg::ChannelVoiceMsg::NoteOff {
-                                                note,
-                                                velocity: _,
-                                            } => {
-                                                synth.note_off(note);
-                                            }
-                                            _ => {}
-                                        },
-                                        Channel::Ch1 => match msg {
-                                            midi_msg::ChannelVoiceMsg::ProgramChange {
-                                                program,
-                                            } => {
-                                                synth.load_patch(program);
-                                            }
-                                            midi_msg::ChannelVoiceMsg::NoteOn {
-                                                note,
-                                                velocity,
-                                            } => {
-                                                //println!("note on");
-                                                synth.note_on(note, velocity);
-                                            }
-                                            midi_msg::ChannelVoiceMsg::NoteOff {
-                                                note,
-                                                velocity: _,
-                                            } => {
-                                                synth.note_off(note);
-                                            }
-                                            midi_msg::ChannelVoiceMsg::ControlChange {
-                                                control,
-                                            } => match control {
-                                                midi_msg::ControlChange::Volume(volume) => {
-                                                    synth.change_main_volume(volume as u8);
-                                                }
-
-                                                midi_msg::ControlChange::SoundControl1(value) => {
-                                                    synth.change_cutoff(value);
-                                                }
-
-                                                midi_msg::ControlChange::SoundControl2(value) => {
-                                                    synth.change_all_voices(value);
-                                                }
-
-                                                midi_msg::ControlChange::AttackTime(value) => {
-                                                    let attack_time = if value == 0 {
-                                                        5
-                                                    } else {
-                                                        value as i16 * 5
-                                                    };
-                                                    synth.change_all_envelopes(
-                                                        Some(attack_time),
-                                                        None,
-                                                        None,
-                                                        None,
-                                                    );
-                                                }
-
-                                                midi_msg::ControlChange::DecayTime(value) => {
-                                                    let decay_time = if value == 0 {
-                                                        5
-                                                    } else {
-                                                        value as i16 * 5
-                                                    };
-                                                    synth.change_all_envelopes(
-                                                        None,
-                                                        Some(decay_time),
-                                                        None,
-                                                        None,
-                                                    );
-                                                }
-
-                                                midi_msg::ControlChange::SoundControl3(value) => {
-                                                    synth.change_all_envelopes(
-                                                        None,
-                                                        None,
-                                                        Some(value.min(100) as i16),
-                                                        None,
-                                                    );
-                                                }
-
-                                                midi_msg::ControlChange::ReleaseTime(value) => {
-                                                    let release_time = if value == 0 {
-                                                        5
-                                                    } else {
-                                                        value as i16 * 5
-                                                    };
-
-                                                    synth.change_all_envelopes(
-                                                        None,
-                                                        None,
-                                                        None,
-                                                        Some(release_time),
-                                                    );
-                                                }
-
-                                                midi_msg::ControlChange::CC { control, .. }
-                                                    if control == OVERDRIVE_ENABLE_CONTROL =>
-                                                {
-                                                    synth.toggle_overdrive();
-                                                    notify_overdrive_setting(&synth, 0);
-                                                }
-
-                                                midi_msg::ControlChange::CC { control, value }
-                                                    if control == OVERDRIVE_KIND_CONTROL =>
-                                                {
-                                                    synth.cycle_overdrive_kind(value != 0);
-                                                    notify_overdrive_setting(&synth, 1);
-                                                }
-
-                                                midi_msg::ControlChange::CC { control, value }
-                                                    if control == OVERDRIVE_THRESHOLD_CONTROL =>
-                                                {
-                                                    synth.adjust_overdrive_threshold(value != 0);
-                                                    notify_overdrive_setting(&synth, 2);
-                                                }
-
-                                                midi_msg::ControlChange::CC { control, .. }
-                                                    if control == OVERDRIVE_STATUS_CONTROL =>
-                                                {
-                                                    notify_overdrive_settings(&synth);
-                                                }
-
-                                                midi_msg::ControlChange::CC { control, .. }
-                                                    if control == DELAY_ENABLE_CONTROL =>
-                                                {
-                                                    synth.toggle_delay();
-                                                    notify_delay_setting(&synth, 0);
-                                                }
-
-                                                midi_msg::ControlChange::CC { control, value }
-                                                    if control == DELAY_TIME_CONTROL =>
-                                                {
-                                                    synth.adjust_delay_time(value != 0);
-                                                    notify_delay_setting(&synth, 1);
-                                                }
-
-                                                midi_msg::ControlChange::CC { control, value }
-                                                    if control == DELAY_MIX_CONTROL =>
-                                                {
-                                                    synth.adjust_delay_mix(value != 0);
-                                                    notify_delay_setting(&synth, 2);
-                                                }
-
-                                                midi_msg::ControlChange::CC { control, value }
-                                                    if control == DELAY_FEEDBACK_CONTROL =>
-                                                {
-                                                    synth.adjust_delay_feedback(value != 0);
-                                                    notify_delay_setting(&synth, 3);
-                                                }
-
-                                                midi_msg::ControlChange::CC { control, .. }
-                                                    if control == DELAY_STATUS_CONTROL =>
-                                                {
-                                                    notify_delay_settings(&synth);
-                                                }
-
-                                                _ => {}
-                                            },
-                                            _ => {}
-                                        },
-                                        _ => {}
+                    if let Some(msg) = midi_message_receiver.try_next_message_pure() {
+                        if let midi_msg::MidiMsg::ChannelVoice { channel, msg } = msg {
+                            match channel {
+                                Channel::Ch2 => match msg {
+                                    midi_msg::ChannelVoiceMsg::ProgramChange {
+                                        program,
+                                    } => {
+                                        synth.load_patch(program);
                                     }
-                                }
 
+                                    midi_msg::ChannelVoiceMsg::NoteOn {
+                                        note,
+                                        velocity,
+                                    } => {
+                                        println!("note on");
+                                        synth.note_on(note, velocity);
+                                    }
+                                    midi_msg::ChannelVoiceMsg::NoteOff {
+                                        note,
+                                        velocity: _,
+                                    } => {
+                                        synth.note_off(note);
+                                    }
+                                    _ => {}
+                                },
+                                Channel::Ch1 => match msg {
+                                    midi_msg::ChannelVoiceMsg::ProgramChange {
+                                        program,
+                                    } => {
+                                        synth.load_patch(program);
+                                    }
+                                    midi_msg::ChannelVoiceMsg::NoteOn {
+                                        note,
+                                        velocity,
+                                    } => {
+                                        //println!("note on");
+                                        synth.note_on(note, velocity);
+                                    }
+                                    midi_msg::ChannelVoiceMsg::NoteOff {
+                                        note,
+                                        velocity: _,
+                                    } => {
+                                        synth.note_off(note);
+                                    }
+                                    midi_msg::ChannelVoiceMsg::ControlChange {
+                                        control,
+                                    } => match control {
+                                        midi_msg::ControlChange::Volume(volume) => {
+                                            synth.change_main_volume(volume as u8);
+                                        }
+
+                                        midi_msg::ControlChange::SoundControl1(value) => {
+                                            synth.change_cutoff(value);
+                                        }
+
+                                        midi_msg::ControlChange::SoundControl2(value) => {
+                                            synth.change_all_voices(value);
+                                        }
+
+                                        midi_msg::ControlChange::AttackTime(value) => {
+                                            let attack_time = if value == 0 {
+                                                5
+                                            } else {
+                                                value as i16 * 5
+                                            };
+                                            synth.change_all_envelopes(
+                                                Some(attack_time),
+                                                None,
+                                                None,
+                                                None,
+                                            );
+                                        }
+
+                                        midi_msg::ControlChange::DecayTime(value) => {
+                                            let decay_time = if value == 0 {
+                                                5
+                                            } else {
+                                                value as i16 * 5
+                                            };
+                                            synth.change_all_envelopes(
+                                                None,
+                                                Some(decay_time),
+                                                None,
+                                                None,
+                                            );
+                                        }
+
+                                        midi_msg::ControlChange::SoundControl3(value) => {
+                                            synth.change_all_envelopes(
+                                                None,
+                                                None,
+                                                Some(value.min(100) as i16),
+                                                None,
+                                            );
+                                        }
+
+                                        midi_msg::ControlChange::ReleaseTime(value) => {
+                                            let release_time = if value == 0 {
+                                                5
+                                            } else {
+                                                value as i16 * 5
+                                            };
+
+                                            synth.change_all_envelopes(
+                                                None,
+                                                None,
+                                                None,
+                                                Some(release_time),
+                                            );
+                                        }
+
+                                        midi_msg::ControlChange::CC { control, .. }
+                                            if control == OVERDRIVE_ENABLE_CONTROL =>
+                                        {
+                                            synth.toggle_overdrive();
+                                            notify_overdrive_setting(&synth, 0);
+                                        }
+
+                                        midi_msg::ControlChange::CC { control, value }
+                                            if control == OVERDRIVE_KIND_CONTROL =>
+                                        {
+                                            synth.cycle_overdrive_kind(value != 0);
+                                            notify_overdrive_setting(&synth, 1);
+                                        }
+
+                                        midi_msg::ControlChange::CC { control, value }
+                                            if control == OVERDRIVE_THRESHOLD_CONTROL =>
+                                        {
+                                            synth.adjust_overdrive_threshold(value != 0);
+                                            notify_overdrive_setting(&synth, 2);
+                                        }
+
+                                        midi_msg::ControlChange::CC { control, .. }
+                                            if control == OVERDRIVE_STATUS_CONTROL =>
+                                        {
+                                            notify_overdrive_settings(&synth);
+                                        }
+
+                                        midi_msg::ControlChange::CC { control, .. }
+                                            if control == DELAY_ENABLE_CONTROL =>
+                                        {
+                                            synth.toggle_delay();
+                                            notify_delay_setting(&synth, 0);
+                                        }
+
+                                        midi_msg::ControlChange::CC { control, value }
+                                            if control == DELAY_TIME_CONTROL =>
+                                        {
+                                            synth.adjust_delay_time(value != 0);
+                                            notify_delay_setting(&synth, 1);
+                                        }
+
+                                        midi_msg::ControlChange::CC { control, value }
+                                            if control == DELAY_MIX_CONTROL =>
+                                        {
+                                            synth.adjust_delay_mix(value != 0);
+                                            notify_delay_setting(&synth, 2);
+                                        }
+
+                                        midi_msg::ControlChange::CC { control, value }
+                                            if control == DELAY_FEEDBACK_CONTROL =>
+                                        {
+                                            synth.adjust_delay_feedback(value != 0);
+                                            notify_delay_setting(&synth, 3);
+                                        }
+
+                                        midi_msg::ControlChange::CC { control, .. }
+                                            if control == DELAY_STATUS_CONTROL =>
+                                        {
+                                            notify_delay_settings(&synth);
+                                        }
+
+                                        _ => {}
+                                    },
+                                    _ => {}
+                                },
                                 _ => {}
                             }
                         }
-                        None => {}
                     }
                     if midi_message_receiver.available() == 0 {
                         midi_message_receiver.clear();

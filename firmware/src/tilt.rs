@@ -2,10 +2,8 @@
 use driver_stk8321::STK8321;
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 use embassy_time::{Duration, Timer};
-use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex};
 use esp_backtrace as _;
 use esp_println::println;
-use midi_msg::Channel;
 
 use crate::{I2c1Bus, MIDI_MESSAGE_CHANNEL};
 extern crate alloc;
@@ -24,8 +22,8 @@ let mut stk8321 = STK8321::new(i2c_dev);
         Ok(false) => println!("STK8321 is not ready!"),
         Err(e) => println!("Error checking if STK8321 is ready: {:?}", e),
     }
-    let mut active_node:u8 = 30;
-    let sender = MIDI_MESSAGE_CHANNEL.publisher().unwrap();
+    let _active_node:u8 = 30;
+    let _sender = MIDI_MESSAGE_CHANNEL.publisher().unwrap();
     
     
     loop {
@@ -70,14 +68,14 @@ let mut stk8321 = STK8321::new(i2c_dev);
 
           let x = stk8321.read_x().await.unwrap().abs();
 
-            if (x > 100) {
+            if x > 100 {
       
                 
                 println!("X-axis value: {}", x);
             }
 
         let y = stk8321.read_y().await.unwrap().abs();
-        if (y > 100) {
+        if y > 100 {
                 println!("Y-axis value: {}", y);
               /*            LED_MESSAGE_CHANNEL
                     .send(LedMessage {

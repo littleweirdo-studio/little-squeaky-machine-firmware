@@ -4,7 +4,6 @@ use esp_hal::{
     gpio::{Input, InputConfig, Pull},
     peripherals::Peripherals,
 };
-use esp_println::println;
 use little_weirdo_gui::{Event, MAPPING_SIGNAL};
 
 // Mapping event values shared with the event consumer.

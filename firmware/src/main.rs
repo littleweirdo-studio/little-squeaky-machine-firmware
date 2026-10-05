@@ -119,7 +119,7 @@ async fn main(spawner: Spawner) {
     esp_rtos::start(timg0.timer0, software_interrupt.software_interrupt0);
 
     // spawn the tasks
-    let _ = spawner.spawn(led_task().unwrap());
+    spawner.spawn(led_task().unwrap());
     Timer::after(Duration::from_millis(10)).await;
 
     let mut cpu_control = CpuControl::new(peripherals.CPU_CTRL);
@@ -132,30 +132,30 @@ async fn main(spawner: Spawner) {
     // Create MIDI USB device
     if USB_MIDI_ENABLED {
         Timer::after(Duration::from_millis(10)).await;
-        let _ = spawner.spawn(midi_usb_task().unwrap());
+        spawner.spawn(midi_usb_task().unwrap());
     }
 
     if UART_MIDI_ENABLED {
         Timer::after(Duration::from_millis(10)).await;
-        let _ = spawner.spawn(midi_uart_task().unwrap());
+        spawner.spawn(midi_uart_task().unwrap());
     }
 
     Timer::after(Duration::from_millis(100)).await;
-    let _ = spawner.spawn(oled_task(i2c_bus).unwrap());
+    spawner.spawn(oled_task(i2c_bus).unwrap());
 
     Timer::after(Duration::from_millis(100)).await;
- let _ = spawner.spawn(encoder_task().unwrap());
+ spawner.spawn(encoder_task().unwrap());
 
     Timer::after(Duration::from_millis(100)).await;
 
-    let _ = spawner.spawn(codec_task(i2c_bus).unwrap());
+    spawner.spawn(codec_task(i2c_bus).unwrap());
 
     Timer::after(Duration::from_millis(10)).await;
-    let _ = spawner.spawn(keyboard_input_task().unwrap());
-    let _ = spawner.spawn(mapping_task().unwrap());
-    let _ = spawner.spawn(touch_input_task(i2c_bus).unwrap());
+    spawner.spawn(keyboard_input_task().unwrap());
+    spawner.spawn(mapping_task().unwrap());
+    spawner.spawn(touch_input_task(i2c_bus).unwrap());
 
-    let _ = spawner.spawn(tilt_task(i2c_bus).unwrap()); // Commented out as tilt module is not available
+    spawner.spawn(tilt_task(i2c_bus).unwrap()); // Commented out as tilt module is not available
 
     loop {
         Timer::after(Duration::from_millis(10)).await;

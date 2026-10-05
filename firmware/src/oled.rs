@@ -18,13 +18,11 @@ use esp_backtrace as _;
 use esp_hal::peripherals::Peripherals;
 // use esp_println::println;
 use esp_storage::FlashStorage;
-use little_weirdo::synth::patch::Patch;
 use little_weirdo_filesystem::WeirdoFileSystem;
-use little_weirdo_gui::about::About;
 use little_weirdo_gui::menu::{self, MenuIcon};
 use little_weirdo_gui::settings::Settings;
 use little_weirdo_gui::{
-    ActiveItem, Event, NAVIGATION_SIGNAL, Navigatable, NO_ACTIVITY_EVENT, NO_MENU_EVENT,
+    ActiveItem, Event, NAVIGATION_SIGNAL, NO_ACTIVITY_EVENT, NO_MENU_EVENT,
 };
 use ssd1306::prelude::DisplayRotation;
 use ssd1306::size::DisplaySize128x64;
@@ -273,9 +271,9 @@ where
         let next_sample_index =
             (x as usize + 1) * (WAVEFORM_SAMPLE_COUNT - 1) / plot_width as usize;
         let y = center_y
-            - (samples[sample_index] as i32 * amplitude_height / max_amplitude) as i32;
+            - (samples[sample_index] as i32 * amplitude_height / max_amplitude);
         let next_y = center_y
-            - (samples[next_sample_index] as i32 * amplitude_height / max_amplitude) as i32;
+            - (samples[next_sample_index] as i32 * amplitude_height / max_amplitude);
         let plot_x = plot_left + x;
         Line::new(Point::new(plot_x, y), Point::new(plot_x + 1, next_y))
             .draw_styled(&line_style, display)?;
@@ -333,7 +331,7 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
     let mut buf = vec![0u8; 256];
 
     let _ = filesystem.read_key_value(000, buf.as_mut_slice());
-    let sound_bank: SoundBank = postcard::from_bytes(&buf).unwrap();
+    let _sound_bank: SoundBank = postcard::from_bytes(&buf).unwrap();
     let waveform_names = match filesystem.size_of_key_value(WAVEFORM_NAMES_KEY) {
         Ok(size) if size > 0 => {
             let mut names_buffer = vec![0u8; size as usize];
@@ -529,7 +527,7 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
     let mut control_menu_active = false;
 
     */
-    let mut active_item = ActiveItem::Menu(&mut main_menu);
+    let active_item = ActiveItem::Menu(&mut main_menu);
     let mut volume_settings = Settings::new(NO_MENU_EVENT.clone());
     volume_settings.add("Volume".to_string());
     let mut brightness_settings = Settings::new(NO_MENU_EVENT.clone());
@@ -595,7 +593,7 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
                 }
             },
             None => {
-                let _ = active_item.draw(&mut display);
+                active_item.draw(&mut display);
             }
         }
         let _ = display.flush().await;

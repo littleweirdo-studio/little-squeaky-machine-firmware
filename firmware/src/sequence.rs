@@ -1,9 +1,6 @@
-use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use embassy_sync::channel::Channel;
 
 use embassy_time::{Duration, Instant, Timer};
 use esp_backtrace as _;
-use esp_println::println;
 use little_weirdo::sequencer::{AMOUNT_OF_LANES, MAX_AMOUNT_OF_PATTERNS};
 //use embassy_time::{Duration, Timer};
 use crate::{
@@ -23,7 +20,7 @@ pub static ID_LED_MAP: [u8; 16] = [2, 3, 4, 5, 6, 12, 13, 14, 7, 8, 9, 10, 11, 1
 #[embassy_executor::task]
 pub async fn sequence_task() {
     let mut sequencer_1 = little_weirdo::sequencer::Sequencer::new();
-    let mut tick = CLOCK_TICK;
+    let tick = CLOCK_TICK;
 
     // map the sequencer
     for pattern_id in 0..MAX_AMOUNT_OF_PATTERNS {
@@ -46,8 +43,8 @@ pub async fn sequence_task() {
 
     let last_id = 0;
     let last_hit = false;
-    let mut active_lane = 0;
-    let mut active_pattern = 0;
+    let active_lane = 0;
+    let _active_pattern = 0;
     let mut switch = false;
 
     let sender = MIDI_MESSAGE_CHANNEL.publisher().unwrap();
@@ -143,7 +140,7 @@ pub async fn sequence_task() {
         let trigger_1 = sequencer_1.clock(); // Update the sequencer state (not currently used to trigger anything)
         let note_id_active = sequencer_1.get_position() as usize;
 
-        if note_id_active % 4 == 0 {
+        if note_id_active.is_multiple_of(4) {
             LED_MESSAGE_CHANNEL
                 .send(LedMessage {
                     color: if switch {
@@ -170,8 +167,8 @@ pub async fn sequence_task() {
         }
 
         for (i, &hit) in trigger_1.iter().enumerate() {
-            if i == active_lane as usize {
-                if last_id != i {
+            if i == active_lane as usize
+                && last_id != i {
                     LED_MESSAGE_CHANNEL
                         .send(LedMessage {
                             color: if last_hit {
@@ -184,7 +181,6 @@ pub async fn sequence_task() {
                         })
                         .await;
                 }
-            }
 
             if hit.0 {
                 let message = MidiMsg::ChannelVoice {
