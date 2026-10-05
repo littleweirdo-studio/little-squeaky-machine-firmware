@@ -1,5 +1,8 @@
 use esp_println::println;
+use esp_hal::peripherals::Peripherals;
+use esp_storage::FlashStorage;
 use little_weirdo::sequencer::MAX_AMOUNT_OF_PATTERNS;
+use little_weirdo_filesystem::WeirdoFileSystem;
 use little_weirdo_gui::{Event, MAPPING_SIGNAL, NAVIGATION_SIGNAL};
 use midi_msg::Channel;
 use smart_leds::{RGB8, colors};
@@ -9,6 +12,7 @@ use crate::{
     codec::{CODEC_SIGNAL, CodecEvent, CodecEventType},
     encoder, keyboard_input,
     led::{INITIAL_BRIGHTNESS, LED_BRIGHTNESS_CHANNEL, LED_MESSAGE_CHANNEL, LedMessage},
+    synth::SoundBank,
     touch_input::{TOUCH_BUTTON_EVENT_DOWN, TOUCH_BUTTON_EVENT_UP},
 };
 
@@ -17,6 +21,7 @@ const COLOR: RGB8 = colors::DEEP_PINK;
 pub const CHORD_CHANGED_EVENT_IDENTIFIER: u8 = 248;
 pub const KEYPAD_OCTAVE_CHANGED_EVENT_IDENTIFIER: u8 = 243;
 pub const ENCODER_USED_EVENT_IDENTIFIER: u8 = 242;
+pub const PATCH_SELECTION_EVENT_IDENTIFIER: u8 = 241;
 pub const CHORD_NAMES: [&str; 8] = [
     "Major",
     "Minor",
@@ -81,6 +86,33 @@ pub const INITIAL_VOLUME: u8 = 50;
 pub const INITIAL_KEYPAD_OCTAVE_SHIFT: i8 = 0;
 
 const DEBUG: bool = false;
+
+fn load_patch_count() -> Option<u16> {
+    let storage;
+    unsafe {
+        let peripherals: Peripherals = Peripherals::steal();
+        storage = FlashStorage::new(peripherals.FLASH);
+    }
+
+    let mut filesystem: WeirdoFileSystem<FlashStorage> =
+        WeirdoFileSystem::new(storage, 0x00220000, 0x100000);
+    let mut settings_buffer = [0u8; 512];
+    let bytes_read = match filesystem.read_key_value(0, &mut settings_buffer) {
+        Ok(bytes_read) => bytes_read as usize,
+        Err(error) => {
+            println!("failed to read soundbank settings for patch selection: {:?}", error);
+            return None;
+        }
+    };
+
+    match postcard::from_bytes::<SoundBank>(&settings_buffer[..bytes_read]) {
+        Ok(sound_bank) => Some(sound_bank.amount_of_patches),
+        Err(error) => {
+            println!("failed to decode soundbank settings for patch selection: {:?}", error);
+            None
+        }
+    }
+}
 
 // defined events
 pub const WAVEFORM_CHANGED_EVENT_IDENTIFIER: u8 = 250;
@@ -174,6 +206,15 @@ pub async fn mapping_task() {
     let mut envelope_edit_mode = false;
     let mut overdrive_edit_mode = false;
     let mut delay_edit_mode = false;
+    let patch_count = load_patch_count()
+        .map(usize::from)
+        .unwrap_or(0)
+        .min(u8::MAX as usize + 1);
+    let mut patch_selection_mode = false;
+    let mut selected_patch = 0u8;
+    if patch_count == 0 {
+        println!("patch selection unavailable: no patches found in soundbank");
+    }
 
     let mut lane = 0;
     let mut pattern = 0;
@@ -363,7 +404,24 @@ pub async fn mapping_task() {
                         value: event.value,
                     })
                     .await;
-                if envelope_edit_mode {
+                if patch_selection_mode {
+                    if event.id == 0 && patch_count > 0 {
+                        selected_patch = if event.value == encoder::ENCODER_CLOCKWISE {
+                            ((selected_patch as usize + 1) % patch_count) as u8
+                        } else if selected_patch == 0 {
+                            (patch_count - 1) as u8
+                        } else {
+                            selected_patch - 1
+                        };
+                        NAVIGATION_SIGNAL
+                            .send(Event {
+                                event_identifier: PATCH_SELECTION_EVENT_IDENTIFIER,
+                                id: selected_patch,
+                                value: 1,
+                            })
+                            .await;
+                    }
+                } else if envelope_edit_mode {
                     if let Some((control, value)) =
                         handle_envelope_submenu(&event, &mut envelope_values)
                     {
@@ -505,6 +563,36 @@ pub async fn mapping_task() {
                 }
             }
             keyboard_input::KEYPAD_EVENT_DOWN => {
+                if event.id == 0 && synth_active && !seq_active && patch_count > 0 {
+                    if patch_selection_mode {
+                        sender
+                            .publish(midi_msg::MidiMsg::ChannelVoice {
+                                channel: Channel::Ch1,
+                                msg: midi_msg::ChannelVoiceMsg::ProgramChange {
+                                    program: selected_patch,
+                                },
+                            })
+                            .await;
+                        patch_selection_mode = false;
+                        NAVIGATION_SIGNAL
+                            .send(Event {
+                                event_identifier: PATCH_SELECTION_EVENT_IDENTIFIER,
+                                id: selected_patch,
+                                value: 2,
+                            })
+                            .await;
+                    } else {
+                        patch_selection_mode = true;
+                        NAVIGATION_SIGNAL
+                            .send(Event {
+                                event_identifier: PATCH_SELECTION_EVENT_IDENTIFIER,
+                                id: selected_patch,
+                                value: 1,
+                            })
+                            .await;
+                    }
+                }
+
                 let mut remap = REMAP_MIDI[event.id as usize];
                 let mut led_remap = REMAP_MIDI_LED[event.id as usize];
 

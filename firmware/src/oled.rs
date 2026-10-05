@@ -34,6 +34,7 @@ use crate::mapping::{
     ENVELOPE_MODE_EVENT_ID, INITIAL_ENVELOPE_VALUES, INITIAL_KEYPAD_OCTAVE_SHIFT, INITIAL_VOLUME,
     ENCODER_USED_EVENT_IDENTIFIER, KEYPAD_OCTAVE_CHANGED_EVENT_IDENTIFIER,
     OVERDRIVE_CHANGED_EVENT_IDENTIFIER, OVERDRIVE_MODE_EVENT_ID,
+    PATCH_SELECTION_EVENT_IDENTIFIER,
     VOLUME_CHANGED_EVENT_IDENTIFIER, WAVEFORM_CHANGED_EVENT_IDENTIFIER,
 };
 
@@ -119,6 +120,28 @@ fn draw_screen<D>(
             let _ = Text::new(name, Point::new(48, 40), text_style).draw(display);
             let _ = draw_screen_border(display);
         }
+        Some(DisplaySetting::Patch {
+            name,
+            index,
+            browsing,
+        }) => {
+            let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
+            let _ = Text::new("PATCH SELECT", Point::new(7, 16), text_style).draw(display);
+            let _ = Text::new(name, Point::new(7, 31), text_style).draw(display);
+            let _ = Text::new(
+                &format!("Patch {}", *index as u16 + 1),
+                Point::new(7, 45),
+                text_style,
+            )
+            .draw(display);
+            let footer = if *browsing {
+                "Press 0 to load"
+            } else {
+                "Patch loaded"
+            };
+            let _ = Text::new(footer, Point::new(7, 56), text_style).draw(display);
+            let _ = draw_screen_border(display);
+        }
         Some(DisplaySetting::Envelope) => {
             let _ = draw_envelope(display, envelope_values);
         }
@@ -145,6 +168,36 @@ fn draw_screen<D>(
     }
 }
 
+fn read_patch_name(filesystem: &mut WeirdoFileSystem<FlashStorage>, index: u8) -> Option<String> {
+    let key = 100 + index as u32;
+    let size = match filesystem.size_of_key_value(key) {
+        Ok(size) if size > 0 => size as usize,
+        Ok(_) => {
+            esp_println::println!("patch {} is empty in the soundbank", index);
+            return None;
+        }
+        Err(error) => {
+            esp_println::println!("failed to locate patch {}: {:?}", index, error);
+            return None;
+        }
+    };
+    let mut buffer = vec![0u8; size];
+    let bytes_read = match filesystem.read_key_value(key, &mut buffer) {
+        Ok(bytes_read) => bytes_read as usize,
+        Err(error) => {
+            esp_println::println!("failed to read patch {}: {:?}", index, error);
+            return None;
+        }
+    };
+    match postcard::from_bytes::<little_weirdo::synth::patch::Patch>(&buffer[..bytes_read]) {
+        Ok(patch) => Some(patch.name),
+        Err(error) => {
+            esp_println::println!("failed to decode patch {}: {:?}", index, error);
+            None
+        }
+    }
+}
+
 fn draw_screen_border<D>(display: &mut D) -> Result<(), D::Error>
 where
     D: DrawTarget<Color = BinaryColor>,
@@ -161,6 +214,11 @@ enum DisplaySetting {
     Waveform { name: String, samples: [i16; WAVEFORM_SAMPLE_COUNT] },
     Controls,
     Chord(&'static str),
+    Patch {
+        name: String,
+        index: u8,
+        browsing: bool,
+    },
     Envelope,
     Overdrive,
     Delay,
@@ -171,6 +229,7 @@ enum DisplayScreenKind {
     Waveform,
     Controls,
     Chord,
+    PatchBrowser,
     Envelope,
     Overdrive,
     Delay,
@@ -181,6 +240,7 @@ fn display_screen_kind(setting: Option<&DisplaySetting>) -> DisplayScreenKind {
         Some(DisplaySetting::Waveform { .. }) => DisplayScreenKind::Waveform,
         Some(DisplaySetting::Controls) | None => DisplayScreenKind::Controls,
         Some(DisplaySetting::Chord(_)) => DisplayScreenKind::Chord,
+        Some(DisplaySetting::Patch { .. }) => DisplayScreenKind::PatchBrowser,
         Some(DisplaySetting::Envelope) => DisplayScreenKind::Envelope,
         Some(DisplaySetting::Overdrive) => DisplayScreenKind::Overdrive,
         Some(DisplaySetting::Delay) => DisplayScreenKind::Delay,
@@ -509,7 +569,7 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
     let mut buf = vec![0u8; 256];
 
     let _ = filesystem.read_key_value(000, buf.as_mut_slice());
-    let _sound_bank: SoundBank = postcard::from_bytes(&buf).unwrap();
+    let sound_bank: SoundBank = postcard::from_bytes(&buf).unwrap();
     let waveform_names = match filesystem.size_of_key_value(WAVEFORM_NAMES_KEY) {
         Ok(size) if size > 0 => {
             let mut names_buffer = vec![0u8; size as usize];
@@ -832,6 +892,31 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
                     } else {
                         esp_println::println!("waveform name missing for index {}", event.id);
                     }
+                }
+                PATCH_SELECTION_EVENT_IDENTIFIER => {
+                    if event.id as u16 >= sound_bank.amount_of_patches {
+                        esp_println::println!(
+                            "patch selection index {} is outside the soundbank",
+                            event.id
+                        );
+                        continue;
+                    }
+                    if event.value != 1 && event.value != 2 {
+                        esp_println::println!(
+                            "invalid patch selection state {}",
+                            event.value
+                        );
+                        continue;
+                    }
+
+                    welcome_visible = false;
+                    let name = read_patch_name(&mut filesystem, event.id)
+                        .unwrap_or_else(|| format!("Patch {}", event.id as u16 + 1));
+                    display_setting = Some(DisplaySetting::Patch {
+                        name,
+                        index: event.id,
+                        browsing: event.value == 1,
+                    });
                 }
                 VOLUME_CHANGED_EVENT_IDENTIFIER => {
                     volume = event.value.min(127) as u8;
