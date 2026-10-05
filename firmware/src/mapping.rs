@@ -79,7 +79,6 @@ const MARGIN: i16 = 2;
 
 const DEBUG: bool = false;
 
-
 // defined events
 pub const WAVEFORM_CHANGED_EVENT_IDENTIFIER: u8 = 250;
 //
@@ -111,6 +110,49 @@ pub const OVERDRIVE_KEY_LED_ID: u8 = 5;
 pub const DELAY_KEY_ID: u8 = 12;
 pub const DELAY_KEY_LED_ID: u8 = 14;
 pub const ENVELOPE_KEY_LED_ID: u8 = 24;
+
+fn handle_envelope_submenu(
+    event: &Event,
+    envelope_values: &mut [u8; 4],
+) -> Option<(midi_msg::ControlChange, u8)> {
+    let value = envelope_values.get_mut(event.id as usize)?;
+    let maximum = if event.id == 2 { 100 } else { 127 };
+    *value = if event.value == encoder::ENCODER_CLOCKWISE {
+        value.saturating_add(1).min(maximum)
+    } else {
+        value.saturating_sub(1)
+    };
+
+    let control = match event.id {
+        0 => midi_msg::ControlChange::AttackTime(*value),
+        1 => midi_msg::ControlChange::DecayTime(*value),
+        2 => midi_msg::ControlChange::SoundControl3(*value),
+        3 => midi_msg::ControlChange::ReleaseTime(*value),
+        _ => unreachable!(),
+    };
+    Some((control, *value))
+}
+
+fn handle_overdrive_submenu(event: &Event) -> Option<(u8, u8)> {
+    let value = (event.value == encoder::ENCODER_CLOCKWISE) as u8;
+    match event.id {
+        0 => Some((OVERDRIVE_ENABLE_CONTROL, 0)),
+        1 => Some((OVERDRIVE_KIND_CONTROL, value)),
+        2 => Some((OVERDRIVE_THRESHOLD_CONTROL, value)),
+        _ => None,
+    }
+}
+
+fn handle_delay_submenu(event: &Event) -> Option<(u8, u8)> {
+    let value = (event.value == encoder::ENCODER_CLOCKWISE) as u8;
+    match event.id {
+        0 => Some((DELAY_ENABLE_CONTROL, 0)),
+        1 => Some((DELAY_TIME_CONTROL, value)),
+        2 => Some((DELAY_MIX_CONTROL, value)),
+        3 => Some((DELAY_FEEDBACK_CONTROL, value)),
+        _ => None,
+    }
+}
 
 #[embassy_executor::task]
 pub async fn mapping_task() {
@@ -311,21 +353,9 @@ pub async fn mapping_task() {
             */
             encoder::ENCODER_EVENT_ROTATION => {
                 if envelope_edit_mode {
-                    if let Some(value) = envelope_values.get_mut(event.id as usize) {
-                        let maximum = if event.id == 2 { 100 } else { 127 };
-                        *value = if event.value == encoder::ENCODER_CLOCKWISE {
-                            value.saturating_add(1).min(maximum)
-                        } else {
-                            value.saturating_sub(1)
-                        };
-
-                        let control = match event.id {
-                            0 => midi_msg::ControlChange::AttackTime(*value),
-                            1 => midi_msg::ControlChange::DecayTime(*value),
-                            2 => midi_msg::ControlChange::SoundControl3(*value),
-                            3 => midi_msg::ControlChange::ReleaseTime(*value),
-                            _ => unreachable!(),
-                        };
+                    if let Some((control, value)) =
+                        handle_envelope_submenu(&event, &mut envelope_values)
+                    {
                         sender
                             .publish(midi_msg::MidiMsg::ChannelVoice {
                                 channel: if synth_active {
@@ -340,51 +370,23 @@ pub async fn mapping_task() {
                             .send(Event {
                                 event_identifier: ENVELOPE_CHANGED_EVENT_IDENTIFIER,
                                 id: event.id,
-                                value: *value as u16,
+                                value: value as u16,
                             })
                             .await;
                     }
                 } else if overdrive_edit_mode {
-                    let control = match event.id {
-                            0 => Some((OVERDRIVE_ENABLE_CONTROL, 0)),
-                            1 => Some((
-                                OVERDRIVE_KIND_CONTROL,
-                                (event.value == encoder::ENCODER_CLOCKWISE) as u8,
-                            )),
-                            2 => Some((
-                                OVERDRIVE_THRESHOLD_CONTROL,
-                                (event.value == encoder::ENCODER_CLOCKWISE) as u8,
-                            )),
-                            _ => None,
-                    };
-                    if let Some((control, value)) = control {
-                            sender
-                                .publish(midi_msg::MidiMsg::ChannelVoice {
-                                    channel: Channel::Ch1,
-                                    msg: midi_msg::ChannelVoiceMsg::ControlChange {
-                                        control: midi_msg::ControlChange::CC { control, value },
-                                    },
-                                })
-                                .await;
+                    if let Some((control, value)) = handle_overdrive_submenu(&event) {
+                        sender
+                            .publish(midi_msg::MidiMsg::ChannelVoice {
+                                channel: Channel::Ch1,
+                                msg: midi_msg::ChannelVoiceMsg::ControlChange {
+                                    control: midi_msg::ControlChange::CC { control, value },
+                                },
+                            })
+                            .await;
                     }
                 } else if delay_edit_mode {
-                    let control = match event.id {
-                        0 => Some((DELAY_ENABLE_CONTROL, 0)),
-                        1 => Some((
-                            DELAY_TIME_CONTROL,
-                            (event.value == encoder::ENCODER_CLOCKWISE) as u8,
-                        )),
-                        2 => Some((
-                            DELAY_MIX_CONTROL,
-                            (event.value == encoder::ENCODER_CLOCKWISE) as u8,
-                        )),
-                        3 => Some((
-                            DELAY_FEEDBACK_CONTROL,
-                            (event.value == encoder::ENCODER_CLOCKWISE) as u8,
-                        )),
-                        _ => None,
-                    };
-                    if let Some((control, value)) = control {
+                    if let Some((control, value)) = handle_delay_submenu(&event) {
                         sender
                             .publish(midi_msg::MidiMsg::ChannelVoice {
                                 channel: Channel::Ch1,
@@ -879,10 +881,9 @@ pub async fn mapping_task() {
                 };
                 if !seq_active {
                     if led_remap != 99 {
-                        let keep_edit_led =
-                            (event.id == ENVELOPE_KEY_ID && envelope_edit_mode)
-                                || (event.id == OVERDRIVE_KEY_ID && overdrive_edit_mode)
-                                || (event.id == DELAY_KEY_ID && delay_edit_mode);
+                        let keep_edit_led = (event.id == ENVELOPE_KEY_ID && envelope_edit_mode)
+                            || (event.id == OVERDRIVE_KEY_ID && overdrive_edit_mode)
+                            || (event.id == DELAY_KEY_ID && delay_edit_mode);
                         if !keep_edit_led {
                             LED_MESSAGE_CHANNEL
                                 .send(LedMessage {
