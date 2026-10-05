@@ -8,7 +8,7 @@ use embassy_futures::select::{Either, select};
 use embassy_time::{Duration, Instant, Timer};
 use embedded_graphics::mono_font::{MonoTextStyle, ascii::FONT_6X10};
 use embedded_graphics::pixelcolor::BinaryColor;
-use embedded_graphics::prelude::{DrawTarget, Point, Size};
+use embedded_graphics::prelude::{DrawTarget, OriginDimensions, Pixel, Point, Size};
 use embedded_graphics::primitives::{
     Circle, Line, PrimitiveStyle, Rectangle, RoundedRectangle, StyledDrawable,
 };
@@ -41,6 +41,109 @@ const WAVEFORM_SAMPLE_COUNT: usize = 600;
 const WAVEFORM_BYTE_COUNT: usize = WAVEFORM_SAMPLE_COUNT * 2;
 const WAVEFORM_NAMES_KEY: u32 = 600;
 const WELCOME_SCREEN_DURATION: Duration = Duration::from_secs(3);
+const SCREEN_TRANSITION_OFFSETS: [i32; 8] = [-64, -48, -32, -16, -6, 1, -2, 0];
+const SCREEN_TRANSITION_FRAME_DURATION: Duration = Duration::from_millis(18);
+
+struct VerticalOffsetTarget<'a, D> {
+    target: &'a mut D,
+    offset: i32,
+}
+
+impl<D> OriginDimensions for VerticalOffsetTarget<'_, D>
+where
+    D: DrawTarget<Color = BinaryColor>,
+{
+    fn size(&self) -> Size {
+        Size::new(128, 64)
+    }
+}
+
+impl<D> DrawTarget for VerticalOffsetTarget<'_, D>
+where
+    D: DrawTarget<Color = BinaryColor>,
+{
+    type Color = BinaryColor;
+    type Error = D::Error;
+
+    fn draw_iter<I>(&mut self, pixels: I) -> Result<(), Self::Error>
+    where
+        I: IntoIterator<Item = Pixel<Self::Color>>,
+    {
+        self.target
+            .draw_iter(pixels.into_iter().filter_map(|Pixel(point, color)| {
+                let y = point.y + self.offset;
+                (point.x >= 0 && point.x < 128 && y >= 0 && y < 64)
+                    .then_some(Pixel(Point::new(point.x, y), color))
+            }))
+    }
+}
+
+fn draw_screen<D>(
+    display: &mut D,
+    welcome_visible: bool,
+    display_setting: &Option<DisplaySetting>,
+    volume: u8,
+    keypad_octave_shift: i8,
+    brightness: u8,
+    envelope_values: &[u8; 4],
+    overdrive_enabled: Option<bool>,
+    overdrive_kind: Option<u8>,
+    overdrive_threshold: Option<u16>,
+    delay_enabled: Option<bool>,
+    delay_time_ms: Option<u16>,
+    delay_mix_percentage: Option<u8>,
+    delay_feedback_percentage: Option<u8>,
+) where
+    D: DrawTarget<Color = BinaryColor>,
+{
+    if welcome_visible {
+        let _ = draw_welcome(display);
+        return;
+    }
+
+    match display_setting {
+        Some(DisplaySetting::Waveform { name, samples }) => {
+            let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
+            let _ = Text::new("WAVEFORM", Point::new(7, 15), text_style).draw(display);
+            let _ = Text::new(name, Point::new(7, 27), text_style).draw(display);
+            let _ = draw_waveform(display, samples);
+            let _ = draw_screen_border(display);
+        }
+        Some(DisplaySetting::Controls) => {
+            let _ = draw_controls(display, volume, keypad_octave_shift, brightness);
+        }
+        Some(DisplaySetting::Chord(name)) => {
+            let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
+            let _ = draw_chord_icon(display);
+            let _ = Text::new("CHORD", Point::new(48, 22), text_style).draw(display);
+            let _ = Text::new(name, Point::new(48, 40), text_style).draw(display);
+            let _ = draw_screen_border(display);
+        }
+        Some(DisplaySetting::Envelope) => {
+            let _ = draw_envelope(display, envelope_values);
+        }
+        Some(DisplaySetting::Overdrive) => {
+            let _ = draw_overdrive(
+                display,
+                overdrive_enabled,
+                overdrive_kind,
+                overdrive_threshold,
+            );
+        }
+        Some(DisplaySetting::Delay) => {
+            let _ = draw_delay(
+                display,
+                delay_enabled,
+                delay_time_ms,
+                delay_mix_percentage,
+                delay_feedback_percentage,
+            );
+        }
+        None => {
+            let _ = draw_controls(display, volume, keypad_octave_shift, brightness);
+        }
+    }
+}
 
 fn draw_screen_border<D>(display: &mut D) -> Result<(), D::Error>
 where
@@ -61,6 +164,27 @@ enum DisplaySetting {
     Envelope,
     Overdrive,
     Delay,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum DisplayScreenKind {
+    Waveform,
+    Controls,
+    Chord,
+    Envelope,
+    Overdrive,
+    Delay,
+}
+
+fn display_screen_kind(setting: Option<&DisplaySetting>) -> DisplayScreenKind {
+    match setting {
+        Some(DisplaySetting::Waveform { .. }) => DisplayScreenKind::Waveform,
+        Some(DisplaySetting::Controls) | None => DisplayScreenKind::Controls,
+        Some(DisplaySetting::Chord(_)) => DisplayScreenKind::Chord,
+        Some(DisplaySetting::Envelope) => DisplayScreenKind::Envelope,
+        Some(DisplaySetting::Overdrive) => DisplayScreenKind::Overdrive,
+        Some(DisplaySetting::Delay) => DisplayScreenKind::Delay,
+    }
 }
 
 fn draw_controls<D>(
@@ -589,69 +713,61 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
     let mut delay_mix_percentage = None;
     let mut delay_feedback_percentage = None;
     let mut waveform_bytes = [0u8; WAVEFORM_BYTE_COUNT];
+    let mut screen_transition = false;
     loop {
-        let _ = display.clear(BinaryColor::Off);
-        if welcome_visible {
-            let _ = draw_welcome(&mut display);
-        } else {
-        match &display_setting {
-            Some(setting) => match setting {
-                DisplaySetting::Waveform { name, samples } => {
-                    let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
-                    let _ = Text::new("WAVEFORM", Point::new(7, 15), text_style).draw(&mut display);
-                    let _ = Text::new(name, Point::new(7, 27), text_style).draw(&mut display);
-                    let _ = draw_waveform(&mut display, samples);
-                    let _ = draw_screen_border(&mut display);
-                }
-                DisplaySetting::Controls => {
-                    let _ = draw_controls(
-                        &mut display,
-                        volume,
-                        keypad_octave_shift,
-                        brightness,
-                    );
-                }
-                DisplaySetting::Chord(name) => {
-                    let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
-                    let _ = draw_chord_icon(&mut display);
-                    let _ = Text::new("CHORD", Point::new(48, 22), text_style)
-                        .draw(&mut display);
-                    let _ = Text::new(name, Point::new(48, 40), text_style).draw(&mut display);
-                    let _ = draw_screen_border(&mut display);
-                }
-                DisplaySetting::Envelope => {
-                    let _ = draw_envelope(&mut display, &envelope_values);
-                }
-                DisplaySetting::Overdrive => {
-                    let _ = draw_overdrive(
-                        &mut display,
-                        overdrive_enabled,
-                        overdrive_kind,
-                        overdrive_threshold,
-                    );
-                }
-                DisplaySetting::Delay => {
-                    let _ = draw_delay(
-                        &mut display,
-                        delay_enabled,
-                        delay_time_ms,
-                        delay_mix_percentage,
-                        delay_feedback_percentage,
-                    );
-                }
-            },
-            None => {
-                let _ = draw_controls(&mut display, volume, keypad_octave_shift, brightness);
+        if core::mem::take(&mut screen_transition) {
+            for offset in SCREEN_TRANSITION_OFFSETS {
+                let _ = display.clear(BinaryColor::Off);
+                let mut offset_display = VerticalOffsetTarget {
+                    target: &mut display,
+                    offset,
+                };
+                draw_screen(
+                    &mut offset_display,
+                    welcome_visible,
+                    &display_setting,
+                    volume,
+                    keypad_octave_shift,
+                    brightness,
+                    &envelope_values,
+                    overdrive_enabled,
+                    overdrive_kind,
+                    overdrive_threshold,
+                    delay_enabled,
+                    delay_time_ms,
+                    delay_mix_percentage,
+                    delay_feedback_percentage,
+                );
+                let _ = display.flush().await;
+                Timer::after(SCREEN_TRANSITION_FRAME_DURATION).await;
             }
+        } else {
+            let _ = display.clear(BinaryColor::Off);
+            draw_screen(
+                &mut display,
+                welcome_visible,
+                &display_setting,
+                volume,
+                keypad_octave_shift,
+                brightness,
+                &envelope_values,
+                overdrive_enabled,
+                overdrive_kind,
+                overdrive_threshold,
+                delay_enabled,
+                delay_time_ms,
+                delay_mix_percentage,
+                delay_feedback_percentage,
+            );
+            let _ = display.flush().await;
         }
-        }
-        let _ = display.flush().await;
         let mut events: [Option<Event>; 50] = core::array::from_fn(|_| None);
         if welcome_visible {
             match select(NAVIGATION_SIGNAL.receive(), Timer::at(welcome_deadline)).await {
                 Either::First(event) => events[0] = Some(event),
                 Either::Second(()) => {
                     welcome_visible = false;
+                    screen_transition = true;
                     continue;
                 }
             }
@@ -669,6 +785,8 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
             }
         }
 
+        let was_welcome_visible = welcome_visible;
+        let previous_screen = display_screen_kind(display_setting.as_ref());
         for event in events[..event_count].iter().flatten() {
             if event.event_identifier == ENCODER_USED_EVENT_IDENTIFIER {
                 welcome_visible = false;
@@ -816,6 +934,8 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
                 _ => {}
             }
         }
+        screen_transition = (was_welcome_visible && !welcome_visible)
+            || previous_screen != display_screen_kind(display_setting.as_ref());
         /*
         match event.event {
             EventType::ControlSettings => {
