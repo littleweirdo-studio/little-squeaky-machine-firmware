@@ -1,3 +1,4 @@
+use embassy_futures::select::{Either, select};
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::Channel;
 
@@ -15,6 +16,9 @@ pub struct LedMessage {
 }
 
 pub static LED_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, LedMessage, 10> = Channel::new();
+pub static LED_BRIGHTNESS_CHANNEL: Channel<CriticalSectionRawMutex, u8, 1> = Channel::new();
+
+pub const INITIAL_BRIGHTNESS: u8 = 10;
 
 #[embassy_executor::task]
 pub async fn led_task() {
@@ -59,19 +63,23 @@ pub async fn led_task() {
     data[29] = colors::DEEP_PINK;
     //en3
     data[30] = colors::DEEP_PINK;
-    
 
-
-     
-
-    led.write(brightness(gamma(data.iter().cloned()), 10))
+    let mut brightness_level = INITIAL_BRIGHTNESS;
+    led.write(brightness(gamma(data.iter().cloned()), brightness_level))
         .unwrap();
 
     loop {
-        let message = LED_MESSAGE_CHANNEL.receive().await;
-        data[message.id as usize] = message.color;
+        match select(
+            LED_MESSAGE_CHANNEL.receive(),
+            LED_BRIGHTNESS_CHANNEL.receive(),
+        )
+        .await
+        {
+            Either::First(message) => data[message.id as usize] = message.color,
+            Either::Second(new_brightness) => brightness_level = new_brightness,
+        }
 
-        led.write(brightness(gamma(data.iter().cloned()), 10))
+        led.write(brightness(gamma(data.iter().cloned()), brightness_level))
             .unwrap();
     }
 }

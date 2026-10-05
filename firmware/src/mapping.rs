@@ -9,7 +9,7 @@ use crate::{
     MIDI_MESSAGE_CHANNEL, MIDI_OUT_MESSAGE_CHANNEL,
     codec::{CODEC_SIGNAL, CodecEvent, CodecEventType},
     encoder, keyboard_input,
-    led::{LED_MESSAGE_CHANNEL, LedMessage},
+    led::{INITIAL_BRIGHTNESS, LED_BRIGHTNESS_CHANNEL, LED_MESSAGE_CHANNEL, LedMessage},
     sequence::sequence_task,
     touch_input::{TOUCH_BUTTON_EVENT_DOWN, TOUCH_BUTTON_EVENT_UP},
 };
@@ -74,6 +74,8 @@ const REMAP_SEQ: [u8; 25] = [
 ];
 
 const VEL: u8 = 70;
+const LED_BRIGHTNESS_STEP: u8 = 5;
+const MAX_LED_BRIGHTNESS: u8 = u8::MAX;
 // const BRIGTHNESS: u8 = 255;
 const MARGIN: i16 = 2;
 
@@ -83,6 +85,7 @@ const DEBUG: bool = false;
 pub const WAVEFORM_CHANGED_EVENT_IDENTIFIER: u8 = 250;
 //
 pub const VOLUME_CHANGED_EVENT_IDENTIFIER: u8 = 249;
+pub const BRIGHTNESS_CHANGED_EVENT_IDENTIFIER: u8 = 244;
 //
 pub const ENVELOPE_CHANGED_EVENT_IDENTIFIER: u8 = 247;
 pub const ENVELOPE_MODE_EVENT_ID: u8 = 4;
@@ -164,6 +167,7 @@ pub async fn mapping_task() {
 
     let mut volume: u8 = 50;
     let mut voice: u8 = 0;
+    let mut led_brightness = INITIAL_BRIGHTNESS;
     let mut envelope_values = INITIAL_ENVELOPE_VALUES;
     let mut envelope_edit_mode = false;
     let mut overdrive_edit_mode = false;
@@ -445,6 +449,26 @@ pub async fn mapping_task() {
                                 event_identifier: WAVEFORM_CHANGED_EVENT_IDENTIFIER,
                                 id: voice,
                                 value: voice as u16,
+                            })
+                            .await;
+                    }
+
+                    //enc 3
+                    if event.id == 3 {
+                        led_brightness = if event.value == encoder::ENCODER_CLOCKWISE {
+                            led_brightness
+                                .saturating_add(LED_BRIGHTNESS_STEP)
+                                .min(MAX_LED_BRIGHTNESS)
+                        } else {
+                            led_brightness.saturating_sub(LED_BRIGHTNESS_STEP)
+                        };
+
+                        LED_BRIGHTNESS_CHANNEL.send(led_brightness).await;
+                        NAVIGATION_SIGNAL
+                            .send(Event {
+                                event_identifier: BRIGHTNESS_CHANGED_EVENT_IDENTIFIER,
+                                id: 0,
+                                value: led_brightness as u16,
                             })
                             .await;
                     }

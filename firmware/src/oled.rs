@@ -31,12 +31,13 @@ use ssd1306::size::DisplaySize128x64;
 use ssd1306::{I2CDisplayInterface, Ssd1306Async};
 
 use crate::I2c1Bus;
+use crate::led::INITIAL_BRIGHTNESS;
 use crate::synth::SoundBank;
 use crate::mapping::{
-    CHORD_CHANGED_EVENT_IDENTIFIER, CHORD_NAMES, ENVELOPE_CHANGED_EVENT_IDENTIFIER,
-    DELAY_CHANGED_EVENT_IDENTIFIER, DELAY_MODE_EVENT_ID, ENVELOPE_MODE_EVENT_ID,
-    INITIAL_ENVELOPE_VALUES, OVERDRIVE_CHANGED_EVENT_IDENTIFIER, OVERDRIVE_MODE_EVENT_ID,
-    VOLUME_CHANGED_EVENT_IDENTIFIER, WAVEFORM_CHANGED_EVENT_IDENTIFIER,
+    BRIGHTNESS_CHANGED_EVENT_IDENTIFIER, CHORD_CHANGED_EVENT_IDENTIFIER, CHORD_NAMES,
+    DELAY_CHANGED_EVENT_IDENTIFIER, DELAY_MODE_EVENT_ID, ENVELOPE_CHANGED_EVENT_IDENTIFIER,
+    ENVELOPE_MODE_EVENT_ID, INITIAL_ENVELOPE_VALUES, OVERDRIVE_CHANGED_EVENT_IDENTIFIER,
+    OVERDRIVE_MODE_EVENT_ID, VOLUME_CHANGED_EVENT_IDENTIFIER, WAVEFORM_CHANGED_EVENT_IDENTIFIER,
 };
 
 const WAVEFORM_SAMPLE_COUNT: usize = 600;
@@ -58,6 +59,7 @@ where
 enum DisplaySetting {
     Waveform { name: String, samples: [i16; WAVEFORM_SAMPLE_COUNT] },
     Volume,
+    Brightness,
     Chord(&'static str),
     Envelope,
     Overdrive,
@@ -530,6 +532,9 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
     let mut active_item = ActiveItem::Menu(&mut main_menu);
     let mut volume_settings = Settings::new(NO_MENU_EVENT.clone());
     volume_settings.add("Volume".to_string());
+    let mut brightness_settings = Settings::new(NO_MENU_EVENT.clone());
+    brightness_settings.add("Brightness".to_string());
+    brightness_settings.update_bar(0, (INITIAL_BRIGHTNESS as u16 * 100 / u8::MAX as u16) as u8);
     let mut display_setting = None;
     let mut envelope_values = INITIAL_ENVELOPE_VALUES;
     let mut envelope_edit_mode = false;
@@ -556,6 +561,9 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
                 }
                 DisplaySetting::Volume => {
                     let _ = volume_settings.draw(&mut display);
+                }
+                DisplaySetting::Brightness => {
+                    let _ = brightness_settings.draw(&mut display);
                 }
                 DisplaySetting::Chord(name) => {
                     let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
@@ -649,6 +657,13 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
                 VOLUME_CHANGED_EVENT_IDENTIFIER => {
                     volume_settings.update_bar(0, (event.value.min(127) * 100 / 127) as u8);
                     display_setting = Some(DisplaySetting::Volume);
+                }
+                BRIGHTNESS_CHANGED_EVENT_IDENTIFIER => {
+                    brightness_settings.update_bar(
+                        0,
+                        (event.value.min(u8::MAX as u16) * 100 / u8::MAX as u16) as u8,
+                    );
+                    display_setting = Some(DisplaySetting::Brightness);
                 }
                 CHORD_CHANGED_EVENT_IDENTIFIER => {
                     let name = CHORD_NAMES
