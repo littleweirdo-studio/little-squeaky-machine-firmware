@@ -38,7 +38,7 @@ pub async fn led_task() {
     let mut led = SmartLedsAdapter::new(rmt.channel0, led_pin, &mut rmt_buffer);
     let mut data: [RGB8; 35] = [colors::BLACK; 35];
     data[0] = colors::GREEN;
-    data[1] = colors::GREEN;
+    data[1] = colors::YELLOW;
 
     /*data[1] = colors::DEEP_PINK;
 
