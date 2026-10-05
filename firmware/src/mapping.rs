@@ -73,9 +73,6 @@ const REMAP_SEQ: [u8; 25] = [
 
 const VEL: u8 = 70;
 const LED_BRIGHTNESS_STEP: u8 = 5;
-const MAX_LED_BRIGHTNESS: u8 = u8::MAX;
-// const BRIGTHNESS: u8 = 255;
-const MARGIN: i16 = 2;
 
 const DEBUG: bool = false;
 
@@ -836,7 +833,6 @@ pub async fn mapping_task() {
                                     COLOR
                                 },
                                 id: led_remap,
-                                //  brightness: BRIGTHNESS,
                             })
                             .await;
                     }

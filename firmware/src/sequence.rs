@@ -25,7 +25,7 @@ pub async fn sequence_task() {
     // map the sequencer
     for pattern_id in 0..MAX_AMOUNT_OF_PATTERNS {
         for lane_id in 0..AMOUNT_OF_LANES {
-            sequencer_1.set_lane_note(pattern_id, lane_id, 36 + lane_id as u8); // Kpattern_idck drum
+            sequencer_1.set_lane_note(pattern_id, lane_id, 36 + lane_id as u8); 
         }
     }
 
