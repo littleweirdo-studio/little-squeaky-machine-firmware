@@ -564,6 +564,16 @@ pub async fn mapping_task() {
                 }
             }
             keyboard_input::KEYPAD_EVENT_DOWN => {
+                if patch_selection_mode && event.id != 0 {
+                    patch_selection_mode = false;
+                    LED_MESSAGE_CHANNEL
+                        .send(LedMessage {
+                            color: colors::BLACK,
+                            id: PATCH_KEY_LED_ID,
+                        })
+                        .await;
+                }
+
                 if event.id == 0 && synth_active && !seq_active && patch_count > 0 {
                     if patch_selection_mode {
                         sender
