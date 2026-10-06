@@ -20,7 +20,12 @@ use esp_hal::peripherals::Peripherals;
 // use esp_println::println;
 use esp_storage::FlashStorage;
 use little_weirdo_filesystem::WeirdoFileSystem;
-use little_weirdo_gui::{Event, NAVIGATION_SIGNAL, display::VerticalOffsetTarget};
+use little_weirdo_gui::{
+    DrawItem, Event, NAVIGATION_SIGNAL, NO_ACTIVITY_EVENT, NO_MENU_EVENT, Navigatable,
+    display::VerticalOffsetTarget,
+    encoder_display::EncoderDisplay,
+    menu::{Menu, MenuIcon},
+};
 use ssd1306::prelude::DisplayRotation;
 use ssd1306::size::DisplaySize128x64;
 use ssd1306::{I2CDisplayInterface, Ssd1306Async};
@@ -30,10 +35,12 @@ use crate::led::INITIAL_BRIGHTNESS;
 use crate::mapping::{
     BRIGHTNESS_CHANGED_EVENT_IDENTIFIER, CHORD_CHANGED_EVENT_IDENTIFIER, CHORD_NAMES,
     DELAY_CHANGED_EVENT_IDENTIFIER, DELAY_MODE_EVENT_ID, ENCODER_USED_EVENT_IDENTIFIER,
-    ENVELOPE_CHANGED_EVENT_IDENTIFIER, ENVELOPE_MODE_EVENT_ID, INITIAL_ENVELOPE_VALUES,
-    INITIAL_KEYPAD_OCTAVE_SHIFT, INITIAL_VOLUME, KEYPAD_OCTAVE_CHANGED_EVENT_IDENTIFIER,
-    OVERDRIVE_CHANGED_EVENT_IDENTIFIER, OVERDRIVE_MODE_EVENT_ID, PATCH_SELECTION_EVENT_IDENTIFIER,
-    VOLUME_CHANGED_EVENT_IDENTIFIER, WAVEFORM_CHANGED_EVENT_IDENTIFIER,
+    ENVELOPE_CHANGED_EVENT_IDENTIFIER, ENVELOPE_MODE_EVENT_ID, GUI_MENU_BUTTON_EVENT_IDENTIFIER,
+    GUI_MENU_OPTION_SELECTED_EVENT_IDENTIFIER, GUI_MENU_ROTATION_EVENT_IDENTIFIER,
+    INITIAL_ENVELOPE_VALUES, INITIAL_KEYPAD_OCTAVE_SHIFT, INITIAL_VOLUME,
+    KEYPAD_OCTAVE_CHANGED_EVENT_IDENTIFIER, OVERDRIVE_CHANGED_EVENT_IDENTIFIER,
+    OVERDRIVE_MODE_EVENT_ID, PATCH_SELECTION_EVENT_IDENTIFIER, VOLUME_CHANGED_EVENT_IDENTIFIER,
+    WAVEFORM_CHANGED_EVENT_IDENTIFIER,
 };
 use crate::synth::SoundBank;
 
@@ -43,10 +50,40 @@ const WAVEFORM_NAMES_KEY: u32 = 600;
 const WELCOME_SCREEN_DURATION: Duration = Duration::from_secs(3);
 const SCREEN_TRANSITION_OFFSETS: [i32; 8] = [-64, -48, -32, -16, -6, 1, -2, 0];
 const SCREEN_TRANSITION_FRAME_DURATION: Duration = Duration::from_millis(18);
+const GUI_MENU_OPTIONS: [(&str, MenuIcon); 6] = [
+    ("Synth", MenuIcon::Sine),
+    ("Sampler", MenuIcon::Patch),
+    ("Drums", MenuIcon::Drum),
+    ("Settings", MenuIcon::Tune),
+    ("About", MenuIcon::Information),
+    ("Status", MenuIcon::Status),
+];
+
+fn create_gui_menu() -> Menu {
+    let mut menu = Menu::new(
+        NO_MENU_EVENT.clone(),
+        NO_ACTIVITY_EVENT.clone(),
+        MenuIcon::Sine,
+    );
+    for (title, icon) in GUI_MENU_OPTIONS {
+        menu.add(
+            title.to_string(),
+            icon,
+            NO_MENU_EVENT.clone(),
+            Event {
+                event_identifier: GUI_MENU_OPTION_SELECTED_EVENT_IDENTIFIER,
+                id: 0,
+                value: 0,
+            },
+        );
+    }
+    menu
+}
 
 fn draw_screen<D>(
     display: &mut D,
     welcome_visible: bool,
+    gui_menu: Option<&Menu>,
     display_setting: &Option<DisplaySetting>,
     volume: u8,
     keypad_octave_shift: i8,
@@ -62,6 +99,11 @@ fn draw_screen<D>(
 ) where
     D: DrawTarget<Color = BinaryColor>,
 {
+    if let Some(menu) = gui_menu {
+        let _ = menu.draw(display);
+        return;
+    }
+
     if welcome_visible {
         let _ = draw_welcome(display);
         return;
@@ -69,8 +111,8 @@ fn draw_screen<D>(
 
     match display_setting {
         Some(DisplaySetting::Waveform { name, samples }) => {
+            let _ = EncoderDisplay::new(1, "Waveform", None, Point::new(7, 15)).draw(display);
             let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
-            let _ = Text::new("WAVEFORM", Point::new(7, 15), text_style).draw(display);
             let _ = Text::new(name, Point::new(7, 27), text_style).draw(display);
             let _ = draw_waveform(display, samples);
             let _ = draw_screen_border(display);
@@ -224,27 +266,31 @@ fn draw_controls<D>(
 where
     D: DrawTarget<Color = BinaryColor>,
 {
-    let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
     let volume_percent = volume.min(127) as u16 * 100 / 127;
     let brightness_percent = brightness as u16 * 100 / u8::MAX as u16;
 
-    Text::new("CONTROLS", Point::new(7, 16), text_style).draw(display)?;
-    Text::new(
-        &format!("Volume: {}%", volume_percent),
-        Point::new(7, 29),
-        text_style,
+    let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
+    Text::new("CONTROLS", Point::new(7, 12), text_style).draw(display)?;
+    EncoderDisplay::new(
+        0,
+        "Volume",
+        Some(&format!("{}%", volume_percent)),
+        Point::new(7, 23),
     )
     .draw(display)?;
-    Text::new(
-        &format!("Keypad octave: {:+}", octave_shift),
-        Point::new(7, 41),
-        text_style,
+    EncoderDisplay::new(1, "Waveform", None, Point::new(7, 33)).draw(display)?;
+    EncoderDisplay::new(
+        2,
+        "Octave",
+        Some(&format!("{:+}", octave_shift)),
+        Point::new(7, 43),
     )
     .draw(display)?;
-    Text::new(
-        &format!("Brightness: {}%", brightness_percent),
+    EncoderDisplay::new(
+        3,
+        "Brightness",
+        Some(&format!("{}%", brightness_percent)),
         Point::new(7, 53),
-        text_style,
     )
     .draw(display)?;
     draw_screen_border(display)
@@ -289,8 +335,8 @@ where
     };
     let plot_left = 8;
     let plot_right = 120;
-    let plot_top = 16;
-    let baseline = 35;
+    let plot_top = 14;
+    let baseline = 22;
     let sustain_y = baseline - (values[2] as i32 * (baseline - plot_top) / 100);
 
     let attack = attack_ms as u32;
@@ -333,16 +379,32 @@ where
     .draw_styled(&line_style, display)?;
 
     Text::new("ADSR", Point::new(7, 12), text_style).draw(display)?;
-    Text::new(
-        &format!("A {}ms  D {}ms", attack_ms, decay_ms),
-        Point::new(7, 47),
-        text_style,
+    EncoderDisplay::new(
+        0,
+        "Attack",
+        Some(&format!("{}ms", attack_ms)),
+        Point::new(7, 31),
     )
     .draw(display)?;
-    Text::new(
-        &format!("S {}%  R {}ms", values[2], release_ms),
-        Point::new(7, 57),
-        text_style,
+    EncoderDisplay::new(
+        1,
+        "Decay",
+        Some(&format!("{}ms", decay_ms)),
+        Point::new(7, 40),
+    )
+    .draw(display)?;
+    EncoderDisplay::new(
+        2,
+        "Sustain",
+        Some(&format!("{}%", values[2])),
+        Point::new(7, 49),
+    )
+    .draw(display)?;
+    EncoderDisplay::new(
+        3,
+        "Release",
+        Some(&format!("{}ms", release_ms)),
+        Point::new(7, 58),
     )
     .draw(display)?;
     draw_screen_border(display)
@@ -357,7 +419,6 @@ fn draw_overdrive<D>(
 where
     D: DrawTarget<Color = BinaryColor>,
 {
-    let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
     let enabled_text = match enabled {
         Some(true) => "ON",
         Some(false) => "OFF",
@@ -373,25 +434,11 @@ where
         .map(|value| format!("{}", value))
         .unwrap_or_else(|| "--".to_string());
 
+    let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
     Text::new("OVERDRIVE", Point::new(7, 16), text_style).draw(display)?;
-    Text::new(
-        &format!("Enable: {}", enabled_text),
-        Point::new(7, 29),
-        text_style,
-    )
-    .draw(display)?;
-    Text::new(
-        &format!("Kind: {}", kind_text),
-        Point::new(7, 41),
-        text_style,
-    )
-    .draw(display)?;
-    Text::new(
-        &format!("Threshold: {}", threshold_text),
-        Point::new(7, 53),
-        text_style,
-    )
-    .draw(display)?;
+    EncoderDisplay::new(0, "Enable", Some(enabled_text), Point::new(7, 29)).draw(display)?;
+    EncoderDisplay::new(1, "Kind", Some(kind_text), Point::new(7, 41)).draw(display)?;
+    EncoderDisplay::new(2, "Threshold", Some(&threshold_text), Point::new(7, 53)).draw(display)?;
     draw_screen_border(display)
 }
 
@@ -405,7 +452,6 @@ fn draw_delay<D>(
 where
     D: DrawTarget<Color = BinaryColor>,
 {
-    let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
     let enabled_text = match enabled {
         Some(true) => "ON",
         Some(false) => "OFF",
@@ -427,26 +473,12 @@ where
         })
         .unwrap_or_else(|| "--".to_string());
 
+    let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
     Text::new("DELAY", Point::new(7, 16), text_style).draw(display)?;
-    Text::new(
-        &format!("Enable: {}", enabled_text),
-        Point::new(7, 29),
-        text_style,
-    )
-    .draw(display)?;
-    Text::new(
-        &format!("Time: {}", time_text),
-        Point::new(7, 41),
-        text_style,
-    )
-    .draw(display)?;
-    Text::new(&format!("Mix: {}", mix_text), Point::new(7, 53), text_style).draw(display)?;
-    Text::new(
-        &format!("FB: {}", feedback_text),
-        Point::new(72, 53),
-        text_style,
-    )
-    .draw(display)?;
+    EncoderDisplay::new(0, "Enable", Some(enabled_text), Point::new(7, 27)).draw(display)?;
+    EncoderDisplay::new(1, "Time", Some(&time_text), Point::new(7, 37)).draw(display)?;
+    EncoderDisplay::new(2, "Mix", Some(&mix_text), Point::new(7, 47)).draw(display)?;
+    EncoderDisplay::new(3, "Feedback", Some(&feedback_text), Point::new(7, 57)).draw(display)?;
     draw_screen_border(display)
 }
 
@@ -725,6 +757,8 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
     */
     let mut welcome_visible = true;
     let welcome_deadline = Instant::now() + WELCOME_SCREEN_DURATION;
+    let mut gui_menu = create_gui_menu();
+    let mut gui_menu_open = false;
     let mut display_setting = Some(DisplaySetting::Controls);
     let mut volume = INITIAL_VOLUME;
     let mut keypad_octave_shift = INITIAL_KEYPAD_OCTAVE_SHIFT;
@@ -750,6 +784,7 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
                 draw_screen(
                     &mut offset_display,
                     welcome_visible,
+                    gui_menu_open.then_some(&gui_menu),
                     &display_setting,
                     volume,
                     keypad_octave_shift,
@@ -771,6 +806,7 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
             draw_screen(
                 &mut display,
                 welcome_visible,
+                gui_menu_open.then_some(&gui_menu),
                 &display_setting,
                 volume,
                 keypad_octave_shift,
@@ -812,12 +848,35 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
 
         let was_welcome_visible = welcome_visible;
         let previous_screen = display_screen_kind(display_setting.as_ref());
+        let previous_gui_menu_open = gui_menu_open;
         for event in events[..event_count].iter().flatten() {
             if event.event_identifier == ENCODER_USED_EVENT_IDENTIFIER {
                 welcome_visible = false;
                 continue;
             }
             match event.event_identifier {
+                GUI_MENU_BUTTON_EVENT_IDENTIFIER => {
+                    gui_menu_open = event.value != 0;
+                    if gui_menu_open {
+                        welcome_visible = false;
+                    } else {
+                        gui_menu.select();
+                    }
+                }
+                GUI_MENU_ROTATION_EVENT_IDENTIFIER if gui_menu_open => {
+                    if event.value == 1 {
+                        gui_menu.next();
+                    } else {
+                        gui_menu.prev();
+                    }
+                }
+                GUI_MENU_OPTION_SELECTED_EVENT_IDENTIFIER => {
+                    if event.id as usize >= GUI_MENU_OPTIONS.len()
+                        || !gui_menu.set_selected_index(event.id as usize)
+                    {
+                        esp_println::println!("selected menu index {} is out of range", event.id);
+                    }
+                }
                 WAVEFORM_CHANGED_EVENT_IDENTIFIER => {
                     if let Some(name) = waveform_names
                         .as_ref()
@@ -982,7 +1041,8 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
             }
         }
         screen_transition = (was_welcome_visible && !welcome_visible)
-            || previous_screen != display_screen_kind(display_setting.as_ref());
+            || previous_screen != display_screen_kind(display_setting.as_ref())
+            || previous_gui_menu_open != gui_menu_open;
         /*
         match event.event {
             EventType::ControlSettings => {

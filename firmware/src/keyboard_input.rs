@@ -41,16 +41,20 @@ where
 
 pub const KEYPAD_EVENT_DOWN: u8 = 40;
 pub const KEYPAD_EVENT_UP: u8 = 41;
+pub const GPIO0_MENU_BUTTON_PRESSED: u8 = 39;
 const DEBUG: bool = false;
+const GPIO0_DEBOUNCE_SAMPLES: u8 = 5;
 
 #[embassy_executor::task]
 pub async fn keyboard_input_task() {
     let mut cols: [Output; 5];
     let rows: [esp_hal::gpio::Input; 5];
-   
+    let gpio0_button: Input;
+
     unsafe {
         let peripherals: Peripherals = Peripherals::steal();
         let input_pin_config = InputConfig::default().with_pull(Pull::Down);
+        let gpio0_button_config = InputConfig::default().with_pull(Pull::Up);
         let output_pin_config = OutputConfig::default();
 
         cols = [
@@ -68,10 +72,33 @@ pub async fn keyboard_input_task() {
             Input::new(peripherals.GPIO7, input_pin_config),
             Input::new(peripherals.GPIO15, input_pin_config),
         ];
+        gpio0_button = Input::new(peripherals.GPIO0, gpio0_button_config);
     }
 
     let mut matrix = Matrix::<KeyStatus>::new(5, 5);
+    let mut gpio0_pressed_samples = 0u8;
+    let mut gpio0_button_pressed = false;
     loop {
+        if gpio0_button.is_low() {
+            gpio0_pressed_samples = gpio0_pressed_samples.saturating_add(1);
+            if gpio0_pressed_samples >= GPIO0_DEBOUNCE_SAMPLES && !gpio0_button_pressed {
+                gpio0_button_pressed = true;
+                if MAPPING_SIGNAL
+                    .try_send(Event {
+                        event_identifier: GPIO0_MENU_BUTTON_PRESSED,
+                        id: 0,
+                        value: 0,
+                    })
+                    .is_err()
+                {
+                    esp_println::println!("GPIO0 menu button event dropped: mapping queue full");
+                }
+            }
+        } else {
+            gpio0_pressed_samples = 0;
+            gpio0_button_pressed = false;
+        }
+
         for (col_counter, col) in cols.iter_mut().enumerate() {
             Timer::after(Duration::from_millis(1)).await;
             col.set_high();

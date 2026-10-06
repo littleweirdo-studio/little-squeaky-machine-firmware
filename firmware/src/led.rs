@@ -40,9 +40,6 @@ pub async fn led_task() {
     data[0] = colors::GREEN;
     data[1] = colors::YELLOW;
 
-    //reset
-    data[26] = colors::BLUE;
-
     //en0
     data[27] = colors::DEEP_PINK;
     //en1

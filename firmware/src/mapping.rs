@@ -22,6 +22,9 @@ pub const CHORD_CHANGED_EVENT_IDENTIFIER: u8 = 248;
 pub const KEYPAD_OCTAVE_CHANGED_EVENT_IDENTIFIER: u8 = 243;
 pub const ENCODER_USED_EVENT_IDENTIFIER: u8 = 242;
 pub const PATCH_SELECTION_EVENT_IDENTIFIER: u8 = 241;
+pub const GUI_MENU_BUTTON_EVENT_IDENTIFIER: u8 = 240;
+pub const GUI_MENU_ROTATION_EVENT_IDENTIFIER: u8 = 239;
+pub const GUI_MENU_OPTION_SELECTED_EVENT_IDENTIFIER: u8 = 238;
 pub const CHORD_NAMES: [&str; 8] = [
     "Major",
     "Minor",
@@ -147,6 +150,7 @@ pub const OVERDRIVE_KEY_LED_ID: u8 = 5;
 pub const DELAY_KEY_ID: u8 = 12;
 pub const DELAY_KEY_LED_ID: u8 = 14;
 pub const ENVELOPE_KEY_LED_ID: u8 = 24;
+pub const GPIO0_MENU_LED_ID: u8 = 26;
 
 fn handle_envelope_submenu(
     event: &Event,
@@ -212,6 +216,7 @@ pub async fn mapping_task() {
         .unwrap_or(0)
         .min(u8::MAX as usize + 1);
     let mut patch_selection_mode = false;
+    let mut gui_menu_open = false;
     let mut selected_patch = 0u8;
     if patch_count == 0 {
         println!("patch selection unavailable: no patches found in soundbank");
@@ -233,6 +238,45 @@ pub async fn mapping_task() {
             );
         };
         match event.event_identifier {
+            keyboard_input::GPIO0_MENU_BUTTON_PRESSED => {
+                gui_menu_open = !gui_menu_open;
+                if gui_menu_open && patch_selection_mode {
+                    patch_selection_mode = false;
+                    LED_MESSAGE_CHANNEL
+                        .send(LedMessage {
+                            color: colors::BLACK,
+                            id: PATCH_KEY_LED_ID,
+                        })
+                        .await;
+                }
+
+                LED_MESSAGE_CHANNEL
+                    .send(LedMessage {
+                        color: if gui_menu_open {
+                            colors::BLUE
+                        } else {
+                            colors::BLACK
+                        },
+                        id: GPIO0_MENU_LED_ID,
+                    })
+                    .await;
+                NAVIGATION_SIGNAL
+                    .send(Event {
+                        event_identifier: GUI_MENU_BUTTON_EVENT_IDENTIFIER,
+                        id: 0,
+                        value: gui_menu_open as u16,
+                    })
+                    .await;
+            }
+            GUI_MENU_OPTION_SELECTED_EVENT_IDENTIFIER => {
+                NAVIGATION_SIGNAL
+                    .send(Event {
+                        event_identifier: GUI_MENU_OPTION_SELECTED_EVENT_IDENTIFIER,
+                        id: event.id,
+                        value: event.value,
+                    })
+                    .await;
+            }
             TOUCH_BUTTON_EVENT_DOWN
                 if (event.id as usize) < CHORD_INTERVALS.len() => {
                     selected_chord = Some(event.id as usize);
@@ -405,7 +449,18 @@ pub async fn mapping_task() {
                         value: event.value,
                     })
                     .await;
-                if patch_selection_mode {
+                if gui_menu_open {
+                    if event.id == 3 {
+                        NAVIGATION_SIGNAL
+                            .send(Event {
+                                event_identifier: GUI_MENU_ROTATION_EVENT_IDENTIFIER,
+                                id: event.id,
+                                value: event.value,
+                            })
+                            .await;
+                    }
+                    continue;
+                } else if patch_selection_mode {
                     if event.id == 0 && patch_count > 0 {
                         selected_patch = if event.value == encoder::ENCODER_CLOCKWISE {
                             ((selected_patch as usize + 1) % patch_count) as u8
@@ -600,6 +655,55 @@ pub async fn mapping_task() {
                             })
                             .await;
                     } else {
+                        if envelope_edit_mode {
+                            envelope_edit_mode = false;
+                            LED_MESSAGE_CHANNEL
+                                .send(LedMessage {
+                                    color: colors::BLACK,
+                                    id: ENVELOPE_KEY_LED_ID,
+                                })
+                                .await;
+                            NAVIGATION_SIGNAL
+                                .send(Event {
+                                    event_identifier: ENVELOPE_CHANGED_EVENT_IDENTIFIER,
+                                    id: ENVELOPE_MODE_EVENT_ID,
+                                    value: 0,
+                                })
+                                .await;
+                        }
+                        if overdrive_edit_mode {
+                            overdrive_edit_mode = false;
+                            LED_MESSAGE_CHANNEL
+                                .send(LedMessage {
+                                    color: colors::BLACK,
+                                    id: OVERDRIVE_KEY_LED_ID,
+                                })
+                                .await;
+                            NAVIGATION_SIGNAL
+                                .send(Event {
+                                    event_identifier: OVERDRIVE_CHANGED_EVENT_IDENTIFIER,
+                                    id: OVERDRIVE_MODE_EVENT_ID,
+                                    value: 0,
+                                })
+                                .await;
+                        }
+                        if delay_edit_mode {
+                            delay_edit_mode = false;
+                            LED_MESSAGE_CHANNEL
+                                .send(LedMessage {
+                                    color: colors::BLACK,
+                                    id: DELAY_KEY_LED_ID,
+                                })
+                                .await;
+                            NAVIGATION_SIGNAL
+                                .send(Event {
+                                    event_identifier: DELAY_CHANGED_EVENT_IDENTIFIER,
+                                    id: DELAY_MODE_EVENT_ID,
+                                    value: 0,
+                                })
+                                .await;
+                        }
+
                         patch_selection_mode = true;
                         LED_MESSAGE_CHANNEL
                             .send(LedMessage {
