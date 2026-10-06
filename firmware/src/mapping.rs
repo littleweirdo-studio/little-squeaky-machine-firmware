@@ -142,6 +142,7 @@ pub const DELAY_FEEDBACK_CONTROL: u8 = 117;
 pub const DELAY_STATUS_CONTROL: u8 = 118;
 
 // led assignment
+pub const PATCH_KEY_LED_ID: u8 = 2;
 pub const OVERDRIVE_KEY_LED_ID: u8 = 5;
 pub const DELAY_KEY_ID: u8 = 12;
 pub const DELAY_KEY_LED_ID: u8 = 14;
@@ -574,6 +575,13 @@ pub async fn mapping_task() {
                             })
                             .await;
                         patch_selection_mode = false;
+                        LED_MESSAGE_CHANNEL
+                            .send(LedMessage {
+                                color: colors::BLACK,
+                                id: PATCH_KEY_LED_ID,
+                            })
+                            .await;
+
                         NAVIGATION_SIGNAL
                             .send(Event {
                                 event_identifier: PATCH_SELECTION_EVENT_IDENTIFIER,
@@ -583,6 +591,13 @@ pub async fn mapping_task() {
                             .await;
                     } else {
                         patch_selection_mode = true;
+                        LED_MESSAGE_CHANNEL
+                            .send(LedMessage {
+                                color: colors::BLUE,
+                                id: PATCH_KEY_LED_ID,
+                            })
+                            .await;
+
                         NAVIGATION_SIGNAL
                             .send(Event {
                                 event_identifier: PATCH_SELECTION_EVENT_IDENTIFIER,

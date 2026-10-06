@@ -6,37 +6,36 @@ use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 // use embassy_futures::join::join;
 use embassy_futures::select::{Either, select};
 use embassy_time::{Duration, Instant, Timer};
+use embedded_graphics::Drawable;
 use embedded_graphics::mono_font::{MonoTextStyle, ascii::FONT_6X10};
 use embedded_graphics::pixelcolor::BinaryColor;
-use embedded_graphics::prelude::{DrawTarget, OriginDimensions, Pixel, Point, Size};
+use embedded_graphics::prelude::{DrawTarget, Point, Size};
 use embedded_graphics::primitives::{
     Circle, Line, PrimitiveStyle, Rectangle, RoundedRectangle, StyledDrawable,
 };
 use embedded_graphics::text::Text;
-use embedded_graphics::Drawable;
 use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::peripherals::Peripherals;
 // use esp_println::println;
 use esp_storage::FlashStorage;
 use little_weirdo_filesystem::WeirdoFileSystem;
-use little_weirdo_gui::{Event, NAVIGATION_SIGNAL};
+use little_weirdo_gui::{Event, NAVIGATION_SIGNAL, display::VerticalOffsetTarget};
 use ssd1306::prelude::DisplayRotation;
 use ssd1306::size::DisplaySize128x64;
 use ssd1306::{I2CDisplayInterface, Ssd1306Async};
 
 use crate::I2c1Bus;
 use crate::led::INITIAL_BRIGHTNESS;
-use crate::synth::SoundBank;
 use crate::mapping::{
     BRIGHTNESS_CHANGED_EVENT_IDENTIFIER, CHORD_CHANGED_EVENT_IDENTIFIER, CHORD_NAMES,
-    DELAY_CHANGED_EVENT_IDENTIFIER, DELAY_MODE_EVENT_ID, ENVELOPE_CHANGED_EVENT_IDENTIFIER,
-    ENVELOPE_MODE_EVENT_ID, INITIAL_ENVELOPE_VALUES, INITIAL_KEYPAD_OCTAVE_SHIFT, INITIAL_VOLUME,
-    ENCODER_USED_EVENT_IDENTIFIER, KEYPAD_OCTAVE_CHANGED_EVENT_IDENTIFIER,
-    OVERDRIVE_CHANGED_EVENT_IDENTIFIER, OVERDRIVE_MODE_EVENT_ID,
-    PATCH_SELECTION_EVENT_IDENTIFIER,
+    DELAY_CHANGED_EVENT_IDENTIFIER, DELAY_MODE_EVENT_ID, ENCODER_USED_EVENT_IDENTIFIER,
+    ENVELOPE_CHANGED_EVENT_IDENTIFIER, ENVELOPE_MODE_EVENT_ID, INITIAL_ENVELOPE_VALUES,
+    INITIAL_KEYPAD_OCTAVE_SHIFT, INITIAL_VOLUME, KEYPAD_OCTAVE_CHANGED_EVENT_IDENTIFIER,
+    OVERDRIVE_CHANGED_EVENT_IDENTIFIER, OVERDRIVE_MODE_EVENT_ID, PATCH_SELECTION_EVENT_IDENTIFIER,
     VOLUME_CHANGED_EVENT_IDENTIFIER, WAVEFORM_CHANGED_EVENT_IDENTIFIER,
 };
+use crate::synth::SoundBank;
 
 const WAVEFORM_SAMPLE_COUNT: usize = 600;
 const WAVEFORM_BYTE_COUNT: usize = WAVEFORM_SAMPLE_COUNT * 2;
@@ -44,40 +43,6 @@ const WAVEFORM_NAMES_KEY: u32 = 600;
 const WELCOME_SCREEN_DURATION: Duration = Duration::from_secs(3);
 const SCREEN_TRANSITION_OFFSETS: [i32; 8] = [-64, -48, -32, -16, -6, 1, -2, 0];
 const SCREEN_TRANSITION_FRAME_DURATION: Duration = Duration::from_millis(18);
-
-struct VerticalOffsetTarget<'a, D> {
-    target: &'a mut D,
-    offset: i32,
-}
-
-impl<D> OriginDimensions for VerticalOffsetTarget<'_, D>
-where
-    D: DrawTarget<Color = BinaryColor>,
-{
-    fn size(&self) -> Size {
-        Size::new(128, 64)
-    }
-}
-
-impl<D> DrawTarget for VerticalOffsetTarget<'_, D>
-where
-    D: DrawTarget<Color = BinaryColor>,
-{
-    type Color = BinaryColor;
-    type Error = D::Error;
-
-    fn draw_iter<I>(&mut self, pixels: I) -> Result<(), Self::Error>
-    where
-        I: IntoIterator<Item = Pixel<Self::Color>>,
-    {
-        self.target
-            .draw_iter(pixels.into_iter().filter_map(|Pixel(point, color)| {
-                let y = point.y + self.offset;
-                (point.x >= 0 && point.x < 128 && y >= 0 && y < 64)
-                    .then_some(Pixel(Point::new(point.x, y), color))
-            }))
-    }
-}
 
 fn draw_screen<D>(
     display: &mut D,
@@ -211,7 +176,10 @@ where
 }
 
 enum DisplaySetting {
-    Waveform { name: String, samples: [i16; WAVEFORM_SAMPLE_COUNT] },
+    Waveform {
+        name: String,
+        samples: [i16; WAVEFORM_SAMPLE_COUNT],
+    },
     Controls,
     Chord(&'static str),
     Patch {
@@ -296,10 +264,7 @@ where
         Rectangle::new(Point::new(3, 3), Size::new(122, 58)),
         Size::new(5, 5),
     )
-    .draw_styled(
-        &PrimitiveStyle::with_stroke(BinaryColor::Off, 1),
-        display,
-    )
+    .draw_styled(&PrimitiveStyle::with_stroke(BinaryColor::Off, 1), display)
 }
 
 fn draw_envelope<D>(display: &mut D, values: &[u8; 4]) -> Result<(), D::Error>
@@ -469,10 +434,13 @@ where
         text_style,
     )
     .draw(display)?;
-    Text::new(&format!("Time: {}", time_text), Point::new(7, 41), text_style)
-        .draw(display)?;
-    Text::new(&format!("Mix: {}", mix_text), Point::new(7, 53), text_style)
-        .draw(display)?;
+    Text::new(
+        &format!("Time: {}", time_text),
+        Point::new(7, 41),
+        text_style,
+    )
+    .draw(display)?;
+    Text::new(&format!("Mix: {}", mix_text), Point::new(7, 53), text_style).draw(display)?;
     Text::new(
         &format!("FB: {}", feedback_text),
         Point::new(72, 53),
@@ -502,16 +470,15 @@ where
         Point::new(plot_left, center_y),
         Point::new(plot_left + plot_width, center_y),
     )
-        .draw_styled(&line_style, display)?;
+    .draw_styled(&line_style, display)?;
 
     for x in 0..plot_width {
         let sample_index = x as usize * (WAVEFORM_SAMPLE_COUNT - 1) / plot_width as usize;
         let next_sample_index =
             (x as usize + 1) * (WAVEFORM_SAMPLE_COUNT - 1) / plot_width as usize;
-        let y = center_y
-            - (samples[sample_index] as i32 * amplitude_height / max_amplitude);
-        let next_y = center_y
-            - (samples[next_sample_index] as i32 * amplitude_height / max_amplitude);
+        let y = center_y - (samples[sample_index] as i32 * amplitude_height / max_amplitude);
+        let next_y =
+            center_y - (samples[next_sample_index] as i32 * amplitude_height / max_amplitude);
         let plot_x = plot_left + x;
         Line::new(Point::new(plot_x, y), Point::new(plot_x + 1, next_y))
             .draw_styled(&line_style, display)?;
@@ -574,15 +541,16 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
         Ok(size) if size > 0 => {
             let mut names_buffer = vec![0u8; size as usize];
             match filesystem.read_key_value(WAVEFORM_NAMES_KEY, &mut names_buffer) {
-                Ok(bytes_read) => match postcard::from_bytes::<Vec<String>>(
-                    &names_buffer[..bytes_read as usize],
-                ) {
-                    Ok(names) => Some(names),
-                    Err(error) => {
-                        esp_println::println!("failed to decode waveform names: {:?}", error);
-                        None
+                Ok(bytes_read) => {
+                    match postcard::from_bytes::<Vec<String>>(&names_buffer[..bytes_read as usize])
+                    {
+                        Ok(names) => Some(names),
+                        Err(error) => {
+                            esp_println::println!("failed to decode waveform names: {:?}", error);
+                            None
+                        }
                     }
-                },
+                }
                 Err(error) => {
                     esp_println::println!("failed to read waveform names: {:?}", error);
                     None
@@ -599,7 +567,7 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
         }
     };
 
-/*     main_menu.add(
+    /*     main_menu.add(
         "SYNTH".to_string(),
         MenuIcon::Sine,
         EventType::SynthMenu,
@@ -638,7 +606,7 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
         EventType::NoActive,
     );
     */
-/* 
+    /*
     let mut synth_menu = menu::Menu::new(
         EventType::MainMenu,
         EventType::SynthModeActive,
@@ -778,10 +746,7 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
         if core::mem::take(&mut screen_transition) {
             for offset in SCREEN_TRANSITION_OFFSETS {
                 let _ = display.clear(BinaryColor::Off);
-                let mut offset_display = VerticalOffsetTarget {
-                    target: &mut display,
-                    offset,
-                };
+                let mut offset_display = VerticalOffsetTarget::new(&mut display, offset);
                 draw_screen(
                     &mut offset_display,
                     welcome_visible,
@@ -902,10 +867,7 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
                         continue;
                     }
                     if event.value != 1 && event.value != 2 {
-                        esp_println::println!(
-                            "invalid patch selection state {}",
-                            event.value
-                        );
+                        esp_println::println!("invalid patch selection state {}", event.value);
                         continue;
                     }
 
