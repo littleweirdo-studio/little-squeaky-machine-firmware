@@ -1,5 +1,5 @@
 {
-   "$schema": "schema/lw_patch.json", 
+   "$schema": "schema/patch_schema.json", 
     "name": "basic",
     "voices": [
         {
