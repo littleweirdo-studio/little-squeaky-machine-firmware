@@ -18,7 +18,18 @@ pub struct LedMessage {
 pub static LED_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, LedMessage, 10> = Channel::new();
 pub static LED_BRIGHTNESS_CHANNEL: Channel<CriticalSectionRawMutex, u8, 1> = Channel::new();
 
+// total leds in the led chains
+pub const AMOUNT_OF_LEDS: usize = 35;
+// initial brightness of the leds
 pub const INITIAL_BRIGHTNESS: u8 = 10;
+// the two leds left of encoders
+pub const LED_ID_GENERAL_0: usize = 0;
+pub const LED_ID_GENERAL_1: usize = 1;
+// the leds below the four encoders
+pub const LED_ID_ENCODER_0: usize = 27;
+pub const LED_ID_ENCODER_1: usize = 28;
+pub const LED_ID_ENCODER_2: usize = 29;
+pub const LED_ID_ENCODER_3: usize = 30;
 
 #[embassy_executor::task]
 pub async fn led_task() {
@@ -34,20 +45,21 @@ pub async fn led_task() {
         led_pin = peripherals.GPIO21;
     }
 
-    let mut rmt_buffer = smart_led_buffer!(35);
+    let mut rmt_buffer = smart_led_buffer!(AMOUNT_OF_LEDS);
     let mut led = SmartLedsAdapter::new(rmt.channel0, led_pin, &mut rmt_buffer);
-    let mut data: [RGB8; 35] = [colors::BLACK; 35];
-    data[0] = colors::GREEN;
-    data[1] = colors::YELLOW;
+    let mut data: [RGB8; AMOUNT_OF_LEDS] = [colors::BLACK; AMOUNT_OF_LEDS];
+    data[LED_ID_GENERAL_0] = colors::GREEN;
+    data[LED_ID_GENERAL_1] = colors::YELLOW;
 
-    //en0
-    data[27] = colors::DEEP_PINK;
-    //en1
-    data[28] = colors::DEEP_PINK;
-    //en2
-    data[29] = colors::DEEP_PINK;
-    //en3
-    data[30] = colors::DEEP_PINK;
+    // the four encoders have a led underneath, from left to right (enc0, enn1, enc2, enc3)
+    //enc0
+    data[LED_ID_ENCODER_0] = colors::DEEP_PINK;
+    //enc1
+    data[LED_ID_ENCODER_1] = colors::PINK;
+    //enc2
+    data[LED_ID_ENCODER_2] = colors::BLUE;
+    //enc3
+    data[LED_ID_ENCODER_3] = colors::PURPLE;
 
     let mut brightness_level = INITIAL_BRIGHTNESS;
     led.write(brightness(gamma(data.iter().cloned()), brightness_level))

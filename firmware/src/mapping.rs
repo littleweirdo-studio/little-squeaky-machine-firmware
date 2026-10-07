@@ -199,7 +199,7 @@ fn handle_delay_submenu(event: &Event) -> Option<(u8, u8)> {
 pub async fn mapping_task() {
     let sender = MIDI_MESSAGE_CHANNEL.publisher().unwrap();
     //C4
-    let base = 35 + 24;
+    let base = 36;
     let mut keypad_octave_shift = INITIAL_KEYPAD_OCTAVE_SHIFT;
     let synth_active = true;
     let seq_active = false;

@@ -1,12 +1,14 @@
 {
-    "$schema": "schema/sampler_patch_schema.json",
     "name": "drumx",
-    "drums": true,
-    "sample_map": 5,
-     "loop_start": 0,
-    "loop_end": 0,
-    "one_shot": true,
-     "base_key": 74,
+    "sample_config": {
+        "sample_id": 5,
+        "is_drums": true,
+        "sample_map": 5,
+        "loop_start": 0,
+        "loop_end": 0,
+        "one_shot": true,
+        "base_key": 74
+    },
     "overdrive_config": {
         "threshold": 1000,
         "kind": "Softer",

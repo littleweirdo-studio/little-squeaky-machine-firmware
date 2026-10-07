@@ -156,7 +156,7 @@ async fn main(spawner: Spawner) {
     spawner.spawn(mapping_task().unwrap());
     spawner.spawn(touch_input_task(i2c_bus).unwrap());
 
-    spawner.spawn(tilt_task(i2c_bus).unwrap()); // Commented out as tilt module is not available
+    //spawner.spawn(tilt_task(i2c_bus).unwrap()); // Commented out as tilt module is not available
 
     loop {
         Timer::after(Duration::from_millis(10)).await;
