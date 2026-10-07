@@ -217,7 +217,7 @@ pub fn synth_loop() {
     esp_println::println!("-:= > \n{}-:= >", esp_alloc::HEAP.stats());
 
     let mut synth: synth::Synth =
-        Synth::new(SAMPLE_RATE as u16, 5, Arc::clone(&patches), Arc::clone(&wt));
+        Synth::new(SAMPLE_RATE as u16, 0, Arc::clone(&patches), Arc::clone(&wt));
 
     // let mut sampler: sampler::Sampler = sampler::Sampler::new(
     //     SAMPLE_RATE as u16,
