@@ -18,7 +18,7 @@ pub async fn touch_input_task(i2c_bus: &'static I2c1Bus) {
     let delay = Delay::new();
 
     let mut touch = CY8CMBR3108::new(i2c_dev, delay);
-    let _ = touch.wake_up();
+    touch.wake_up().await.unwrap();
 
     //device id = 2563
     println!(
@@ -49,7 +49,7 @@ pub async fn touch_input_task(i2c_bus: &'static I2c1Bus) {
 
         let status = touch.get_button_status().await.unwrap();
 
-        // Check each bit individually
+    
         for i in 0..8 {
             if (status & (1 << i)) != 0 {
                 if !key_status_array[i].key_down_trigger {

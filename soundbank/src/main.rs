@@ -77,7 +77,7 @@ fn main() {
     );
 
     let soundbank = SoundBank {
-        name: "Default LttL Weirdo Soumdbank V0.1".to_string(),
+        name: "LttL Weirdo Soundbank V0.1".to_string(),
         amount_of_patches: patches_count,
         amount_of_waveforms: waveforms_count,
         amount_of_samples: samples_count,

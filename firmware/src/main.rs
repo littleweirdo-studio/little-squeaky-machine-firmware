@@ -1,7 +1,6 @@
 #![no_std]
 #![no_main]
 
-
 mod led;
 use core::ptr::addr_of_mut;
 
@@ -77,6 +76,8 @@ static mut APP_CORE_STACK: Stack<250_000> = Stack::new();
 
 const USB_MIDI_ENABLED: bool = false;
 const UART_MIDI_ENABLED: bool = false;
+const TILT_ENABLED: bool = false;
+const TOUCH_ENABLED: bool = false;
 
 type I2c1Bus = Mutex<NoopRawMutex, esp_hal::i2c::master::I2c<'static, Async>>;
 
@@ -141,22 +142,24 @@ async fn main(spawner: Spawner) {
         spawner.spawn(midi_uart_task().unwrap());
     }
 
-    Timer::after(Duration::from_millis(100)).await;
+    Timer::after(Duration::from_millis(10)).await;
     spawner.spawn(oled_task(i2c_bus).unwrap());
-
-    Timer::after(Duration::from_millis(100)).await;
- spawner.spawn(encoder_task().unwrap());
-
-    Timer::after(Duration::from_millis(100)).await;
+    Timer::after(Duration::from_millis(10)).await;
 
     spawner.spawn(codec_task(i2c_bus).unwrap());
 
     Timer::after(Duration::from_millis(10)).await;
     spawner.spawn(keyboard_input_task().unwrap());
+    spawner.spawn(encoder_task().unwrap());
     spawner.spawn(mapping_task().unwrap());
-    spawner.spawn(touch_input_task(i2c_bus).unwrap());
+    
+    if TOUCH_ENABLED {
+        spawner.spawn(touch_input_task(i2c_bus).unwrap());
+    }
 
-    //spawner.spawn(tilt_task(i2c_bus).unwrap()); // Commented out as tilt module is not available
+    if TILT_ENABLED {
+        spawner.spawn(tilt_task(i2c_bus).unwrap());
+    }
 
     loop {
         Timer::after(Duration::from_millis(10)).await;

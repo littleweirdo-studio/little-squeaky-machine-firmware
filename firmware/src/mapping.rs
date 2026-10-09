@@ -1,7 +1,7 @@
 use esp_println::println;
 use esp_hal::peripherals::Peripherals;
 use esp_storage::FlashStorage;
-use little_weirdo::sequencer::MAX_AMOUNT_OF_PATTERNS;
+use little_weirdo::{sequencer::MAX_AMOUNT_OF_PATTERNS};
 use little_weirdo_filesystem::WeirdoFileSystem;
 use little_weirdo_gui::{Event, MAPPING_SIGNAL, NAVIGATION_SIGNAL};
 use midi_msg::Channel;
@@ -548,7 +548,8 @@ pub async fn mapping_task() {
                     //enc 1
                     if event.id == 1 {
                         if event.value == encoder::ENCODER_CLOCKWISE {
-                            voice = voice.saturating_add(1).min(25);
+                            //TODO: read max from filesystem once
+                            voice = voice.saturating_add(1).min(55);
                         } else {
                             voice = voice.saturating_sub(1);
                         }
