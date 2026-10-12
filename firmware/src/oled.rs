@@ -27,6 +27,7 @@ use little_weirdo_gui::{
     menu::{Menu, MenuIcon},
     splash::Splash,
 };
+use little_weirdo_gui::about::About;
 use ssd1306::prelude::DisplayRotation;
 use ssd1306::size::DisplaySize128x64;
 use ssd1306::{I2CDisplayInterface, Ssd1306Async};
@@ -50,6 +51,9 @@ const WAVEFORM_SAMPLE_COUNT: usize = 600;
 const WAVEFORM_BYTE_COUNT: usize = WAVEFORM_SAMPLE_COUNT * 2;
 const WAVEFORM_NAMES_KEY: u32 = 600;
 const WELCOME_SCREEN_DURATION: Duration = Duration::from_secs(3);
+const ABOUT_MENU_OPTION_INDEX: usize = 4;
+const ABOUT_TEXT: &str =
+    "LttL Hi SQυεΛκY Things Machine v1.0 ♫ §QυεΛΛΛΛκκ Cαη ħαρρεη α⊥ αηψ тıмε! ©'26 HST∞LAB ♥♪♥";
 const SCREEN_TRANSITION_OFFSETS: [i32; 8] = [-64, -48, -32, -16, -6, 1, -2, 0];
 const SCREEN_TRANSITION_FRAME_DURATION: Duration = Duration::from_millis(18);
 const GUI_MENU_OPTIONS: [(&str, MenuIcon); 6] = [
@@ -122,6 +126,9 @@ fn draw_screen<D>(
         }
         Some(DisplaySetting::Controls) => {
             let _ = draw_controls(display, volume, keypad_octave_shift, brightness);
+        }
+        Some(DisplaySetting::About(about)) => {
+            let _ = about.draw(display);
         }
         Some(DisplaySetting::Chord(name)) => {
             let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
@@ -226,6 +233,7 @@ enum DisplaySetting {
         samples: [i16; WAVEFORM_SAMPLE_COUNT],
     },
     Controls,
+    About(About),
     Chord(&'static str),
     Patch {
         name: String,
@@ -241,6 +249,7 @@ enum DisplaySetting {
 enum DisplayScreenKind {
     Waveform,
     Controls,
+    About,
     Chord,
     PatchBrowser,
     Envelope,
@@ -252,6 +261,7 @@ fn display_screen_kind(setting: Option<&DisplaySetting>) -> DisplayScreenKind {
     match setting {
         Some(DisplaySetting::Waveform { .. }) => DisplayScreenKind::Waveform,
         Some(DisplaySetting::Controls) | None => DisplayScreenKind::Controls,
+        Some(DisplaySetting::About(_)) => DisplayScreenKind::About,
         Some(DisplaySetting::Chord(_)) => DisplayScreenKind::Chord,
         Some(DisplaySetting::Patch { .. }) => DisplayScreenKind::PatchBrowser,
         Some(DisplaySetting::Envelope) => DisplayScreenKind::Envelope,
@@ -760,6 +770,7 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
     let welcome_deadline = Instant::now() + WELCOME_SCREEN_DURATION;
     let mut gui_menu = create_gui_menu();
     let mut gui_menu_open = false;
+    let mut gui_menu_selected_index = 0;
     let mut display_setting = Some(DisplaySetting::Controls);
     let mut volume = INITIAL_VOLUME;
     let mut keypad_octave_shift = INITIAL_KEYPAD_OCTAVE_SHIFT;
@@ -850,6 +861,7 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
         let was_welcome_visible = welcome_visible;
         let previous_screen = display_screen_kind(display_setting.as_ref());
         let previous_gui_menu_open = gui_menu_open;
+        let mut about_selected = false;
         for event in events[..event_count].iter().flatten() {
             if event.event_identifier == ENCODER_USED_EVENT_IDENTIFIER {
                 welcome_visible = false;
@@ -862,13 +874,21 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
                         welcome_visible = false;
                     } else {
                         gui_menu.select();
+                        about_selected = gui_menu_selected_index == ABOUT_MENU_OPTION_INDEX;
                     }
                 }
                 GUI_MENU_ROTATION_EVENT_IDENTIFIER if gui_menu_open => {
                     if event.value == 1 {
                         gui_menu.next();
+                        gui_menu_selected_index =
+                            (gui_menu_selected_index + 1) % GUI_MENU_OPTIONS.len();
                     } else {
                         gui_menu.prev();
+                        gui_menu_selected_index = if gui_menu_selected_index == 0 {
+                            GUI_MENU_OPTIONS.len() - 1
+                        } else {
+                            gui_menu_selected_index - 1
+                        };
                     }
                 }
                 GUI_MENU_OPTION_SELECTED_EVENT_IDENTIFIER => {
@@ -876,6 +896,9 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
                         || !gui_menu.set_selected_index(event.id as usize)
                     {
                         esp_println::println!("selected menu index {} is out of range", event.id);
+                    } else {
+                        gui_menu_selected_index = event.id as usize;
+                        about_selected |= gui_menu_selected_index == ABOUT_MENU_OPTION_INDEX;
                     }
                 }
                 WAVEFORM_CHANGED_EVENT_IDENTIFIER => {
@@ -1041,7 +1064,13 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
                 _ => {}
             }
         }
-        screen_transition = (was_welcome_visible && !welcome_visible)
+        if about_selected {
+            display_setting = Some(DisplaySetting::About(About::new(
+                ABOUT_TEXT.to_string(),
+                NO_MENU_EVENT.clone(),
+            )));
+        }
+        screen_transition = (was_welcome_visible != welcome_visible)
             || previous_screen != display_screen_kind(display_setting.as_ref())
             || previous_gui_menu_open != gui_menu_open;
         /*
