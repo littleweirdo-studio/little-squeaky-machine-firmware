@@ -16,7 +16,7 @@ use crate::{
     touch_input::{TOUCH_BUTTON_EVENT_DOWN, TOUCH_BUTTON_EVENT_UP},
 };
 
-const COLOR: RGB8 = colors::DEEP_PINK;
+const COLOR: RGB8 = colors::YELLOW_GREEN;
 
 pub const CHORD_CHANGED_EVENT_IDENTIFIER: u8 = 248;
 pub const KEYPAD_OCTAVE_CHANGED_EVENT_IDENTIFIER: u8 = 243;

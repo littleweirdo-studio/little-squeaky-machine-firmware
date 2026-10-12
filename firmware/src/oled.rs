@@ -7,7 +7,7 @@ use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 use embassy_futures::select::{Either, select};
 use embassy_time::{Duration, Instant, Timer};
 use embedded_graphics::Drawable;
-use embedded_graphics::mono_font::{MonoTextStyle, ascii::FONT_6X10};
+use embedded_graphics::mono_font::{MonoTextStyle, ascii::FONT_6X10, ascii::FONT_4X6};
 use embedded_graphics::pixelcolor::BinaryColor;
 use embedded_graphics::prelude::{DrawTarget, Point, Size};
 use embedded_graphics::primitives::{
@@ -25,6 +25,7 @@ use little_weirdo_gui::{
     display::VerticalOffsetTarget,
     encoder_display::EncoderDisplay,
     menu::{Menu, MenuIcon},
+    splash::Splash
 };
 use ssd1306::prelude::DisplayRotation;
 use ssd1306::size::DisplaySize128x64;
@@ -58,6 +59,8 @@ const GUI_MENU_OPTIONS: [(&str, MenuIcon); 6] = [
     ("About", MenuIcon::Information),
     ("Status", MenuIcon::Status),
 ];
+const LOGO: &[u8; 512] = include_bytes!("data/logo.img");
+
 
 fn create_gui_menu() -> Menu {
     let mut menu = Menu::new(
@@ -111,9 +114,9 @@ fn draw_screen<D>(
 
     match display_setting {
         Some(DisplaySetting::Waveform { name, samples }) => {
-            let _ = EncoderDisplay::new(1, "Waveform", None, Point::new(7, 15)).draw(display);
+           // let _ = EncoderDisplay::new(1, "Waveform", None, Point::new(7, 15)).draw(display);
             let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
-            let _ = Text::new(name, Point::new(7, 27), text_style).draw(display);
+            let _ = Text::new(name, Point::new(7, 15), text_style).draw(display);
             let _ = draw_waveform(display, samples);
             let _ = draw_screen_border(display);
         }
@@ -300,17 +303,15 @@ fn draw_welcome<D>(display: &mut D) -> Result<(), D::Error>
 where
     D: DrawTarget<Color = BinaryColor>,
 {
-    Rectangle::new(Point::zero(), Size::new(128, 64))
-        .draw_styled(&PrimitiveStyle::with_fill(BinaryColor::On), display)?;
-    let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::Off);
-    Text::new("Welcome to", Point::new(34, 24), text_style).draw(display)?;
-    Text::new("LttL Squeaky", Point::new(28, 36), text_style).draw(display)?;
-    Text::new("Machine", Point::new(43, 48), text_style).draw(display)?;
+    let mut logo_splash = Splash::new(embedded_graphics::image::ImageRaw::new(LOGO, 64));
     RoundedRectangle::with_equal_corners(
         Rectangle::new(Point::new(3, 3), Size::new(122, 58)),
         Size::new(5, 5),
     )
-    .draw_styled(&PrimitiveStyle::with_stroke(BinaryColor::Off, 1), display)
+    .draw_styled(&PrimitiveStyle::with_stroke(BinaryColor::Off, 1), display)?;
+    
+    logo_splash.draw(display)
+
 }
 
 fn draw_envelope<D>(display: &mut D, values: &[u8; 4]) -> Result<(), D::Error>
@@ -494,8 +495,8 @@ where
         .max(1);
     let plot_left = 7;
     let plot_width = 114;
-    let center_y = 47;
-    let amplitude_height = 10;
+    let center_y = 39;
+    let amplitude_height = 19;
     let line_style = PrimitiveStyle::with_stroke(BinaryColor::On, 1);
 
     Line::new(

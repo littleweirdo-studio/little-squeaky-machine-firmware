@@ -52,14 +52,14 @@ pub async fn led_task() {
     data[LED_ID_GENERAL_1] = colors::YELLOW;
 
     // the four encoders have a led underneath, from left to right (enc0, enn1, enc2, enc3)
-    //enc0
-    data[LED_ID_ENCODER_0] = colors::DEEP_PINK;
-    //enc1
-    data[LED_ID_ENCODER_1] = colors::PINK;
-    //enc2
-    data[LED_ID_ENCODER_2] = colors::BLUE;
     //enc3
-    data[LED_ID_ENCODER_3] = colors::PURPLE;
+    data[LED_ID_ENCODER_0] = colors::RED;
+    //enc2
+    data[LED_ID_ENCODER_1] = colors::PINK;
+    //enc1
+    data[LED_ID_ENCODER_2] = colors::BLUE;
+    //enc0
+    data[LED_ID_ENCODER_3] = colors::YELLOW;
 
     let mut brightness_level = INITIAL_BRIGHTNESS;
     led.write(brightness(gamma(data.iter().cloned()), brightness_level))
