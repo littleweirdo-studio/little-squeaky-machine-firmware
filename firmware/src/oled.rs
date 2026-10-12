@@ -32,6 +32,7 @@ use ssd1306::size::DisplaySize128x64;
 use ssd1306::{I2CDisplayInterface, Ssd1306Async};
 
 use crate::I2c1Bus;
+use crate::VERSION;
 use crate::led::INITIAL_BRIGHTNESS;
 use crate::mapping::{
     BRIGHTNESS_CHANGED_EVENT_IDENTIFIER, CHORD_CHANGED_EVENT_IDENTIFIER, CHORD_NAMES,
@@ -307,8 +308,8 @@ where
     logo_splash.draw(display)?;
 
     let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
-    Text::new("LttL", Point::new(8, 45), text_style).draw(display)?;
-    Text::new("v1", Point::new(8, 55), text_style).draw(display)?;
+    Text::new("lsm", Point::new(8, 45), text_style).draw(display)?;
+    Text::new(&format!("v_{}", VERSION), Point::new(8, 55), text_style).draw(display)?;
 
    draw_screen_border(display)
 }

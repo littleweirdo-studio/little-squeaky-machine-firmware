@@ -83,12 +83,14 @@ type I2c1Bus = Mutex<NoopRawMutex, esp_hal::i2c::master::I2c<'static, Async>>;
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
+const VERSION: u8 = 1;
+
 #[esp_rtos::main]
 async fn main(spawner: Spawner) {
     esp_println::logger::init_logger_from_env();
     esp_println::println!("⡇ ⡇⢹⠁⢹⠁⡇ ⣏⡉ ⢎⡑⡎⢱⡇⢸⣏⡉⣎⣱⣇⠜⢇⢸ ⡷⢾⣎⣱⡎⠑⣇⣸⡇⡷⣸⣏⡉");
     esp_println::println!("⠧⠤⠇⠸ ⠸ ⠧⠤⠧⠤ ⠢⠜⠣⠪⠣⠜⠧⠤⠇⠸⠇⠱ ⠇ ⠇⠸⠇⠸⠣⠔⠇⠸⠇⠇⠹⠧⠤");
-    esp_println::println!("Firmware v0.1.0 with Little Weirdo v0.1.1\n");
+    esp_println::println!("Firmware {}\n", VERSION);
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
     esp_println::println!("-:= > Set CPU Speed to {:?}", config.clock_config());
     esp_println::println!(
