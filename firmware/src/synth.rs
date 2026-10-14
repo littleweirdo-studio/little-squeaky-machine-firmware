@@ -36,6 +36,7 @@ use crate::{
         FM_CHANGED_EVENT_IDENTIFIER, FM_DEPTH_CONTROL, FM_RATIO_CONTROL, FM_STATUS_CONTROL,
         FM_WAVEFORM_CONTROL, OVERDRIVE_CHANGED_EVENT_IDENTIFIER, OVERDRIVE_ENABLE_CONTROL,
         OVERDRIVE_KIND_CONTROL, OVERDRIVE_STATUS_CONTROL, OVERDRIVE_THRESHOLD_CONTROL,
+        envelope_time_ms,
     },
 };
 
@@ -369,8 +370,7 @@ pub fn synth_loop() {
                                             }
 
                                             midi_msg::ControlChange::AttackTime(value) => {
-                                                let attack_time =
-                                                    if value == 0 { 5 } else { value as i16 * 5 };
+                                                let attack_time = envelope_time_ms(value);
                                                 synth.change_all_envelopes(
                                                     Some(attack_time),
                                                     None,
@@ -380,8 +380,7 @@ pub fn synth_loop() {
                                             }
 
                                             midi_msg::ControlChange::DecayTime(value) => {
-                                                let decay_time =
-                                                    if value == 0 { 5 } else { value as i16 * 5 };
+                                                let decay_time = envelope_time_ms(value);
                                                 synth.change_all_envelopes(
                                                     None,
                                                     Some(decay_time),
@@ -400,9 +399,8 @@ pub fn synth_loop() {
                                             }
 
                                             midi_msg::ControlChange::ReleaseTime(value) => {
-                                                let release_time =
-                                                    if value == 0 { 5 } else { value as i16 * 5 };
-
+                                                let release_time = envelope_time_ms(value);
+                                                println!("r = {} ", release_time);
                                                 synth.change_all_envelopes(
                                                     None,
                                                     None,

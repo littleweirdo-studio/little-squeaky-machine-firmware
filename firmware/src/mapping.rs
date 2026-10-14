@@ -1,7 +1,7 @@
 use esp_println::println;
 use esp_hal::peripherals::Peripherals;
 use esp_storage::FlashStorage;
-use little_weirdo::{sequencer::MAX_AMOUNT_OF_PATTERNS};
+use little_weirdo::{sequencer::MAX_AMOUNT_OF_PATTERNS, synth::data::timing::MIDI_TO_TIME_MS};
 use little_weirdo_filesystem::WeirdoFileSystem;
 use little_weirdo_gui::{Event, MAPPING_SIGNAL, NAVIGATION_SIGNAL};
 use midi_msg::Channel;
@@ -127,6 +127,11 @@ pub const ENVELOPE_CHANGED_EVENT_IDENTIFIER: u8 = 247;
 pub const ENVELOPE_MODE_EVENT_ID: u8 = 4;
 pub const ENVELOPE_KEY_ID: u8 = 14;
 pub const INITIAL_ENVELOPE_VALUES: [u8; 4] = [20, 20, 80, 20];
+
+
+pub fn envelope_time_ms(value: u8) -> u16 {
+    MIDI_TO_TIME_MS[value.min(127) as usize]
+}
 //
 pub const OVERDRIVE_CHANGED_EVENT_IDENTIFIER: u8 = 246;
 pub const OVERDRIVE_MODE_EVENT_ID: u8 = 3;

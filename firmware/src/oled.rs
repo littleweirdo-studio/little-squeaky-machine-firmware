@@ -38,10 +38,11 @@ use crate::led::INITIAL_BRIGHTNESS;
 use crate::mapping::{
     BRIGHTNESS_CHANGED_EVENT_IDENTIFIER, CHORD_CHANGED_EVENT_IDENTIFIER, CHORD_NAMES,
     DELAY_CHANGED_EVENT_IDENTIFIER, DELAY_MODE_EVENT_ID, ENCODER_USED_EVENT_IDENTIFIER,
-    ENVELOPE_CHANGED_EVENT_IDENTIFIER, ENVELOPE_MODE_EVENT_ID, FM_CHANGED_EVENT_IDENTIFIER,
-    FM_MODE_EVENT_ID, GUI_MENU_BUTTON_EVENT_IDENTIFIER, GUI_MENU_OPTION_SELECTED_EVENT_IDENTIFIER,
-    GUI_MENU_ROTATION_EVENT_IDENTIFIER, INITIAL_ENVELOPE_VALUES, INITIAL_KEYPAD_OCTAVE_SHIFT,
-    INITIAL_VOLUME, KEYPAD_OCTAVE_CHANGED_EVENT_IDENTIFIER, OVERDRIVE_CHANGED_EVENT_IDENTIFIER,
+    ENVELOPE_CHANGED_EVENT_IDENTIFIER, ENVELOPE_MODE_EVENT_ID, envelope_time_ms,
+    FM_CHANGED_EVENT_IDENTIFIER, FM_MODE_EVENT_ID, GUI_MENU_BUTTON_EVENT_IDENTIFIER,
+    GUI_MENU_OPTION_SELECTED_EVENT_IDENTIFIER, GUI_MENU_ROTATION_EVENT_IDENTIFIER,
+    INITIAL_ENVELOPE_VALUES, INITIAL_KEYPAD_OCTAVE_SHIFT, INITIAL_VOLUME,
+    KEYPAD_OCTAVE_CHANGED_EVENT_IDENTIFIER, OVERDRIVE_CHANGED_EVENT_IDENTIFIER,
     OVERDRIVE_MODE_EVENT_ID, PATCH_SELECTION_EVENT_IDENTIFIER, VOLUME_CHANGED_EVENT_IDENTIFIER,
     WAVEFORM_CHANGED_EVENT_IDENTIFIER,
 };
@@ -399,20 +400,15 @@ where
     D: DrawTarget<Color = BinaryColor>,
 {
     let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
-    let attack_ms = if values[0] == 0 {
-        5
-    } else {
-        values[0] as u16 * 5
-    };
-    let decay_ms = if values[1] == 0 {
-        5
-    } else {
-        values[1] as u16 * 5
-    };
-    let release_ms = if values[3] == 0 {
-        5
-    } else {
-        values[3] as u16 * 5
+    let attack_ms = envelope_time_ms(values[0]);
+    let decay_ms = envelope_time_ms(values[1]);
+    let release_ms = envelope_time_ms(values[3]);
+    let format_time = |time_ms: u16| {
+        if time_ms < 1000 {
+            format!("{time_ms}ms")
+        } else {
+            format!("{}.{:01}s", time_ms / 1000, time_ms % 1000 / 100)
+        }
     };
     let plot_left = 8;
     let plot_right = 120;
@@ -463,17 +459,12 @@ where
     EncoderDisplay::new(
         0,
         "Attack",
-        Some(&format!("{}ms", attack_ms)),
+        Some(&format_time(attack_ms)),
         Point::new(7, 31),
     )
     .draw(display)?;
-    EncoderDisplay::new(
-        1,
-        "Decay",
-        Some(&format!("{}ms", decay_ms)),
-        Point::new(7, 40),
-    )
-    .draw(display)?;
+    EncoderDisplay::new(1, "Decay", Some(&format_time(decay_ms)), Point::new(7, 40))
+        .draw(display)?;
     EncoderDisplay::new(
         2,
         "Sustain",
@@ -484,7 +475,7 @@ where
     EncoderDisplay::new(
         3,
         "Release",
-        Some(&format!("{}ms", release_ms)),
+        Some(&format_time(release_ms)),
         Point::new(7, 58),
     )
     .draw(display)?;
