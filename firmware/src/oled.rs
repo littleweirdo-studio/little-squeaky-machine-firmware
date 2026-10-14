@@ -38,10 +38,10 @@ use crate::led::INITIAL_BRIGHTNESS;
 use crate::mapping::{
     BRIGHTNESS_CHANGED_EVENT_IDENTIFIER, CHORD_CHANGED_EVENT_IDENTIFIER, CHORD_NAMES,
     DELAY_CHANGED_EVENT_IDENTIFIER, DELAY_MODE_EVENT_ID, ENCODER_USED_EVENT_IDENTIFIER,
-    ENVELOPE_CHANGED_EVENT_IDENTIFIER, ENVELOPE_MODE_EVENT_ID, GUI_MENU_BUTTON_EVENT_IDENTIFIER,
-    GUI_MENU_OPTION_SELECTED_EVENT_IDENTIFIER, GUI_MENU_ROTATION_EVENT_IDENTIFIER,
-    INITIAL_ENVELOPE_VALUES, INITIAL_KEYPAD_OCTAVE_SHIFT, INITIAL_VOLUME,
-    KEYPAD_OCTAVE_CHANGED_EVENT_IDENTIFIER, OVERDRIVE_CHANGED_EVENT_IDENTIFIER,
+    ENVELOPE_CHANGED_EVENT_IDENTIFIER, ENVELOPE_MODE_EVENT_ID, FM_CHANGED_EVENT_IDENTIFIER,
+    FM_MODE_EVENT_ID, GUI_MENU_BUTTON_EVENT_IDENTIFIER, GUI_MENU_OPTION_SELECTED_EVENT_IDENTIFIER,
+    GUI_MENU_ROTATION_EVENT_IDENTIFIER, INITIAL_ENVELOPE_VALUES, INITIAL_KEYPAD_OCTAVE_SHIFT,
+    INITIAL_VOLUME, KEYPAD_OCTAVE_CHANGED_EVENT_IDENTIFIER, OVERDRIVE_CHANGED_EVENT_IDENTIFIER,
     OVERDRIVE_MODE_EVENT_ID, PATCH_SELECTION_EVENT_IDENTIFIER, VOLUME_CHANGED_EVENT_IDENTIFIER,
     WAVEFORM_CHANGED_EVENT_IDENTIFIER,
 };
@@ -127,6 +127,10 @@ fn draw_screen<D>(
     delay_time_ms: Option<u16>,
     delay_mix_percentage: Option<u8>,
     delay_feedback_percentage: Option<u8>,
+    fm_carrier_waveform: Option<u8>,
+    fm_modulator_waveform: Option<u8>,
+    fm_ratio: Option<u8>,
+    fm_depth_hz: Option<u16>,
 ) where
     D: DrawTarget<Color = BinaryColor>,
 {
@@ -203,6 +207,41 @@ fn draw_screen<D>(
                 delay_feedback_percentage,
             );
         }
+        Some(DisplaySetting::Fm) => {
+            let carrier_waveform_text = fm_carrier_waveform
+                .map(|value| format!("{}", value))
+                .unwrap_or_else(|| "--".to_string());
+            let modulator_waveform_text = fm_modulator_waveform
+                .map(|value| format!("{}", value))
+                .unwrap_or_else(|| "--".to_string());
+            let ratio_text = fm_ratio
+                .map(|value| format!("{}x", value.max(1)))
+                .unwrap_or_else(|| "--".to_string());
+            let depth_text = fm_depth_hz
+                .map(|value| format!("{}", value))
+                .unwrap_or_else(|| "--".to_string());
+            let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
+            let _ = Text::new("FM SYNTH", Point::new(7, 16), text_style).draw(display);
+            let _ = EncoderDisplay::new(
+                0,
+                "Carrier",
+                Some(&carrier_waveform_text),
+                Point::new(7, 27),
+            )
+            .draw(display);
+            let _ = EncoderDisplay::new(
+                1,
+                "Mod Wave",
+                Some(&modulator_waveform_text),
+                Point::new(7, 37),
+            )
+            .draw(display);
+            let _ =
+                EncoderDisplay::new(2, "Ratio", Some(&ratio_text), Point::new(7, 47)).draw(display);
+            let _ =
+                EncoderDisplay::new(3, "Depth", Some(&depth_text), Point::new(7, 57)).draw(display);
+            let _ = draw_screen_border(display);
+        }
         None => {
             let _ = draw_controls(display, volume, keypad_octave_shift, brightness);
         }
@@ -267,6 +306,7 @@ enum DisplaySetting {
     Envelope,
     Overdrive,
     Delay,
+    Fm,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -279,6 +319,7 @@ enum DisplayScreenKind {
     Envelope,
     Overdrive,
     Delay,
+    Fm,
 }
 
 fn display_screen_kind(setting: Option<&DisplaySetting>) -> DisplayScreenKind {
@@ -291,6 +332,7 @@ fn display_screen_kind(setting: Option<&DisplaySetting>) -> DisplayScreenKind {
         Some(DisplaySetting::Envelope) => DisplayScreenKind::Envelope,
         Some(DisplaySetting::Overdrive) => DisplayScreenKind::Overdrive,
         Some(DisplaySetting::Delay) => DisplayScreenKind::Delay,
+        Some(DisplaySetting::Fm) => DisplayScreenKind::Fm,
     }
 }
 
@@ -334,7 +376,7 @@ where
         Point::new(7, 53),
     )
     .draw(display)?;
-    draw_screen_border(display)
+   draw_screen_border(display)
 }
 
 fn draw_welcome<D>(display: &mut D) -> Result<(), D::Error>
@@ -349,7 +391,7 @@ where
     Text::new("lsm", Point::new(8, 45), text_style).draw(display)?;
     Text::new(&format!("v_{}", VERSION), Point::new(8, 55), text_style).draw(display)?;
 
-   draw_screen_border(display)
+    draw_screen_border(display)
 }
 
 fn draw_envelope<D>(display: &mut D, values: &[u8; 4]) -> Result<(), D::Error>
@@ -814,10 +856,15 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
     let mut overdrive_kind = None;
     let mut overdrive_threshold = None;
     let mut delay_edit_mode = false;
+    let mut fm_edit_mode = false;
     let mut delay_enabled = None;
     let mut delay_time_ms = None;
     let mut delay_mix_percentage = None;
     let mut delay_feedback_percentage = None;
+    let mut fm_carrier_waveform = None;
+    let mut fm_modulator_waveform = None;
+    let mut fm_ratio = None;
+    let mut fm_depth_hz = None;
     let mut waveform_bytes = [0u8; WAVEFORM_BYTE_COUNT];
     let mut screen_transition = false;
     loop {
@@ -845,6 +892,10 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
                     delay_time_ms,
                     delay_mix_percentage,
                     delay_feedback_percentage,
+                    fm_carrier_waveform,
+                    fm_modulator_waveform,
+                    fm_ratio,
+                    fm_depth_hz,
                 );
                 let _ = display.flush().await;
                 Timer::after(SCREEN_TRANSITION_FRAME_DURATION).await;
@@ -871,6 +922,10 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
                 delay_time_ms,
                 delay_mix_percentage,
                 delay_feedback_percentage,
+                fm_carrier_waveform,
+                fm_modulator_waveform,
+                fm_ratio,
+                fm_depth_hz,
             );
             let _ = display.flush().await;
         }
@@ -1144,6 +1199,41 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
                         delay_feedback_percentage = Some(event.value.min(100) as u8);
                         if delay_edit_mode {
                             display_setting = Some(DisplaySetting::Delay);
+                        }
+                    }
+                    _ => {}
+                },
+                FM_CHANGED_EVENT_IDENTIFIER => match event.id {
+                    FM_MODE_EVENT_ID => {
+                        fm_edit_mode = event.value != 0;
+                        display_setting = if fm_edit_mode {
+                            Some(DisplaySetting::Fm)
+                        } else {
+                            None
+                        };
+                    }
+                    0 => {
+                        fm_carrier_waveform = Some(event.value.min(u8::MAX as u16) as u8);
+                        if fm_edit_mode {
+                            display_setting = Some(DisplaySetting::Fm);
+                        }
+                    }
+                    1 => {
+                        fm_modulator_waveform = Some(event.value.min(u8::MAX as u16) as u8);
+                        if fm_edit_mode {
+                            display_setting = Some(DisplaySetting::Fm);
+                        }
+                    }
+                    2 => {
+                        fm_ratio = Some(event.value.min(u8::MAX as u16) as u8);
+                        if fm_edit_mode {
+                            display_setting = Some(DisplaySetting::Fm);
+                        }
+                    }
+                    3 => {
+                        fm_depth_hz = Some(event.value);
+                        if fm_edit_mode {
+                            display_setting = Some(DisplaySetting::Fm);
                         }
                     }
                     _ => {}

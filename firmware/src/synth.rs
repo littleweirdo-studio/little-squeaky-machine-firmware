@@ -31,10 +31,11 @@ use midi_msg::Channel;
 use crate::{
     MIDI_MESSAGE_CHANNEL,
     mapping::{
-        OVERDRIVE_CHANGED_EVENT_IDENTIFIER, OVERDRIVE_ENABLE_CONTROL, OVERDRIVE_KIND_CONTROL,
-        OVERDRIVE_STATUS_CONTROL, OVERDRIVE_THRESHOLD_CONTROL,
         DELAY_CHANGED_EVENT_IDENTIFIER, DELAY_ENABLE_CONTROL, DELAY_FEEDBACK_CONTROL,
-        DELAY_MIX_CONTROL, DELAY_STATUS_CONTROL, DELAY_TIME_CONTROL,
+        DELAY_MIX_CONTROL, DELAY_STATUS_CONTROL, DELAY_TIME_CONTROL, FM_CARRIER_WAVEFORM_CONTROL,
+        FM_CHANGED_EVENT_IDENTIFIER, FM_DEPTH_CONTROL, FM_RATIO_CONTROL, FM_STATUS_CONTROL,
+        FM_WAVEFORM_CONTROL, OVERDRIVE_CHANGED_EVENT_IDENTIFIER, OVERDRIVE_ENABLE_CONTROL,
+        OVERDRIVE_KIND_CONTROL, OVERDRIVE_STATUS_CONTROL, OVERDRIVE_THRESHOLD_CONTROL,
     },
 };
 
@@ -126,6 +127,49 @@ fn notify_delay_setting(synth: &Synth, id: u8) {
         .is_err()
     {
         println!("delay display event dropped: navigation queue full");
+    }
+}
+
+fn notify_fm_settings(synth: &Synth) {
+    let (_, waveform, ratio, depth) = synth.fm_settings();
+    for (id, value) in [
+        (0, synth.fm_carrier_waveform() as u16),
+        (1, waveform as u16),
+        (2, ratio as u16),
+        (3, depth),
+    ] {
+        if NAVIGATION_SIGNAL
+            .try_send(Event {
+                event_identifier: FM_CHANGED_EVENT_IDENTIFIER,
+                id,
+                value,
+            })
+            .is_err()
+        {
+            println!("FM display event dropped: navigation queue full");
+        }
+    }
+}
+
+fn notify_fm_setting(synth: &Synth, id: u8) {
+    let (_, waveform, ratio, depth) = synth.fm_settings();
+    let value = match id {
+        0 => synth.fm_carrier_waveform() as u16,
+        1 => waveform as u16,
+        2 => ratio as u16,
+        3 => depth,
+        _ => return,
+    };
+
+    if NAVIGATION_SIGNAL
+        .try_send(Event {
+            event_identifier: FM_CHANGED_EVENT_IDENTIFIER,
+            id,
+            value,
+        })
+        .is_err()
+    {
+        println!("FM display event dropped: navigation queue full");
     }
 }
 
@@ -286,176 +330,185 @@ pub fn synth_loop() {
                         if let midi_msg::MidiMsg::ChannelVoice { channel, msg } = msg {
                             match channel {
                                 Channel::Ch2 => match msg {
-                                    midi_msg::ChannelVoiceMsg::ProgramChange {
-                                        program,
-                                    } => {
+                                    midi_msg::ChannelVoiceMsg::ProgramChange { program } => {
                                         synth.load_patch(program);
                                     }
 
-                                    midi_msg::ChannelVoiceMsg::NoteOn {
-                                        note,
-                                        velocity,
-                                    } => {
+                                    midi_msg::ChannelVoiceMsg::NoteOn { note, velocity } => {
                                         println!("note on");
                                         synth.note_on(note, velocity);
                                     }
-                                    midi_msg::ChannelVoiceMsg::NoteOff {
-                                        note,
-                                        velocity: _,
-                                    } => {
+                                    midi_msg::ChannelVoiceMsg::NoteOff { note, velocity: _ } => {
                                         synth.note_off(note);
                                     }
                                     _ => {}
                                 },
                                 Channel::Ch1 => match msg {
-                                    midi_msg::ChannelVoiceMsg::ProgramChange {
-                                        program,
-                                    } => {
+                                    midi_msg::ChannelVoiceMsg::ProgramChange { program } => {
                                         synth.load_patch(program);
                                     }
-                                    midi_msg::ChannelVoiceMsg::NoteOn {
-                                        note,
-                                        velocity,
-                                    } => {
+                                    midi_msg::ChannelVoiceMsg::NoteOn { note, velocity } => {
                                         //println!("note on");
                                         synth.note_on(note, velocity);
                                     }
-                                    midi_msg::ChannelVoiceMsg::NoteOff {
-                                        note,
-                                        velocity: _,
-                                    } => {
+                                    midi_msg::ChannelVoiceMsg::NoteOff { note, velocity: _ } => {
                                         synth.note_off(note);
                                     }
-                                    midi_msg::ChannelVoiceMsg::ControlChange {
-                                        control,
-                                    } => match control {
-                                        midi_msg::ControlChange::Volume(volume) => {
-                                            synth.change_main_volume(volume as u8);
+                                    midi_msg::ChannelVoiceMsg::ControlChange { control } => {
+                                        match control {
+                                            midi_msg::ControlChange::Volume(volume) => {
+                                                synth.change_main_volume(volume as u8);
+                                            }
+
+                                            midi_msg::ControlChange::SoundControl1(value) => {
+                                                synth.change_cutoff(value);
+                                            }
+
+                                            midi_msg::ControlChange::SoundControl2(value) => {
+                                                synth.change_all_voices(value);
+                                            }
+
+                                            midi_msg::ControlChange::AttackTime(value) => {
+                                                let attack_time =
+                                                    if value == 0 { 5 } else { value as i16 * 5 };
+                                                synth.change_all_envelopes(
+                                                    Some(attack_time),
+                                                    None,
+                                                    None,
+                                                    None,
+                                                );
+                                            }
+
+                                            midi_msg::ControlChange::DecayTime(value) => {
+                                                let decay_time =
+                                                    if value == 0 { 5 } else { value as i16 * 5 };
+                                                synth.change_all_envelopes(
+                                                    None,
+                                                    Some(decay_time),
+                                                    None,
+                                                    None,
+                                                );
+                                            }
+
+                                            midi_msg::ControlChange::SoundControl3(value) => {
+                                                synth.change_all_envelopes(
+                                                    None,
+                                                    None,
+                                                    Some(value.min(100) as i16),
+                                                    None,
+                                                );
+                                            }
+
+                                            midi_msg::ControlChange::ReleaseTime(value) => {
+                                                let release_time =
+                                                    if value == 0 { 5 } else { value as i16 * 5 };
+
+                                                synth.change_all_envelopes(
+                                                    None,
+                                                    None,
+                                                    None,
+                                                    Some(release_time),
+                                                );
+                                            }
+
+                                            midi_msg::ControlChange::CC { control, .. }
+                                                if control == OVERDRIVE_ENABLE_CONTROL =>
+                                            {
+                                                synth.toggle_overdrive();
+                                                notify_overdrive_setting(&synth, 0);
+                                            }
+
+                                            midi_msg::ControlChange::CC { control, value }
+                                                if control == OVERDRIVE_KIND_CONTROL =>
+                                            {
+                                                synth.cycle_overdrive_kind(value != 0);
+                                                notify_overdrive_setting(&synth, 1);
+                                            }
+
+                                            midi_msg::ControlChange::CC { control, value }
+                                                if control == OVERDRIVE_THRESHOLD_CONTROL =>
+                                            {
+                                                synth.adjust_overdrive_threshold(value != 0);
+                                                notify_overdrive_setting(&synth, 2);
+                                            }
+
+                                            midi_msg::ControlChange::CC { control, .. }
+                                                if control == OVERDRIVE_STATUS_CONTROL =>
+                                            {
+                                                notify_overdrive_settings(&synth);
+                                            }
+
+                                            midi_msg::ControlChange::CC { control, .. }
+                                                if control == DELAY_ENABLE_CONTROL =>
+                                            {
+                                                synth.toggle_delay();
+                                                notify_delay_setting(&synth, 0);
+                                            }
+
+                                            midi_msg::ControlChange::CC { control, value }
+                                                if control == DELAY_TIME_CONTROL =>
+                                            {
+                                                synth.adjust_delay_time(value != 0);
+                                                notify_delay_setting(&synth, 1);
+                                            }
+
+                                            midi_msg::ControlChange::CC { control, value }
+                                                if control == DELAY_MIX_CONTROL =>
+                                            {
+                                                synth.adjust_delay_mix(value != 0);
+                                                notify_delay_setting(&synth, 2);
+                                            }
+
+                                            midi_msg::ControlChange::CC { control, value }
+                                                if control == DELAY_FEEDBACK_CONTROL =>
+                                            {
+                                                synth.adjust_delay_feedback(value != 0);
+                                                notify_delay_setting(&synth, 3);
+                                            }
+
+                                            midi_msg::ControlChange::CC { control, .. }
+                                                if control == DELAY_STATUS_CONTROL =>
+                                            {
+                                                notify_delay_settings(&synth);
+                                            }
+
+                                            midi_msg::ControlChange::CC { control, value }
+                                                if control == FM_CARRIER_WAVEFORM_CONTROL =>
+                                            {
+                                                synth.adjust_fm_carrier_waveform(value != 0);
+                                                notify_fm_setting(&synth, 0);
+                                            }
+
+                                            midi_msg::ControlChange::CC { control, value }
+                                                if control == FM_WAVEFORM_CONTROL =>
+                                            {
+                                                synth.adjust_fm_modulator_waveform(value != 0);
+                                                notify_fm_setting(&synth, 1);
+                                            }
+
+                                            midi_msg::ControlChange::CC { control, value }
+                                                if control == FM_RATIO_CONTROL =>
+                                            {
+                                                synth.adjust_fm_modulator_ratio(value != 0);
+                                                notify_fm_setting(&synth, 2);
+                                            }
+
+                                            midi_msg::ControlChange::CC { control, value }
+                                                if control == FM_DEPTH_CONTROL =>
+                                            {
+                                                synth.adjust_fm_modulation_depth(value != 0);
+                                                notify_fm_setting(&synth, 3);
+                                            }
+
+                                            midi_msg::ControlChange::CC { control, .. }
+                                                if control == FM_STATUS_CONTROL =>
+                                            {
+                                                notify_fm_settings(&synth);
+                                            }
+
+                                            _ => {}
                                         }
-
-                                        midi_msg::ControlChange::SoundControl1(value) => {
-                                            synth.change_cutoff(value);
-                                        }
-
-                                        midi_msg::ControlChange::SoundControl2(value) => {
-                                            synth.change_all_voices(value);
-                                        }
-
-                                        midi_msg::ControlChange::AttackTime(value) => {
-                                            let attack_time = if value == 0 {
-                                                5
-                                            } else {
-                                                value as i16 * 5
-                                            };
-                                            synth.change_all_envelopes(
-                                                Some(attack_time),
-                                                None,
-                                                None,
-                                                None,
-                                            );
-                                        }
-
-                                        midi_msg::ControlChange::DecayTime(value) => {
-                                            let decay_time = if value == 0 {
-                                                5
-                                            } else {
-                                                value as i16 * 5
-                                            };
-                                            synth.change_all_envelopes(
-                                                None,
-                                                Some(decay_time),
-                                                None,
-                                                None,
-                                            );
-                                        }
-
-                                        midi_msg::ControlChange::SoundControl3(value) => {
-                                            synth.change_all_envelopes(
-                                                None,
-                                                None,
-                                                Some(value.min(100) as i16),
-                                                None,
-                                            );
-                                        }
-
-                                        midi_msg::ControlChange::ReleaseTime(value) => {
-                                            let release_time = if value == 0 {
-                                                5
-                                            } else {
-                                                value as i16 * 5
-                                            };
-
-                                            synth.change_all_envelopes(
-                                                None,
-                                                None,
-                                                None,
-                                                Some(release_time),
-                                            );
-                                        }
-
-                                        midi_msg::ControlChange::CC { control, .. }
-                                            if control == OVERDRIVE_ENABLE_CONTROL =>
-                                        {
-                                            synth.toggle_overdrive();
-                                            notify_overdrive_setting(&synth, 0);
-                                        }
-
-                                        midi_msg::ControlChange::CC { control, value }
-                                            if control == OVERDRIVE_KIND_CONTROL =>
-                                        {
-                                            synth.cycle_overdrive_kind(value != 0);
-                                            notify_overdrive_setting(&synth, 1);
-                                        }
-
-                                        midi_msg::ControlChange::CC { control, value }
-                                            if control == OVERDRIVE_THRESHOLD_CONTROL =>
-                                        {
-                                            synth.adjust_overdrive_threshold(value != 0);
-                                            notify_overdrive_setting(&synth, 2);
-                                        }
-
-                                        midi_msg::ControlChange::CC { control, .. }
-                                            if control == OVERDRIVE_STATUS_CONTROL =>
-                                        {
-                                            notify_overdrive_settings(&synth);
-                                        }
-
-                                        midi_msg::ControlChange::CC { control, .. }
-                                            if control == DELAY_ENABLE_CONTROL =>
-                                        {
-                                            synth.toggle_delay();
-                                            notify_delay_setting(&synth, 0);
-                                        }
-
-                                        midi_msg::ControlChange::CC { control, value }
-                                            if control == DELAY_TIME_CONTROL =>
-                                        {
-                                            synth.adjust_delay_time(value != 0);
-                                            notify_delay_setting(&synth, 1);
-                                        }
-
-                                        midi_msg::ControlChange::CC { control, value }
-                                            if control == DELAY_MIX_CONTROL =>
-                                        {
-                                            synth.adjust_delay_mix(value != 0);
-                                            notify_delay_setting(&synth, 2);
-                                        }
-
-                                        midi_msg::ControlChange::CC { control, value }
-                                            if control == DELAY_FEEDBACK_CONTROL =>
-                                        {
-                                            synth.adjust_delay_feedback(value != 0);
-                                            notify_delay_setting(&synth, 3);
-                                        }
-
-                                        midi_msg::ControlChange::CC { control, .. }
-                                            if control == DELAY_STATUS_CONTROL =>
-                                        {
-                                            notify_delay_settings(&synth);
-                                        }
-
-                                        _ => {}
-                                    },
+                                    }
                                     _ => {}
                                 },
                                 _ => {}

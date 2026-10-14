@@ -93,6 +93,7 @@
   ],
   "fm_config": {
     "enabled": true,
+    "carrier_waveform": 0,
     "modulator_waveform": 0,
     "modulator_ratio": 1,
     "modulation_depth_hz": 100

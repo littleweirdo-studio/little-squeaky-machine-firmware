@@ -143,6 +143,16 @@ pub const DELAY_TIME_CONTROL: u8 = 115;
 pub const DELAY_MIX_CONTROL: u8 = 116;
 pub const DELAY_FEEDBACK_CONTROL: u8 = 117;
 pub const DELAY_STATUS_CONTROL: u8 = 118;
+//
+pub const FM_CHANGED_EVENT_IDENTIFIER: u8 = 236;
+pub const FM_WAVEFORM_CONTROL: u8 = 119;
+pub const FM_RATIO_CONTROL: u8 = 120;
+pub const FM_DEPTH_CONTROL: u8 = 121;
+pub const FM_STATUS_CONTROL: u8 = 122;
+pub const FM_CARRIER_WAVEFORM_CONTROL: u8 = 123;
+pub const FM_MODE_EVENT_ID: u8 = 6;
+pub const FM_KEY_ID: u8 = 0;
+pub const FM_KEY_LED_ID: u8 = 2;
 
 // led assignment
 pub const PATCH_KEY_LED_ID: u8 = 2;
@@ -195,6 +205,17 @@ fn handle_delay_submenu(event: &Event) -> Option<(u8, u8)> {
     }
 }
 
+fn handle_fm_submenu(event: &Event) -> Option<(u8, u8)> {
+    let value = (event.value == encoder::ENCODER_CLOCKWISE) as u8;
+    match event.id {
+        0 => Some((FM_CARRIER_WAVEFORM_CONTROL, value)),
+        1 => Some((FM_WAVEFORM_CONTROL, value)),
+        2 => Some((FM_RATIO_CONTROL, value)),
+        3 => Some((FM_DEPTH_CONTROL, value)),
+        _ => None,
+    }
+}
+
 #[embassy_executor::task]
 pub async fn mapping_task() {
     let sender = MIDI_MESSAGE_CHANNEL.publisher().unwrap();
@@ -211,6 +232,7 @@ pub async fn mapping_task() {
     let mut envelope_edit_mode = false;
     let mut overdrive_edit_mode = false;
     let mut delay_edit_mode = false;
+    let mut fm_edit_mode = false;
     let patch_count = load_patch_count()
         .map(usize::from)
         .unwrap_or(0)
@@ -568,6 +590,17 @@ pub async fn mapping_task() {
                             })
                             .await;
                     }
+                } else if fm_edit_mode {
+                    if let Some((control, value)) = handle_fm_submenu(&event) {
+                        sender
+                            .publish(midi_msg::MidiMsg::ChannelVoice {
+                                channel: Channel::Ch1,
+                                msg: midi_msg::ChannelVoiceMsg::ControlChange {
+                                    control: midi_msg::ControlChange::CC { control, value },
+                                },
+                            })
+                            .await;
+                    }
                 } else {
                     //enc 0
                     if event.id == 0 {
@@ -667,7 +700,11 @@ pub async fn mapping_task() {
                 }
             }
             keyboard_input::KEYPAD_EVENT_DOWN => {
-                let mut remap = REMAP_MIDI[event.id as usize];
+                let mut remap = if event.id == FM_KEY_ID {
+                    99
+                } else {
+                    REMAP_MIDI[event.id as usize]
+                };
                 let mut led_remap = REMAP_MIDI_LED[event.id as usize];
 
                 if seq_active {
@@ -704,6 +741,22 @@ pub async fn mapping_task() {
                             .send(Event {
                                 event_identifier: DELAY_CHANGED_EVENT_IDENTIFIER,
                                 id: DELAY_MODE_EVENT_ID,
+                                value: 0,
+                            })
+                            .await;
+                    }
+                    if envelope_edit_mode && fm_edit_mode {
+                        fm_edit_mode = false;
+                        LED_MESSAGE_CHANNEL
+                            .send(LedMessage {
+                                color: colors::BLACK,
+                                id: FM_KEY_LED_ID,
+                            })
+                            .await;
+                        NAVIGATION_SIGNAL
+                            .send(Event {
+                                event_identifier: FM_CHANGED_EVENT_IDENTIFIER,
+                                id: FM_MODE_EVENT_ID,
                                 value: 0,
                             })
                             .await;
@@ -747,6 +800,22 @@ pub async fn mapping_task() {
                             .send(Event {
                                 event_identifier: DELAY_CHANGED_EVENT_IDENTIFIER,
                                 id: DELAY_MODE_EVENT_ID,
+                                value: 0,
+                            })
+                            .await;
+                    }
+                    if overdrive_edit_mode && fm_edit_mode {
+                        fm_edit_mode = false;
+                        LED_MESSAGE_CHANNEL
+                            .send(LedMessage {
+                                color: colors::BLACK,
+                                id: FM_KEY_LED_ID,
+                            })
+                            .await;
+                        NAVIGATION_SIGNAL
+                            .send(Event {
+                                event_identifier: FM_CHANGED_EVENT_IDENTIFIER,
+                                id: FM_MODE_EVENT_ID,
                                 value: 0,
                             })
                             .await;
@@ -807,6 +876,22 @@ pub async fn mapping_task() {
                             })
                             .await;
                     }
+                    if delay_edit_mode && fm_edit_mode {
+                        fm_edit_mode = false;
+                        LED_MESSAGE_CHANNEL
+                            .send(LedMessage {
+                                color: colors::BLACK,
+                                id: FM_KEY_LED_ID,
+                            })
+                            .await;
+                        NAVIGATION_SIGNAL
+                            .send(Event {
+                                event_identifier: FM_CHANGED_EVENT_IDENTIFIER,
+                                id: FM_MODE_EVENT_ID,
+                                value: 0,
+                            })
+                            .await;
+                    }
                     NAVIGATION_SIGNAL
                         .send(Event {
                             event_identifier: DELAY_CHANGED_EVENT_IDENTIFIER,
@@ -821,6 +906,78 @@ pub async fn mapping_task() {
                                 msg: midi_msg::ChannelVoiceMsg::ControlChange {
                                     control: midi_msg::ControlChange::CC {
                                         control: DELAY_STATUS_CONTROL,
+                                        value: 0,
+                                    },
+                                },
+                            })
+                            .await;
+                    }
+                }
+
+                if event.id == FM_KEY_ID && !seq_active && synth_active {
+                    fm_edit_mode = !fm_edit_mode;
+                    if fm_edit_mode && envelope_edit_mode {
+                        envelope_edit_mode = false;
+                        LED_MESSAGE_CHANNEL
+                            .send(LedMessage {
+                                color: colors::BLACK,
+                                id: ENVELOPE_KEY_LED_ID,
+                            })
+                            .await;
+                        NAVIGATION_SIGNAL
+                            .send(Event {
+                                event_identifier: ENVELOPE_CHANGED_EVENT_IDENTIFIER,
+                                id: ENVELOPE_MODE_EVENT_ID,
+                                value: 0,
+                            })
+                            .await;
+                    }
+                    if fm_edit_mode && overdrive_edit_mode {
+                        overdrive_edit_mode = false;
+                        LED_MESSAGE_CHANNEL
+                            .send(LedMessage {
+                                color: colors::BLACK,
+                                id: OVERDRIVE_KEY_LED_ID,
+                            })
+                            .await;
+                        NAVIGATION_SIGNAL
+                            .send(Event {
+                                event_identifier: OVERDRIVE_CHANGED_EVENT_IDENTIFIER,
+                                id: OVERDRIVE_MODE_EVENT_ID,
+                                value: 0,
+                            })
+                            .await;
+                    }
+                    if fm_edit_mode && delay_edit_mode {
+                        delay_edit_mode = false;
+                        LED_MESSAGE_CHANNEL
+                            .send(LedMessage {
+                                color: colors::BLACK,
+                                id: DELAY_KEY_LED_ID,
+                            })
+                            .await;
+                        NAVIGATION_SIGNAL
+                            .send(Event {
+                                event_identifier: DELAY_CHANGED_EVENT_IDENTIFIER,
+                                id: DELAY_MODE_EVENT_ID,
+                                value: 0,
+                            })
+                            .await;
+                    }
+                    NAVIGATION_SIGNAL
+                        .send(Event {
+                            event_identifier: FM_CHANGED_EVENT_IDENTIFIER,
+                            id: FM_MODE_EVENT_ID,
+                            value: fm_edit_mode as u16,
+                        })
+                        .await;
+                    if fm_edit_mode {
+                        sender
+                            .publish(midi_msg::MidiMsg::ChannelVoice {
+                                channel: Channel::Ch1,
+                                msg: midi_msg::ChannelVoiceMsg::ControlChange {
+                                    control: midi_msg::ControlChange::CC {
+                                        control: FM_STATUS_CONTROL,
                                         value: 0,
                                     },
                                 },
@@ -864,7 +1021,7 @@ pub async fn mapping_task() {
                         })
                         .await;*/
                     }
-                } else {
+                } else if event.id != FM_KEY_ID {
                     println!("no node {}", event.id);
                     match event.id {
                         13
@@ -1009,6 +1166,8 @@ pub async fn mapping_task() {
                         led_remap = OVERDRIVE_KEY_LED_ID;
                     } else if event.id == DELAY_KEY_ID {
                         led_remap = DELAY_KEY_LED_ID;
+                    } else if event.id == FM_KEY_ID {
+                        led_remap = FM_KEY_LED_ID;
                     }
                     if led_remap != 99 {
                         LED_MESSAGE_CHANNEL
@@ -1031,6 +1190,12 @@ pub async fn mapping_task() {
                                     } else {
                                         colors::BLACK
                                     }
+                                } else if event.id == FM_KEY_ID {
+                                    if fm_edit_mode {
+                                        colors::BLUE
+                                    } else {
+                                        colors::BLACK
+                                    }
                                 } else {
                                     COLOR
                                 },
@@ -1042,7 +1207,11 @@ pub async fn mapping_task() {
             }
 
             keyboard_input::KEYPAD_EVENT_UP => {
-                let remap = REMAP_MIDI[event.id as usize];
+                let remap = if event.id == FM_KEY_ID {
+                    99
+                } else {
+                    REMAP_MIDI[event.id as usize]
+                };
                 let mut led_remap = REMAP_MIDI_LED[event.id as usize];
                 if event.id == ENVELOPE_KEY_ID && !seq_active {
                     led_remap = ENVELOPE_KEY_LED_ID;
@@ -1050,6 +1219,8 @@ pub async fn mapping_task() {
                     led_remap = OVERDRIVE_KEY_LED_ID;
                 } else if event.id == DELAY_KEY_ID && !seq_active {
                     led_remap = DELAY_KEY_LED_ID;
+                } else if event.id == FM_KEY_ID && !seq_active {
+                    led_remap = FM_KEY_LED_ID;
                 }
 
                 if remap != 99 {
@@ -1080,21 +1251,21 @@ pub async fn mapping_task() {
                         // TILT_SIGNAL.send(EventType::TiltNoteUp).await;
                     }
                 };
-                if !seq_active
-                    && led_remap != 99 {
-                        let keep_edit_led = (event.id == ENVELOPE_KEY_ID && envelope_edit_mode)
-                            || (event.id == OVERDRIVE_KEY_ID && overdrive_edit_mode)
-                            || (event.id == DELAY_KEY_ID && delay_edit_mode);
-                        if !keep_edit_led {
-                            LED_MESSAGE_CHANNEL
-                                .send(LedMessage {
-                                    color: colors::BLACK,
-                                    id: led_remap,
-                                    //brightness: BRIGTHNESS,
-                                })
-                                .await;
-                        }
+                if !seq_active && led_remap != 99 {
+                    let keep_edit_led = (event.id == ENVELOPE_KEY_ID && envelope_edit_mode)
+                        || (event.id == OVERDRIVE_KEY_ID && overdrive_edit_mode)
+                        || (event.id == DELAY_KEY_ID && delay_edit_mode);
+                    let keep_edit_led = keep_edit_led || (event.id == FM_KEY_ID && fm_edit_mode);
+                    if !keep_edit_led {
+                        LED_MESSAGE_CHANNEL
+                            .send(LedMessage {
+                                color: colors::BLACK,
+                                id: led_remap,
+                                //brightness: BRIGTHNESS,
+                            })
+                            .await;
                     }
+                }
             }
             _e => {
                 /*
