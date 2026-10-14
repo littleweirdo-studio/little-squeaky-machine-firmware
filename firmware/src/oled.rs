@@ -20,6 +20,7 @@ use esp_hal::peripherals::Peripherals;
 // use esp_println::println;
 use esp_storage::FlashStorage;
 use little_weirdo_filesystem::WeirdoFileSystem;
+use little_weirdo_gui::about::About;
 use little_weirdo_gui::{
     DrawItem, Event, NAVIGATION_SIGNAL, NO_ACTIVITY_EVENT, NO_MENU_EVENT, Navigatable,
     display::VerticalOffsetTarget,
@@ -27,7 +28,6 @@ use little_weirdo_gui::{
     menu::{Menu, MenuIcon},
     splash::Splash,
 };
-use little_weirdo_gui::about::About;
 use ssd1306::prelude::DisplayRotation;
 use ssd1306::size::DisplaySize128x64;
 use ssd1306::{I2CDisplayInterface, Ssd1306Async};
@@ -76,6 +76,30 @@ fn create_gui_menu() -> Menu {
         menu.add(
             title.to_string(),
             icon,
+            NO_MENU_EVENT.clone(),
+            Event {
+                event_identifier: GUI_MENU_OPTION_SELECTED_EVENT_IDENTIFIER,
+                id: 0,
+                value: 0,
+            },
+        );
+    }
+    menu
+}
+
+fn create_patch_menu(filesystem: &mut WeirdoFileSystem<FlashStorage>, patch_count: usize) -> Menu {
+    let mut menu = Menu::new(
+        NO_MENU_EVENT.clone(),
+        NO_ACTIVITY_EVENT.clone(),
+        MenuIcon::Patch,
+    );
+    for index in 0..patch_count {
+        let patch_index = index as u8;
+        let name = read_patch_name(filesystem, patch_index)
+            .unwrap_or_else(|| format!("Patch {}", index + 1));
+        menu.add(
+            format!("{}", name),
+            MenuIcon::Patch,
             NO_MENU_EVENT.clone(),
             Event {
                 event_identifier: GUI_MENU_OPTION_SELECTED_EVENT_IDENTIFIER,
@@ -268,6 +292,10 @@ fn display_screen_kind(setting: Option<&DisplaySetting>) -> DisplayScreenKind {
         Some(DisplaySetting::Overdrive) => DisplayScreenKind::Overdrive,
         Some(DisplaySetting::Delay) => DisplayScreenKind::Delay,
     }
+}
+
+fn is_patch_screen(setting: Option<&DisplaySetting>) -> bool {
+    matches!(setting, Some(DisplaySetting::Patch { .. }))
 }
 
 fn draw_controls<D>(
@@ -609,6 +637,8 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
             None
         }
     };
+    let patch_menu_count = (sound_bank.amount_of_patches as usize).min(u8::MAX as usize + 1);
+    let mut patch_menu = create_patch_menu(&mut filesystem, patch_menu_count);
 
     /*     main_menu.add(
         "SYNTH".to_string(),
@@ -771,6 +801,8 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
     let mut gui_menu = create_gui_menu();
     let mut gui_menu_open = false;
     let mut gui_menu_selected_index = 0;
+    let mut patch_menu_active = false;
+    let mut patch_menu_selected_index = 0;
     let mut display_setting = Some(DisplaySetting::Controls);
     let mut volume = INITIAL_VOLUME;
     let mut keypad_octave_shift = INITIAL_KEYPAD_OCTAVE_SHIFT;
@@ -796,7 +828,11 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
                 draw_screen(
                     &mut offset_display,
                     welcome_visible,
-                    gui_menu_open.then_some(&gui_menu),
+                    if patch_menu_active {
+                        Some(&patch_menu)
+                    } else {
+                        gui_menu_open.then_some(&gui_menu)
+                    },
                     &display_setting,
                     volume,
                     keypad_octave_shift,
@@ -818,7 +854,11 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
             draw_screen(
                 &mut display,
                 welcome_visible,
-                gui_menu_open.then_some(&gui_menu),
+                if patch_menu_active {
+                    Some(&patch_menu)
+                } else {
+                    gui_menu_open.then_some(&gui_menu)
+                },
                 &display_setting,
                 volume,
                 keypad_octave_shift,
@@ -861,6 +901,7 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
         let was_welcome_visible = welcome_visible;
         let previous_screen = display_screen_kind(display_setting.as_ref());
         let previous_gui_menu_open = gui_menu_open;
+        let previous_patch_menu_active = patch_menu_active;
         let mut about_selected = false;
         for event in events[..event_count].iter().flatten() {
             if event.event_identifier == ENCODER_USED_EVENT_IDENTIFIER {
@@ -869,36 +910,73 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
             }
             match event.event_identifier {
                 GUI_MENU_BUTTON_EVENT_IDENTIFIER => {
-                    gui_menu_open = event.value != 0;
-                    if gui_menu_open {
-                        welcome_visible = false;
+                    if patch_menu_active {
+                        patch_menu.select();
                     } else {
-                        gui_menu.select();
-                        about_selected = gui_menu_selected_index == ABOUT_MENU_OPTION_INDEX;
+                        gui_menu_open = event.value != 0;
+                        if gui_menu_open {
+                            welcome_visible = false;
+                        } else {
+                            gui_menu.select();
+                            about_selected = gui_menu_selected_index == ABOUT_MENU_OPTION_INDEX;
+                        }
                     }
                 }
-                GUI_MENU_ROTATION_EVENT_IDENTIFIER if gui_menu_open => {
-                    if event.value == 1 {
-                        gui_menu.next();
-                        gui_menu_selected_index =
-                            (gui_menu_selected_index + 1) % GUI_MENU_OPTIONS.len();
-                    } else {
-                        gui_menu.prev();
-                        gui_menu_selected_index = if gui_menu_selected_index == 0 {
-                            GUI_MENU_OPTIONS.len() - 1
+                GUI_MENU_ROTATION_EVENT_IDENTIFIER => {
+                    if patch_menu_active {
+                        if patch_menu_count > 0 {
+                            patch_menu_selected_index = if event.value == 1 {
+                                (patch_menu_selected_index + 1) % patch_menu_count
+                            } else if patch_menu_selected_index == 0 {
+                                patch_menu_count - 1
+                            } else {
+                                patch_menu_selected_index - 1
+                            };
+                            let _ = patch_menu.set_selected_index(patch_menu_selected_index);
+                        }
+                    } else if gui_menu_open {
+                        if event.value == 1 {
+                            gui_menu.next();
+                            gui_menu_selected_index =
+                                (gui_menu_selected_index + 1) % GUI_MENU_OPTIONS.len();
                         } else {
-                            gui_menu_selected_index - 1
-                        };
+                            gui_menu.prev();
+                            gui_menu_selected_index = if gui_menu_selected_index == 0 {
+                                GUI_MENU_OPTIONS.len() - 1
+                            } else {
+                                gui_menu_selected_index - 1
+                            };
+                        }
                     }
                 }
                 GUI_MENU_OPTION_SELECTED_EVENT_IDENTIFIER => {
-                    if event.id as usize >= GUI_MENU_OPTIONS.len()
-                        || !gui_menu.set_selected_index(event.id as usize)
-                    {
-                        esp_println::println!("selected menu index {} is out of range", event.id);
+                    if patch_menu_active {
+                        esp_println::println!("unexpected patch menu selection event {}", event.id);
                     } else {
-                        gui_menu_selected_index = event.id as usize;
-                        about_selected |= gui_menu_selected_index == ABOUT_MENU_OPTION_INDEX;
+                        if event.id as usize >= GUI_MENU_OPTIONS.len()
+                            || !gui_menu.set_selected_index(event.id as usize)
+                        {
+                            esp_println::println!(
+                                "selected menu index {} is out of range",
+                                event.id
+                            );
+                        } else {
+                            gui_menu_selected_index = event.id as usize;
+                            about_selected |= gui_menu_selected_index == ABOUT_MENU_OPTION_INDEX;
+                            if gui_menu_selected_index == 0 {
+                                if event.value == u16::MAX || patch_menu_count == 0 {
+                                    esp_println::println!(
+                                        "synth patch selection unavailable: no patches found"
+                                    );
+                                } else {
+                                    patch_menu_selected_index =
+                                        (event.value as usize).min(patch_menu_count - 1);
+                                    let _ =
+                                        patch_menu.set_selected_index(patch_menu_selected_index);
+                                    patch_menu_active = true;
+                                }
+                            }
+                        }
                     }
                 }
                 WAVEFORM_CHANGED_EVENT_IDENTIFIER => {
@@ -955,6 +1033,9 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
                     }
 
                     welcome_visible = false;
+                    if event.value == 2 {
+                        patch_menu_active = false;
+                    }
                     let name = read_patch_name(&mut filesystem, event.id)
                         .unwrap_or_else(|| format!("Patch {}", event.id as u16 + 1));
                     display_setting = Some(DisplaySetting::Patch {
@@ -965,11 +1046,15 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
                 }
                 VOLUME_CHANGED_EVENT_IDENTIFIER => {
                     volume = event.value.min(127) as u8;
-                    display_setting = Some(DisplaySetting::Controls);
+                    if !is_patch_screen(display_setting.as_ref()) {
+                        display_setting = Some(DisplaySetting::Controls);
+                    }
                 }
                 BRIGHTNESS_CHANGED_EVENT_IDENTIFIER => {
                     brightness = event.value.min(u8::MAX as u16) as u8;
-                    display_setting = Some(DisplaySetting::Controls);
+                    if !is_patch_screen(display_setting.as_ref()) {
+                        display_setting = Some(DisplaySetting::Controls);
+                    }
                 }
                 CHORD_CHANGED_EVENT_IDENTIFIER => {
                     let name = CHORD_NAMES
@@ -980,7 +1065,9 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
                 }
                 KEYPAD_OCTAVE_CHANGED_EVENT_IDENTIFIER => {
                     keypad_octave_shift = event.value as u8 as i8;
-                    display_setting = Some(DisplaySetting::Controls);
+                    if !is_patch_screen(display_setting.as_ref()) {
+                        display_setting = Some(DisplaySetting::Controls);
+                    }
                 }
                 ENVELOPE_CHANGED_EVENT_IDENTIFIER => {
                     if event.id == ENVELOPE_MODE_EVENT_ID {
@@ -1072,7 +1159,8 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
         }
         screen_transition = (was_welcome_visible != welcome_visible)
             || previous_screen != display_screen_kind(display_setting.as_ref())
-            || previous_gui_menu_open != gui_menu_open;
+            || previous_gui_menu_open != gui_menu_open
+            || previous_patch_menu_active != patch_menu_active;
         /*
         match event.event {
             EventType::ControlSettings => {

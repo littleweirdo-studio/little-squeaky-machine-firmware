@@ -239,43 +239,90 @@ pub async fn mapping_task() {
         };
         match event.event_identifier {
             keyboard_input::GPIO0_MENU_BUTTON_PRESSED => {
-                gui_menu_open = !gui_menu_open;
-                if gui_menu_open && patch_selection_mode {
-                    patch_selection_mode = false;
+                if patch_selection_mode {
+                    NAVIGATION_SIGNAL
+                        .send(Event {
+                            event_identifier: GUI_MENU_BUTTON_EVENT_IDENTIFIER,
+                            id: 0,
+                            value: 2,
+                        })
+                        .await;
+                } else {
+                    gui_menu_open = !gui_menu_open;
                     LED_MESSAGE_CHANNEL
                         .send(LedMessage {
-                            color: colors::BLACK,
-                            id: PATCH_KEY_LED_ID,
+                            color: if gui_menu_open {
+                                colors::BLUE
+                            } else {
+                                colors::BLACK
+                            },
+                            id: GPIO0_MENU_LED_ID,
+                        })
+                        .await;
+                    NAVIGATION_SIGNAL
+                        .send(Event {
+                            event_identifier: GUI_MENU_BUTTON_EVENT_IDENTIFIER,
+                            id: 0,
+                            value: gui_menu_open as u16,
                         })
                         .await;
                 }
-
-                LED_MESSAGE_CHANNEL
-                    .send(LedMessage {
-                        color: if gui_menu_open {
-                            colors::BLUE
-                        } else {
-                            colors::BLACK
-                        },
-                        id: GPIO0_MENU_LED_ID,
-                    })
-                    .await;
-                NAVIGATION_SIGNAL
-                    .send(Event {
-                        event_identifier: GUI_MENU_BUTTON_EVENT_IDENTIFIER,
-                        id: 0,
-                        value: gui_menu_open as u16,
-                    })
-                    .await;
             }
             GUI_MENU_OPTION_SELECTED_EVENT_IDENTIFIER => {
-                NAVIGATION_SIGNAL
-                    .send(Event {
-                        event_identifier: GUI_MENU_OPTION_SELECTED_EVENT_IDENTIFIER,
-                        id: event.id,
-                        value: event.value,
-                    })
-                    .await;
+                if patch_selection_mode {
+                    if event.id as usize >= patch_count {
+                        println!("selected patch index {} is out of range", event.id);
+                    } else {
+                        selected_patch = event.id;
+                        sender
+                            .publish(midi_msg::MidiMsg::ChannelVoice {
+                                channel: Channel::Ch1,
+                                msg: midi_msg::ChannelVoiceMsg::ProgramChange {
+                                    program: selected_patch,
+                                },
+                            })
+                            .await;
+                        patch_selection_mode = false;
+                        LED_MESSAGE_CHANNEL
+                            .send(LedMessage {
+                                color: colors::BLACK,
+                                id: PATCH_KEY_LED_ID,
+                            })
+                            .await;
+                        NAVIGATION_SIGNAL
+                            .send(Event {
+                                event_identifier: PATCH_SELECTION_EVENT_IDENTIFIER,
+                                id: selected_patch,
+                                value: 2,
+                            })
+                            .await;
+                    }
+                } else {
+                    if event.id == 0 && patch_count > 0 {
+                        patch_selection_mode = true;
+                        LED_MESSAGE_CHANNEL
+                            .send(LedMessage {
+                                color: colors::BLUE,
+                                id: PATCH_KEY_LED_ID,
+                            })
+                            .await;
+                    }
+                    NAVIGATION_SIGNAL
+                        .send(Event {
+                            event_identifier: GUI_MENU_OPTION_SELECTED_EVENT_IDENTIFIER,
+                            id: event.id,
+                            value: if event.id == 0 {
+                                if patch_count == 0 {
+                                    u16::MAX
+                                } else {
+                                    selected_patch as u16
+                                }
+                            } else {
+                                event.value
+                            },
+                        })
+                        .await;
+                }
             }
             TOUCH_BUTTON_EVENT_DOWN
                 if (event.id as usize) < CHORD_INTERVALS.len() => {
@@ -461,7 +508,7 @@ pub async fn mapping_task() {
                     }
                     continue;
                 } else if patch_selection_mode {
-                    if event.id == 0 && patch_count > 0 {
+                    if event.id == 3 && patch_count > 0 {
                         selected_patch = if event.value == encoder::ENCODER_CLOCKWISE {
                             ((selected_patch as usize + 1) % patch_count) as u8
                         } else if selected_patch == 0 {
@@ -471,9 +518,9 @@ pub async fn mapping_task() {
                         };
                         NAVIGATION_SIGNAL
                             .send(Event {
-                                event_identifier: PATCH_SELECTION_EVENT_IDENTIFIER,
-                                id: selected_patch,
-                                value: 1,
+                                event_identifier: GUI_MENU_ROTATION_EVENT_IDENTIFIER,
+                                id: event.id,
+                                value: event.value,
                             })
                             .await;
                     }
@@ -549,7 +596,7 @@ pub async fn mapping_task() {
                     if event.id == 1 {
                         if event.value == encoder::ENCODER_CLOCKWISE {
                             //TODO: read max from filesystem once
-                            voice = voice.saturating_add(1).min(55);
+                            voice = voice.saturating_add(1).min(87);
                         } else {
                             voice = voice.saturating_sub(1);
                         }
@@ -620,109 +667,6 @@ pub async fn mapping_task() {
                 }
             }
             keyboard_input::KEYPAD_EVENT_DOWN => {
-                if patch_selection_mode && event.id != 0 {
-                    patch_selection_mode = false;
-                    LED_MESSAGE_CHANNEL
-                        .send(LedMessage {
-                            color: colors::BLACK,
-                            id: PATCH_KEY_LED_ID,
-                        })
-                        .await;
-                }
-
-                if event.id == 0 && synth_active && !seq_active && patch_count > 0 {
-                    if patch_selection_mode {
-                        sender
-                            .publish(midi_msg::MidiMsg::ChannelVoice {
-                                channel: Channel::Ch1,
-                                msg: midi_msg::ChannelVoiceMsg::ProgramChange {
-                                    program: selected_patch,
-                                },
-                            })
-                            .await;
-                        patch_selection_mode = false;
-                        LED_MESSAGE_CHANNEL
-                            .send(LedMessage {
-                                color: colors::BLACK,
-                                id: PATCH_KEY_LED_ID,
-                            })
-                            .await;
-
-                        NAVIGATION_SIGNAL
-                            .send(Event {
-                                event_identifier: PATCH_SELECTION_EVENT_IDENTIFIER,
-                                id: selected_patch,
-                                value: 2,
-                            })
-                            .await;
-                    } else {
-                        if envelope_edit_mode {
-                            envelope_edit_mode = false;
-                            LED_MESSAGE_CHANNEL
-                                .send(LedMessage {
-                                    color: colors::BLACK,
-                                    id: ENVELOPE_KEY_LED_ID,
-                                })
-                                .await;
-                            NAVIGATION_SIGNAL
-                                .send(Event {
-                                    event_identifier: ENVELOPE_CHANGED_EVENT_IDENTIFIER,
-                                    id: ENVELOPE_MODE_EVENT_ID,
-                                    value: 0,
-                                })
-                                .await;
-                        }
-                        if overdrive_edit_mode {
-                            overdrive_edit_mode = false;
-                            LED_MESSAGE_CHANNEL
-                                .send(LedMessage {
-                                    color: colors::BLACK,
-                                    id: OVERDRIVE_KEY_LED_ID,
-                                })
-                                .await;
-                            NAVIGATION_SIGNAL
-                                .send(Event {
-                                    event_identifier: OVERDRIVE_CHANGED_EVENT_IDENTIFIER,
-                                    id: OVERDRIVE_MODE_EVENT_ID,
-                                    value: 0,
-                                })
-                                .await;
-                        }
-                        if delay_edit_mode {
-                            delay_edit_mode = false;
-                            LED_MESSAGE_CHANNEL
-                                .send(LedMessage {
-                                    color: colors::BLACK,
-                                    id: DELAY_KEY_LED_ID,
-                                })
-                                .await;
-                            NAVIGATION_SIGNAL
-                                .send(Event {
-                                    event_identifier: DELAY_CHANGED_EVENT_IDENTIFIER,
-                                    id: DELAY_MODE_EVENT_ID,
-                                    value: 0,
-                                })
-                                .await;
-                        }
-
-                        patch_selection_mode = true;
-                        LED_MESSAGE_CHANNEL
-                            .send(LedMessage {
-                                color: colors::BLUE,
-                                id: PATCH_KEY_LED_ID,
-                            })
-                            .await;
-
-                        NAVIGATION_SIGNAL
-                            .send(Event {
-                                event_identifier: PATCH_SELECTION_EVENT_IDENTIFIER,
-                                id: selected_patch,
-                                value: 1,
-                            })
-                            .await;
-                    }
-                }
-
                 let mut remap = REMAP_MIDI[event.id as usize];
                 let mut led_remap = REMAP_MIDI_LED[event.id as usize];
 
