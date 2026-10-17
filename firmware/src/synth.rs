@@ -51,8 +51,8 @@ pub struct SoundBank {
     pub amound_of_sampler_patches: u16,
 }
 
-fn notify_overdrive_settings(synth: &Synth) {
-    let (enabled, kind, threshold) = synth.overdrive_settings();
+fn notify_overdrive_settings(synth: &mut Synth) {
+    let (enabled, kind, threshold) = synth.control().overdrive_settings();
     for (id, value) in [(0, enabled as u16), (1, kind as u16), (2, threshold)] {
         if NAVIGATION_SIGNAL
             .try_send(Event {
@@ -67,8 +67,8 @@ fn notify_overdrive_settings(synth: &Synth) {
     }
 }
 
-fn notify_overdrive_setting(synth: &Synth, id: u8) {
-    let (enabled, kind, threshold) = synth.overdrive_settings();
+fn notify_overdrive_setting(synth: &mut Synth, id: u8) {
+    let (enabled, kind, threshold) = synth.control().overdrive_settings();
     let value = match id {
         0 => enabled as u16,
         1 => kind as u16,
@@ -88,8 +88,8 @@ fn notify_overdrive_setting(synth: &Synth, id: u8) {
     }
 }
 
-fn notify_delay_settings(synth: &Synth) {
-    let (enabled, time, mix, feedback) = synth.delay_settings();
+fn notify_delay_settings(synth: &mut Synth) {
+    let (enabled, time, mix, feedback) = synth.control().delay_settings();
     for (id, value) in [
         (0, enabled as u16),
         (1, time),
@@ -109,8 +109,8 @@ fn notify_delay_settings(synth: &Synth) {
     }
 }
 
-fn notify_delay_setting(synth: &Synth, id: u8) {
-    let (enabled, time, mix, feedback) = synth.delay_settings();
+fn notify_delay_setting(synth: &mut Synth, id: u8) {
+    let (enabled, time, mix, feedback) = synth.control().delay_settings();
     let value = match id {
         0 => enabled as u16,
         1 => time,
@@ -131,10 +131,10 @@ fn notify_delay_setting(synth: &Synth, id: u8) {
     }
 }
 
-fn notify_fm_settings(synth: &Synth) {
-    let (_, waveform, ratio, depth) = synth.fm_settings();
+fn notify_fm_settings(synth: &mut Synth) {
+    let (_, waveform, ratio, depth) = synth.control().fm_settings();
     for (id, value) in [
-        (0, synth.fm_carrier_waveform() as u16),
+        (0, synth.control().fm_carrier_waveform() as u16),
         (1, waveform as u16),
         (2, ratio as u16),
         (3, depth),
@@ -152,10 +152,10 @@ fn notify_fm_settings(synth: &Synth) {
     }
 }
 
-fn notify_fm_setting(synth: &Synth, id: u8) {
-    let (_, waveform, ratio, depth) = synth.fm_settings();
+fn notify_fm_setting(synth: &mut Synth, id: u8) {
+    let (_, waveform, ratio, depth) = synth.control().fm_settings();
     let value = match id {
-        0 => synth.fm_carrier_waveform() as u16,
+        0 => synth.control().fm_carrier_waveform() as u16,
         1 => waveform as u16,
         2 => ratio as u16,
         3 => depth,
@@ -358,20 +358,20 @@ pub fn synth_loop() {
                                     midi_msg::ChannelVoiceMsg::ControlChange { control } => {
                                         match control {
                                             midi_msg::ControlChange::Volume(volume) => {
-                                                synth.change_main_volume(volume as u8);
+                                                synth.control().change_main_volume(volume as u8);
                                             }
 
                                             midi_msg::ControlChange::SoundControl1(value) => {
-                                                synth.change_cutoff(value);
+                                                synth.control().change_cutoff(value);
                                             }
 
                                             midi_msg::ControlChange::SoundControl2(value) => {
-                                                synth.change_all_voices(value);
+                                                synth.control().change_all_voices(value);
                                             }
 
                                             midi_msg::ControlChange::AttackTime(value) => {
                                                 let attack_time = envelope_time_ms(value);
-                                                synth.change_all_envelopes(
+                                                synth.control().change_all_envelopes(
                                                     Some(attack_time),
                                                     None,
                                                     None,
@@ -381,7 +381,7 @@ pub fn synth_loop() {
 
                                             midi_msg::ControlChange::DecayTime(value) => {
                                                 let decay_time = envelope_time_ms(value);
-                                                synth.change_all_envelopes(
+                                                synth.control().change_all_envelopes(
                                                     None,
                                                     Some(decay_time),
                                                     None,
@@ -390,7 +390,7 @@ pub fn synth_loop() {
                                             }
 
                                             midi_msg::ControlChange::SoundControl3(value) => {
-                                                synth.change_all_envelopes(
+                                                synth.control().change_all_envelopes(
                                                     None,
                                                     None,
                                                     Some(value.min(100) as i16),
@@ -401,7 +401,7 @@ pub fn synth_loop() {
                                             midi_msg::ControlChange::ReleaseTime(value) => {
                                                 let release_time = envelope_time_ms(value);
                                                 println!("r = {} ", release_time);
-                                                synth.change_all_envelopes(
+                                                synth.control().change_all_envelopes(
                                                     None,
                                                     None,
                                                     None,
@@ -412,96 +412,96 @@ pub fn synth_loop() {
                                             midi_msg::ControlChange::CC { control, .. }
                                                 if control == OVERDRIVE_ENABLE_CONTROL =>
                                             {
-                                                synth.toggle_overdrive();
-                                                notify_overdrive_setting(&synth, 0);
+                                                synth.control().toggle_overdrive();
+                                                notify_overdrive_setting(&mut synth, 0);
                                             }
 
                                             midi_msg::ControlChange::CC { control, value }
                                                 if control == OVERDRIVE_KIND_CONTROL =>
                                             {
-                                                synth.cycle_overdrive_kind(value != 0);
-                                                notify_overdrive_setting(&synth, 1);
+                                                synth.control().cycle_overdrive_kind(value != 0);
+                                                notify_overdrive_setting(&mut synth, 1);
                                             }
 
                                             midi_msg::ControlChange::CC { control, value }
                                                 if control == OVERDRIVE_THRESHOLD_CONTROL =>
                                             {
-                                                synth.adjust_overdrive_threshold(value != 0);
-                                                notify_overdrive_setting(&synth, 2);
+                                                synth.control().adjust_overdrive_threshold(value != 0);
+                                                notify_overdrive_setting(&mut synth, 2);
                                             }
 
                                             midi_msg::ControlChange::CC { control, .. }
                                                 if control == OVERDRIVE_STATUS_CONTROL =>
                                             {
-                                                notify_overdrive_settings(&synth);
+                                                notify_overdrive_settings(&mut synth);
                                             }
 
                                             midi_msg::ControlChange::CC { control, .. }
                                                 if control == DELAY_ENABLE_CONTROL =>
                                             {
-                                                synth.toggle_delay();
-                                                notify_delay_setting(&synth, 0);
+                                                synth.control().toggle_delay();
+                                                notify_delay_setting(&mut synth, 0);
                                             }
 
                                             midi_msg::ControlChange::CC { control, value }
                                                 if control == DELAY_TIME_CONTROL =>
                                             {
-                                                synth.adjust_delay_time(value != 0);
-                                                notify_delay_setting(&synth, 1);
+                                                synth.control().adjust_delay_time(value != 0);
+                                                notify_delay_setting(&mut synth, 1);
                                             }
 
                                             midi_msg::ControlChange::CC { control, value }
                                                 if control == DELAY_MIX_CONTROL =>
                                             {
-                                                synth.adjust_delay_mix(value != 0);
-                                                notify_delay_setting(&synth, 2);
+                                                synth.control().adjust_delay_mix(value != 0);
+                                                notify_delay_setting(&mut synth, 2);
                                             }
 
                                             midi_msg::ControlChange::CC { control, value }
                                                 if control == DELAY_FEEDBACK_CONTROL =>
                                             {
-                                                synth.adjust_delay_feedback(value != 0);
-                                                notify_delay_setting(&synth, 3);
+                                                synth.control().adjust_delay_feedback(value != 0);
+                                                notify_delay_setting(&mut synth, 3);
                                             }
 
                                             midi_msg::ControlChange::CC { control, .. }
                                                 if control == DELAY_STATUS_CONTROL =>
                                             {
-                                                notify_delay_settings(&synth);
+                                                notify_delay_settings(&mut synth);
                                             }
 
                                             midi_msg::ControlChange::CC { control, value }
                                                 if control == FM_CARRIER_WAVEFORM_CONTROL =>
                                             {
-                                                synth.adjust_fm_carrier_waveform(value != 0);
-                                                notify_fm_setting(&synth, 0);
+                                                synth.control().adjust_fm_carrier_waveform(value != 0);
+                                                notify_fm_setting(&mut synth, 0);
                                             }
 
                                             midi_msg::ControlChange::CC { control, value }
                                                 if control == FM_WAVEFORM_CONTROL =>
                                             {
-                                                synth.adjust_fm_modulator_waveform(value != 0);
-                                                notify_fm_setting(&synth, 1);
+                                                synth.control().adjust_fm_modulator_waveform(value != 0);
+                                                notify_fm_setting(&mut synth, 1);
                                             }
 
                                             midi_msg::ControlChange::CC { control, value }
                                                 if control == FM_RATIO_CONTROL =>
                                             {
-                                                synth.adjust_fm_modulator_ratio(value != 0);
-                                                notify_fm_setting(&synth, 2);
+                                                synth.control().adjust_fm_modulator_ratio(value != 0);
+                                                notify_fm_setting(&mut synth, 2);
                                             }
 
                                             midi_msg::ControlChange::CC { control, value }
                                                 if control == FM_DEPTH_CONTROL =>
                                             {
-                                                synth.adjust_fm_modulation_depth(value != 0);
-                                                notify_fm_setting(&synth, 3);
+                                                synth.control().adjust_fm_modulation_depth(value != 0);
+                                                notify_fm_setting(&mut synth, 3);
                                             }
 
                                             midi_msg::ControlChange::CC { control, .. }
                                                 if control == FM_STATUS_CONTROL =>
                                             {
-                                                notify_fm_settings(&synth);
+                                                notify_fm_settings(&mut synth);
                                             }
 
                                             _ => {}
