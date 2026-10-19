@@ -551,10 +551,8 @@ pub fn synth_loop() {
                 for i in 0..(avail / 4) {
                     let output_synth = synth.clock_and_output();
 
-                    let mix = output_synth[0];
-
-                    let left = mix.to_be_bytes();
-                    let right = left;
+                    let left = output_synth[0].to_be_bytes();
+                    let right = output_synth[1].to_be_bytes();
                     // left
                     buffer[i * 4] = left[1];
                     buffer[i * 4 + 1] = left[0];
