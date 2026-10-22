@@ -184,13 +184,10 @@ pub fn synth_loop() {
         Cpu::current() as usize
     );
 
-    esp_println::println!("-:= > Starting Little Weirdo @ 16bits / {} Hz", SAMPLE_RATE);
-    let storage;
-    unsafe {
-        let peripherals: Peripherals = Peripherals::steal();
-        storage = FlashStorage::new(peripherals.FLASH);
-    }
+    // ✅ Steal peripherals ONCE
+    let peripherals = unsafe { Peripherals::steal() };
 
+    let storage = FlashStorage::new(peripherals.FLASH);
     let mut filesystem: WeirdoFileSystem<FlashStorage> =
         WeirdoFileSystem::new(storage, 0x00220000, 0x200000);
 
@@ -276,240 +273,245 @@ pub fn synth_loop() {
     let (rx_buffer, rx_descriptors, tx_buffer, tx_descriptors) =
         dma_circular_buffers!(BUFFER_SIZE, BUFFER_SIZE);
 
-    unsafe {
-        let peripherals: Peripherals = Peripherals::steal();
-        let dma_channel = peripherals.DMA_CH0;
+    let dma_channel = peripherals.DMA_CH0;
 
-        let mut i2s = I2s::new(
-            peripherals.I2S0,
-            dma_channel,
-            Config::new_tdm_philips()
-                .with_signal_loopback(true)
-                .with_sample_rate(Rate::from_hz(44100))
-                .with_data_format(DataFormat::Data16Channel16)
-                .with_channels(Channels::STEREO),
-        )
-        .unwrap();
+    let mut i2s = I2s::new(
+        peripherals.I2S0,
+        dma_channel,
+        Config::new_tdm_philips()
+            .with_signal_loopback(true)
+            .with_sample_rate(Rate::from_hz(44100))
+            .with_data_format(DataFormat::Data16Channel16)
+            .with_channels(Channels::STEREO),
+    )
+    .unwrap();
 
-        i2s = i2s.with_mclk(peripherals.GPIO42);
+    i2s = i2s.with_mclk(peripherals.GPIO42);
 
-        let mut i2s_tx = i2s
-            .i2s_tx
-            .with_bclk(peripherals.GPIO40)
-            .with_ws(peripherals.GPIO41)
-            .with_dout(peripherals.GPIO38)
-            .build(tx_descriptors);
+    let mut i2s_tx = i2s
+        .i2s_tx
+        .with_bclk(peripherals.GPIO40)
+        .with_ws(peripherals.GPIO41)
+        .with_dout(peripherals.GPIO38)
+        .build(tx_descriptors);
 
-        let mut i2s_rx = i2s
-            .i2s_rx
-            .with_din(peripherals.GPIO39)
+    let mut i2s_rx = i2s
+        .i2s_rx
+        .with_din(peripherals.GPIO39)
+        .build(rx_descriptors);
 
-            .build(rx_descriptors);
+    esp_println::println!(
+        "-:= > Starting LttL Weirdɵ DMA transfer with a {} ms buffer",
+        (AMOUNT_OF_SAMPLES_BUFFERING * 1000 / SAMPLE_RATE as usize * 1000) / 1000
+    );
 
-        esp_println::println!(
-            "-:= > Starting LttL Weirdɵ DMA transfer with a {} ms buffer",
-            (AMOUNT_OF_SAMPLES_BUFFERING * 1000 / SAMPLE_RATE as usize * 1000) / 1000
-        );
+    let mut buffer = [0u8; BUFFER_SIZE];
+    let mut buffer_receiver = [0u8; BUFFER_SIZE];
+    let mut midi_message_receiver = MIDI_MESSAGE_CHANNEL.subscriber().unwrap();
+    
+    // ✅ Allocate synth output buffer once (Stereo 16-bit)
+    let mut synth_buffer = [0i16; AMOUNT_OF_SAMPLES_BUFFERING * 2];
 
-        let mut buffer = [0u8; BUFFER_SIZE];
-        let mut buffer_receiver =  [0u8; BUFFER_SIZE];
+    // ✅ Start DMA ONCE outside the loop
+    let mut transfer = match i2s_tx.write_dma_circular(tx_buffer) {
+        Ok(t) => t,
+        Err(e) => {
+            println!("Failed to start TX DMA: {:?}", e);
+            return;
+        }
+    };
+    let mut receiver = match i2s_rx.read_dma_circular(rx_buffer) {
+        Ok(r) => r,
+        Err(e) => {
+            println!("Failed to start RX DMA: {:?}", e);
+            return;
+        }
+    };
 
-        let mut midi_message_receiver = MIDI_MESSAGE_CHANNEL.subscriber().unwrap();
-
-        loop {
-            let mut transfer = match i2s_tx.write_dma_circular(tx_buffer) {
-                Ok(transfer) => transfer,
-                Err(error) => {
-                    println!("failed to start I2S DMA transfer: {:?}", error);
-                    continue;
-                }
-            };
-
-            let mut receiver = match i2s_rx.read_dma_circular(rx_buffer) {
-                Ok(receiver) => receiver,
-                Err(error) =>  {
-                    println!("failed to start I2S DMA receiver: {:?}", error);
-                    continue;
-                }
-            };
-
-            loop {
-                // Process pending MIDI messages
-                while midi_message_receiver.available() > 0 {
-                    if let Some(msg) = midi_message_receiver.try_next_message_pure() {
-                        if let midi_msg::MidiMsg::ChannelVoice { channel, msg } = msg {
-                            match channel {
-                                Channel::Ch2 | Channel::Ch1 => match msg {
-                                    midi_msg::ChannelVoiceMsg::ProgramChange { program } => {
-                                        synth.load_patch(program);
-                                    }
-                                    midi_msg::ChannelVoiceMsg::NoteOn { note, velocity } => {
-                                        synth.note_on(note, velocity);
-                                    }
-                                    midi_msg::ChannelVoiceMsg::NoteOff { note, .. } => {
-                                        synth.note_off(note);
-                                    }
-                                    midi_msg::ChannelVoiceMsg::ControlChange { control } => {
-                                        match control {
-                                            midi_msg::ControlChange::Volume(volume) => {
-                                                synth.control().change_main_volume(volume as u8);
-                                            }
-                                            midi_msg::ControlChange::SoundControl1(value) => {
-                                                synth.control().change_cutoff(value);
-                                            }
-                                            midi_msg::ControlChange::SoundControl2(value) => {
-                                                synth.control().change_all_voices(value);
-                                            }
-                                            midi_msg::ControlChange::AttackTime(value) => {
-                                                synth.control().change_all_envelopes(Some(envelope_time_ms(value)), None, None, None);
-                                            }
-                                            midi_msg::ControlChange::DecayTime(value) => {
-                                                synth.control().change_all_envelopes(None, Some(envelope_time_ms(value)), None, None);
-                                            }
-                                            midi_msg::ControlChange::SoundControl3(value) => {
-                                                synth.control().change_all_envelopes(None, None, Some(value.min(100) as i16), None);
-                                            }
-                                            midi_msg::ControlChange::ReleaseTime(value) => {
-                                                synth.control().change_all_envelopes(None, None, None, Some(envelope_time_ms(value)));
-                                            }
-                                            midi_msg::ControlChange::CC { control, .. } if control == OVERDRIVE_ENABLE_CONTROL => {
-                                                synth.control().toggle_overdrive();
-                                                notify_overdrive_setting(&mut synth, 0);
-                                            }
-                                            midi_msg::ControlChange::CC { control, value } if control == OVERDRIVE_KIND_CONTROL => {
-                                                synth.control().cycle_overdrive_kind(value != 0);
-                                                notify_overdrive_setting(&mut synth, 1);
-                                            }
-                                            midi_msg::ControlChange::CC { control, value } if control == OVERDRIVE_THRESHOLD_CONTROL => {
-                                                synth.control().adjust_overdrive_threshold(value != 0);
-                                                notify_overdrive_setting(&mut synth, 2);
-                                            }
-                                            midi_msg::ControlChange::CC { control, .. } if control == OVERDRIVE_STATUS_CONTROL => {
-                                                notify_overdrive_settings(&mut synth);
-                                            }
-                                            midi_msg::ControlChange::CC { control, .. } if control == DELAY_ENABLE_CONTROL => {
-                                                synth.control().toggle_delay();
-                                                notify_delay_setting(&mut synth, 0);
-                                            }
-                                            midi_msg::ControlChange::CC { control, value } if control == DELAY_TIME_CONTROL => {
-                                                synth.control().adjust_delay_time(value != 0);
-                                                notify_delay_setting(&mut synth, 1);
-                                            }
-                                            midi_msg::ControlChange::CC { control, value } if control == DELAY_MIX_CONTROL => {
-                                                synth.control().adjust_delay_mix(value != 0);
-                                                notify_delay_setting(&mut synth, 2);
-                                            }
-                                            midi_msg::ControlChange::CC { control, value } if control == DELAY_FEEDBACK_CONTROL => {
-                                                synth.control().adjust_delay_feedback(value != 0);
-                                                notify_delay_setting(&mut synth, 3);
-                                            }
-                                            midi_msg::ControlChange::CC { control, .. } if control == DELAY_STATUS_CONTROL => {
-                                                notify_delay_settings(&mut synth);
-                                            }
-                                            midi_msg::ControlChange::CC { control, value } if control == FM_CARRIER_WAVEFORM_CONTROL => {
-                                                synth.control().adjust_fm_carrier_waveform(value != 0);
-                                                notify_fm_setting(&mut synth, 0);
-                                            }
-                                            midi_msg::ControlChange::CC { control, value } if control == FM_WAVEFORM_CONTROL => {
-                                                synth.control().adjust_fm_modulator_waveform(value != 0);
-                                                notify_fm_setting(&mut synth, 1);
-                                            }
-                                            midi_msg::ControlChange::CC { control, value } if control == FM_RATIO_CONTROL => {
-                                                synth.control().adjust_fm_modulator_ratio(value != 0);
-                                                notify_fm_setting(&mut synth, 2);
-                                            }
-                                            midi_msg::ControlChange::CC { control, value } if control == FM_DEPTH_CONTROL => {
-                                                synth.control().adjust_fm_modulation_depth(value != 0);
-                                                notify_fm_setting(&mut synth, 3);
-                                            }
-                                            midi_msg::ControlChange::CC { control, .. } if control == FM_STATUS_CONTROL => {
-                                                notify_fm_settings(&mut synth);
-                                            }
-                                            _ => {}
-                                        }
-                                    }
-                                    _ => {}
-                                },
-                                _ => {}
+    loop {
+             while midi_message_receiver.available() > 0 {
+            if let Some(msg) = midi_message_receiver.try_next_message_pure() {
+                if let midi_msg::MidiMsg::ChannelVoice { channel, msg } = msg {
+                    match channel {
+                        Channel::Ch2 | Channel::Ch1 => match msg {
+                            midi_msg::ChannelVoiceMsg::ProgramChange { program } => {
+                                synth.load_patch(program);
                             }
-                        }
+                            midi_msg::ChannelVoiceMsg::NoteOn { note, velocity } => {
+                                synth.note_on(note, velocity);
+                            }
+                            midi_msg::ChannelVoiceMsg::NoteOff { note, .. } => {
+                                synth.note_off(note);
+                            }
+                            midi_msg::ChannelVoiceMsg::ControlChange { control } => match control {
+                                midi_msg::ControlChange::Volume(volume) => {
+                                    synth.control().change_main_volume(volume as u8);
+                                }
+                                midi_msg::ControlChange::SoundControl1(value) => {
+                                    synth.control().change_cutoff(value);
+                                }
+                                midi_msg::ControlChange::SoundControl2(value) => {
+                                    synth.control().change_all_voices(value);
+                                }
+                                midi_msg::ControlChange::AttackTime(value) => {
+                                    synth.control().change_all_envelopes(
+                                        Some(envelope_time_ms(value)),
+                                        None,
+                                        None,
+                                        None,
+                                    );
+                                }
+                                midi_msg::ControlChange::DecayTime(value) => {
+                                    synth.control().change_all_envelopes(
+                                        None,
+                                        Some(envelope_time_ms(value)),
+                                        None,
+                                        None,
+                                    );
+                                }
+                                midi_msg::ControlChange::SoundControl3(value) => {
+                                    synth.control().change_all_envelopes(
+                                        None,
+                                        None,
+                                        Some(value.min(100) as i16),
+                                        None,
+                                    );
+                                }
+                                midi_msg::ControlChange::ReleaseTime(value) => {
+                                    synth.control().change_all_envelopes(
+                                        None,
+                                        None,
+                                        None,
+                                        Some(envelope_time_ms(value)),
+                                    );
+                                }
+                                midi_msg::ControlChange::CC { control, .. }
+                                    if control == OVERDRIVE_ENABLE_CONTROL =>
+                                {
+                                    synth.control().toggle_overdrive();
+                                    notify_overdrive_setting(&mut synth, 0);
+                                }
+                                midi_msg::ControlChange::CC { control, value }
+                                    if control == OVERDRIVE_KIND_CONTROL =>
+                                {
+                                    synth.control().cycle_overdrive_kind(value != 0);
+                                    notify_overdrive_setting(&mut synth, 1);
+                                }
+                                midi_msg::ControlChange::CC { control, value }
+                                    if control == OVERDRIVE_THRESHOLD_CONTROL =>
+                                {
+                                    synth.control().adjust_overdrive_threshold(value != 0);
+                                    notify_overdrive_setting(&mut synth, 2);
+                                }
+                                midi_msg::ControlChange::CC { control, .. }
+                                    if control == OVERDRIVE_STATUS_CONTROL =>
+                                {
+                                    notify_overdrive_settings(&mut synth);
+                                }
+                                midi_msg::ControlChange::CC { control, .. }
+                                    if control == DELAY_ENABLE_CONTROL =>
+                                {
+                                    synth.control().toggle_delay();
+                                    notify_delay_setting(&mut synth, 0);
+                                }
+                                midi_msg::ControlChange::CC { control, value }
+                                    if control == DELAY_TIME_CONTROL =>
+                                {
+                                    synth.control().adjust_delay_time(value != 0);
+                                    notify_delay_setting(&mut synth, 1);
+                                }
+                                midi_msg::ControlChange::CC { control, value }
+                                    if control == DELAY_MIX_CONTROL =>
+                                {
+                                    synth.control().adjust_delay_mix(value != 0);
+                                    notify_delay_setting(&mut synth, 2);
+                                }
+                                midi_msg::ControlChange::CC { control, value }
+                                    if control == DELAY_FEEDBACK_CONTROL =>
+                                {
+                                    synth.control().adjust_delay_feedback(value != 0);
+                                    notify_delay_setting(&mut synth, 3);
+                                }
+                                midi_msg::ControlChange::CC { control, .. }
+                                    if control == DELAY_STATUS_CONTROL =>
+                                {
+                                    notify_delay_settings(&mut synth);
+                                }
+                                midi_msg::ControlChange::CC { control, value }
+                                    if control == FM_CARRIER_WAVEFORM_CONTROL =>
+                                {
+                                    synth.control().adjust_fm_carrier_waveform(value != 0);
+                                    notify_fm_setting(&mut synth, 0);
+                                }
+                                midi_msg::ControlChange::CC { control, value }
+                                    if control == FM_WAVEFORM_CONTROL =>
+                                {
+                                    synth.control().adjust_fm_modulator_waveform(value != 0);
+                                    notify_fm_setting(&mut synth, 1);
+                                }
+                                midi_msg::ControlChange::CC { control, value }
+                                    if control == FM_RATIO_CONTROL =>
+                                {
+                                    synth.control().adjust_fm_modulator_ratio(value != 0);
+                                    notify_fm_setting(&mut synth, 2);
+                                }
+                                midi_msg::ControlChange::CC { control, value }
+                                    if control == FM_DEPTH_CONTROL =>
+                                {
+                                    synth.control().adjust_fm_modulation_depth(value != 0);
+                                    notify_fm_setting(&mut synth, 3);
+                                }
+                                midi_msg::ControlChange::CC { control, .. }
+                                    if control == FM_STATUS_CONTROL =>
+                                {
+                                    notify_fm_settings(&mut synth);
+                                }
+                                _ => {}
+                            },
+                            _ => {}
+                        },
+                        _ => {}
                     }
-                }
-
-                // Check TX availability first to drive the loop
-                let tx_avail = match transfer.available() {
-                    Ok(n) => n,
-                    Err(esp_hal::dma::DmaError::Late) => {
-                        println!("I2S TX DMA late; restarting");
-                        let _ = transfer.stop();
-                        break;
-                    }
-                    Err(e) => {
-                        println!("I2S TX avail error: {:?}", e);
-                        continue;
-                    }
-                };
-
-                if tx_avail == 0 {
-                    core::hint::spin_loop();
-                    continue;
-                }
-
-                let tx_frames = tx_avail / 4;
-
-                // Drain available RX samples safely
-                let mut rx_bytes_popped = 0;
-                if let Ok(n) = receiver.available() {
-                    if n > 0 {
-                        rx_bytes_popped = receiver.pop(&mut buffer_receiver).unwrap_or(0);
-                    }
-                }
-                let rx_frames_total = rx_bytes_popped / 4;
-                let mut rx_idx = 0;
-
-                // Generate audio: Always clock synth, mix with RX if available
-                for i in 0..tx_frames {
-                    let [synth_l, synth_r] = synth.clock_and_output();
-                    
-                    let (rx_l, rx_r);
-                    if rx_idx < rx_frames_total {
-                        let base = rx_idx * 4;
-                        rx_l = i16::from_le_bytes([buffer_receiver[base], buffer_receiver[base+1]]);
-                        rx_r = i16::from_le_bytes([buffer_receiver[base+2], buffer_receiver[base+3]]);
-                        rx_idx += 1;
-                    } else {
-                        // No RX data available for this frame, use silence
-                        rx_l = 0;
-                        rx_r = 0;
-                    }
-
-                    let rx_l_att = rx_l >> 1; 
-                    let rx_r_att = rx_r >> 1;
-
-                    let mixed_l = (synth_l + rx_l_att) >> 1;
-                    let mixed_r = (synth_r + rx_r_att) >> 1;
-
-                    let l_bytes = mixed_l.to_le_bytes();
-                    let r_bytes = mixed_r.to_le_bytes();
-                    let out_base = i * 4;
-                    buffer[out_base]     = l_bytes[0];
-                    buffer[out_base + 1] = l_bytes[1];
-                    buffer[out_base + 2] = r_bytes[0];
-                    buffer[out_base + 3] = r_bytes[1];
-                }
-
-                // Push all generated frames to TX DMA
-                let push_len = tx_frames * 4;
-                match transfer.push(&buffer[..push_len]) {
-                    Ok(_) => {}
-                    Err(esp_hal::dma::DmaError::Late) => {
-                        println!("I2S TX push late; restarting");
-                        let _ = transfer.stop();
-                        break;
-                    }
-                    Err(e) => println!("I2S TX push failed: {:?}", e),
                 }
             }
         }
+        
+        // 1. Always drain RX first to prevent buffer overflow & sample loss
+        let mut rx_bytes_popped = 0;
+        if let Ok(rx_avail) = receiver.available() {
+            if rx_avail > 0 {
+                let safe_len = rx_avail.min(buffer_receiver.len());
+                rx_bytes_popped = receiver.pop(&mut buffer_receiver[..safe_len]).unwrap_or(0);
+            }
+        }
+        let rx_frames_total = rx_bytes_popped / 4;
+
+        // 2. Check TX availability
+        let tx_avail = match transfer.available() {
+            Ok(n) => n,
+            Err(esp_hal::dma::DmaError::Late) => {
+                println!("I2S TX DMA late");
+                continue; 
+            }
+            Err(e) => {
+                println!("I2S TX avail error: {:?}", e);
+                continue;
+            }
+        };
+        let tx_frames = tx_avail / 4;
+
+        // 3. Copy & Push only what fits in TX
+        if tx_frames > 0 && rx_frames_total > 0 {
+            let frames_to_push = tx_frames.min(rx_frames_total);
+            let push_len = frames_to_push * 4;
+            
+            // Direct slice copy avoids manual index math & endianness bugs
+            buffer[..push_len].copy_from_slice(&buffer_receiver[..push_len]);
+            
+            if let Err(e) = transfer.push(&buffer[..push_len]) {
+                println!("I2S TX push failed: {:?}", e);
+            }
+        }
+        // If tx_frames == 0, we simply loop back. RX was already drained, so no data is lost.
     }
 }
