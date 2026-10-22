@@ -14,14 +14,7 @@ use esp_hal::{
 use esp_println::println;
 use esp_storage::FlashStorage;
 use little_weirdo::{
-    synth::data::waveforms::{BoxedWaveform, BoxedWaveforms},
-    synth::{
-        self, Synth,
-        data::patches::{BoxedPatch, BoxedPatches},
-        patch::Patch,
-    },
-    wavetable::data::patches::BoxedSamplerPatches,
-    wavetable::sample_voice::{BoxedSample, BoxedSamples},
+    math, synth::{self, Synth, data::{patches::{BoxedPatch, BoxedPatches}, waveforms::{BoxedWaveform, BoxedWaveforms}}, patch::Patch}, wavetable::{data::patches::BoxedSamplerPatches, sample_voice::{BoxedSample, BoxedSamples}},
 };
 
 use little_weirdo_filesystem::WeirdoFileSystem;
@@ -506,7 +499,25 @@ pub fn synth_loop() {
             let push_len = frames_to_push * 4;
             
             // Direct slice copy avoids manual index math & endianness bugs
-            buffer[..push_len].copy_from_slice(&buffer_receiver[..push_len]);
+          //  buffer[..push_len].copy_from_slice(&buffer_receiver[..push_len]);
+            for i in 0..frames_to_push {
+                let base = i * 4;
+                let [s_l, s_r] = synth.clock_and_output();
+
+                // Decode RX sample
+                let rx_l = i16::from_le_bytes([buffer_receiver[base], buffer_receiver[base + 1]]);
+                let rx_r = i16::from_le_bytes([buffer_receiver[base + 2], buffer_receiver[base + 3]]);
+
+                 let out_l = ((rx_l as i32 + s_l as i32)).clamp(-32768, 32767) as i16;
+                let out_r = ((rx_r as i32 + s_r as i32)).clamp(-32768, 32767) as i16;
+
+            
+                // Encode to buffer
+                buffer[base..base + 2].copy_from_slice(&out_l.to_le_bytes());
+                buffer[base + 2..base + 4].copy_from_slice(&out_r.to_le_bytes());
+            }
+
+
             
             if let Err(e) = transfer.push(&buffer[..push_len]) {
                 println!("I2S TX push failed: {:?}", e);
