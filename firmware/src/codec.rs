@@ -42,11 +42,11 @@ pub async fn codec_task(i2c_bus: &'static I2c1Bus) {
                     sgtl500.power_up().await
                 );
                 let _ = sgtl500.headphone_volume(volume).await;
-                // sgtl500.select_adc_input(driver_sgtl5000::AdcInputSources::LineIn).await;
-             let _ = sgtl500.enable_audio_processing().await;
-                // sgtl500.enable_mixer().await;
+                let _ = sgtl500.select_adc_input(driver_sgtl5000::AdcInputSources::Microphone).await;
+              let _ = sgtl500.enable_audio_processing().await;
+             //sgtl500.enable_mixer().await;
                 // sgtl500.set_mix_channel_volume_level().await;
-              let _ = sgtl500.enable_surround().await;
+           //   let _ = sgtl500.enable_surround().await;
 
              // sgtl500.enable_bass_enhance().await;
                 println!(
