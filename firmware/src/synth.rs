@@ -14,7 +14,19 @@ use esp_hal::{
 use esp_println::println;
 use esp_storage::FlashStorage;
 use little_weirdo::{
-    math, synth::{self, Synth, data::{patches::{BoxedPatch, BoxedPatches}, waveforms::{BoxedWaveform, BoxedWaveforms}}, patch::Patch}, wavetable::{data::patches::BoxedSamplerPatches, sample_voice::{BoxedSample, BoxedSamples}},
+    math,
+    synth::{
+        self, Synth,
+        data::{
+            patches::{BoxedPatch, BoxedPatches},
+            waveforms::{BoxedWaveform, BoxedWaveforms},
+        },
+        patch::Patch,
+    },
+    wavetable::{
+        data::patches::BoxedSamplerPatches,
+        sample_voice::{BoxedSample, BoxedSamples},
+    },
 };
 
 use little_weirdo_filesystem::WeirdoFileSystem;
@@ -22,7 +34,7 @@ use little_weirdo_gui::{Event, NAVIGATION_SIGNAL};
 use midi_msg::Channel;
 
 use crate::{
-    MIDI_MESSAGE_CHANNEL,
+    MIDI_MESSAGE_CHANNEL, MIX_INPUT,
     mapping::{
         DELAY_CHANGED_EVENT_IDENTIFIER, DELAY_ENABLE_CONTROL, DELAY_FEEDBACK_CONTROL,
         DELAY_MIX_CONTROL, DELAY_STATUS_CONTROL, DELAY_TIME_CONTROL, FM_CARRIER_WAVEFORM_CONTROL,
@@ -301,7 +313,7 @@ pub fn synth_loop() {
     let mut buffer = [0u8; BUFFER_SIZE];
     let mut buffer_receiver = [0u8; BUFFER_SIZE];
     let mut midi_message_receiver = MIDI_MESSAGE_CHANNEL.subscriber().unwrap();
-    
+
     // ✅ Allocate synth output buffer once (Stereo 16-bit)
     let mut synth_buffer = [0i16; AMOUNT_OF_SAMPLES_BUFFERING * 2];
 
@@ -322,7 +334,7 @@ pub fn synth_loop() {
     };
 
     loop {
-             while midi_message_receiver.available() > 0 {
+        while midi_message_receiver.available() > 0 {
             if let Some(msg) = midi_message_receiver.try_next_message_pure() {
                 if let midi_msg::MidiMsg::ChannelVoice { channel, msg } = msg {
                     match channel {
@@ -468,7 +480,7 @@ pub fn synth_loop() {
                 }
             }
         }
-        
+
         // 1. Always drain RX first to prevent buffer overflow & sample loss
         let mut rx_bytes_popped = 0;
         if let Ok(rx_avail) = receiver.available() {
@@ -484,7 +496,7 @@ pub fn synth_loop() {
             Ok(n) => n,
             Err(esp_hal::dma::DmaError::Late) => {
                 println!("I2S TX DMA late");
-                continue; 
+                continue;
             }
             Err(e) => {
                 println!("I2S TX avail error: {:?}", e);
@@ -497,28 +509,31 @@ pub fn synth_loop() {
         if tx_frames > 0 && rx_frames_total > 0 {
             let frames_to_push = tx_frames.min(rx_frames_total);
             let push_len = frames_to_push * 4;
-            
+
             // Direct slice copy avoids manual index math & endianness bugs
-          //  buffer[..push_len].copy_from_slice(&buffer_receiver[..push_len]);
+            //  buffer[..push_len].copy_from_slice(&buffer_receiver[..push_len]);
             for i in 0..frames_to_push {
                 let base = i * 4;
                 let [s_l, s_r] = synth.clock_and_output();
 
+                let mut out_l = s_l;
+                let mut out_r = s_r;
+
                 // Decode RX sample
                 let rx_l = i16::from_le_bytes([buffer_receiver[base], buffer_receiver[base + 1]]);
-                let rx_r = i16::from_le_bytes([buffer_receiver[base + 2], buffer_receiver[base + 3]]);
+                let rx_r =
+                    i16::from_le_bytes([buffer_receiver[base + 2], buffer_receiver[base + 3]]);
 
-                 let out_l = ((rx_l as i32 + s_l as i32)).clamp(-32768, 32767) as i16;
-                let out_r = ((rx_r as i32 + s_r as i32)).clamp(-32768, 32767) as i16;
+                if MIX_INPUT {
+                    out_l = (rx_l as i32 + s_l as i32).clamp(-32768, 32767) as i16;
+                    out_r = (rx_r as i32 + s_r as i32).clamp(-32768, 32767) as i16;
+                }
 
-            
                 // Encode to buffer
                 buffer[base..base + 2].copy_from_slice(&out_l.to_le_bytes());
                 buffer[base + 2..base + 4].copy_from_slice(&out_r.to_le_bytes());
             }
 
-
-            
             if let Err(e) = transfer.push(&buffer[..push_len]) {
                 println!("I2S TX push failed: {:?}", e);
             }

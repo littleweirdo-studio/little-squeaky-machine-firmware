@@ -74,10 +74,11 @@ static MIDI_OUT_MESSAGE_CHANNEL: Channel<CriticalSectionRawMutex, midi_msg::Midi
 // create stack for second core (running the Synth tasks, 220KB stack reserved)
 static mut APP_CORE_STACK: Stack<250_000> = Stack::new();
 
-const USB_MIDI_ENABLED: bool = false;
+const USB_MIDI_ENABLED: bool = true;
 const UART_MIDI_ENABLED: bool = false;
 const TILT_ENABLED: bool = false;
 const TOUCH_ENABLED: bool = false;
+const MIX_INPUT: bool = true;
 
 type I2c1Bus = Mutex<NoopRawMutex, esp_hal::i2c::master::I2c<'static, Async>>;
 
