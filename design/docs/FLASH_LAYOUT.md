@@ -4,7 +4,6 @@ Data Format:
 
 - All wavetable forms and samples are in 16-bit resolution.
 - Each wavetable form consists of 600 cycles.
-- Sampler samples has a sample rate of 44100 hertz, resulting in a storage size of 88200 (88.2 KB/s) bytes per second.
 
 ## Key layout
 

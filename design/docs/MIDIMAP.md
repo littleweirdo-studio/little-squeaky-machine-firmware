@@ -17,10 +17,6 @@ When sending a program change to LttL Weirdo, the corresponding Patch will be lo
 
 | Program Number | Patch | Description |
 | --- | --- | --- |
-| 0x00 | Bass Guitar | 1 Osc - Bass - Filtered|
-| 0x01 | Bass Guitar Fourth | 2 Osc - Bass - Detuned (0-4) - Filtered |
-| 0x02 | Bass Guitar Major | 3 Osc - Bass - Detuned (0-4-7) - Filtered |
-| 0x03 | WeirdScience | 4 Osc - Square - Detuned (0-4-7-9) |
 
 ## Control change
 

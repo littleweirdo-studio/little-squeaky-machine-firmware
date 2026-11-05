@@ -34,17 +34,15 @@ use ssd1306::{I2CDisplayInterface, Ssd1306Async};
 
 use crate::I2c1Bus;
 use crate::VERSION;
-use crate::led::INITIAL_BRIGHTNESS;
 use crate::mapping::{
-    BRIGHTNESS_CHANGED_EVENT_IDENTIFIER, CHORD_CHANGED_EVENT_IDENTIFIER, CHORD_NAMES,
+    CHORD_CHANGED_EVENT_IDENTIFIER, CHORD_NAMES, CUTOFF_CHANGED_EVENT_IDENTIFIER,
     DELAY_CHANGED_EVENT_IDENTIFIER, DELAY_MODE_EVENT_ID, ENCODER_USED_EVENT_IDENTIFIER,
-    ENVELOPE_CHANGED_EVENT_IDENTIFIER, ENVELOPE_MODE_EVENT_ID, envelope_time_ms,
-    FM_CHANGED_EVENT_IDENTIFIER, FM_MODE_EVENT_ID, GUI_MENU_BUTTON_EVENT_IDENTIFIER,
-    GUI_MENU_OPTION_SELECTED_EVENT_IDENTIFIER, GUI_MENU_ROTATION_EVENT_IDENTIFIER,
-    INITIAL_ENVELOPE_VALUES, INITIAL_KEYPAD_OCTAVE_SHIFT, INITIAL_VOLUME,
-    KEYPAD_OCTAVE_CHANGED_EVENT_IDENTIFIER, OVERDRIVE_CHANGED_EVENT_IDENTIFIER,
+    ENVELOPE_CHANGED_EVENT_IDENTIFIER, ENVELOPE_MODE_EVENT_ID, FM_CHANGED_EVENT_IDENTIFIER,
+    FM_MODE_EVENT_ID, GUI_MENU_BUTTON_EVENT_IDENTIFIER, GUI_MENU_OPTION_SELECTED_EVENT_IDENTIFIER,
+    GUI_MENU_ROTATION_EVENT_IDENTIFIER, INITIAL_ENVELOPE_VALUES, INITIAL_KEYPAD_OCTAVE_SHIFT,
+    INITIAL_VOLUME, KEYPAD_OCTAVE_CHANGED_EVENT_IDENTIFIER, OVERDRIVE_CHANGED_EVENT_IDENTIFIER,
     OVERDRIVE_MODE_EVENT_ID, PATCH_SELECTION_EVENT_IDENTIFIER, VOLUME_CHANGED_EVENT_IDENTIFIER,
-    WAVEFORM_CHANGED_EVENT_IDENTIFIER,
+    WAVEFORM_CHANGED_EVENT_IDENTIFIER, envelope_time_ms,
 };
 use crate::synth::SoundBank;
 
@@ -119,7 +117,7 @@ fn draw_screen<D>(
     display_setting: &Option<DisplaySetting>,
     volume: u8,
     keypad_octave_shift: i8,
-    brightness: u8,
+    cutoff: u8,
     envelope_values: &[u8; 4],
     overdrive_enabled: Option<bool>,
     overdrive_kind: Option<u8>,
@@ -154,7 +152,7 @@ fn draw_screen<D>(
             let _ = draw_screen_border(display);
         }
         Some(DisplaySetting::Controls) => {
-            let _ = draw_controls(display, volume, keypad_octave_shift, brightness);
+            let _ = draw_controls(display, volume, keypad_octave_shift, cutoff);
         }
         Some(DisplaySetting::About(about)) => {
             let _ = about.draw(display);
@@ -244,7 +242,7 @@ fn draw_screen<D>(
             let _ = draw_screen_border(display);
         }
         None => {
-            let _ = draw_controls(display, volume, keypad_octave_shift, brightness);
+            let _ = draw_controls(display, volume, keypad_octave_shift, cutoff);
         }
     }
 }
@@ -345,13 +343,13 @@ fn draw_controls<D>(
     display: &mut D,
     volume: u8,
     octave_shift: i8,
-    brightness: u8,
+    cutoff: u8,
 ) -> Result<(), D::Error>
 where
     D: DrawTarget<Color = BinaryColor>,
 {
     let volume_percent = volume.min(127) as u16 * 100 / 127;
-    let brightness_percent = brightness as u16 * 100 / u8::MAX as u16;
+    let cutoff_percent = cutoff.min(127) as u16 * 100 / 127;
 
     let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
     Text::new("CONTROLS", Point::new(7, 12), text_style).draw(display)?;
@@ -372,12 +370,12 @@ where
     .draw(display)?;
     EncoderDisplay::new(
         3,
-        "Brightness",
-        Some(&format!("{}%", brightness_percent)),
+        "Cutoff",
+        Some(&format!("{}%", cutoff_percent)),
         Point::new(7, 53),
     )
     .draw(display)?;
-   draw_screen_border(display)
+    draw_screen_border(display)
 }
 
 fn draw_welcome<D>(display: &mut D) -> Result<(), D::Error>
@@ -839,7 +837,7 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
     let mut display_setting = Some(DisplaySetting::Controls);
     let mut volume = INITIAL_VOLUME;
     let mut keypad_octave_shift = INITIAL_KEYPAD_OCTAVE_SHIFT;
-    let mut brightness = INITIAL_BRIGHTNESS;
+    let mut cutoff = 64;
     let mut envelope_values = INITIAL_ENVELOPE_VALUES;
     let mut envelope_edit_mode = false;
     let mut overdrive_edit_mode = false;
@@ -874,7 +872,7 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
                     &display_setting,
                     volume,
                     keypad_octave_shift,
-                    brightness,
+                    cutoff,
                     &envelope_values,
                     overdrive_enabled,
                     overdrive_kind,
@@ -904,7 +902,7 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
                 &display_setting,
                 volume,
                 keypad_octave_shift,
-                brightness,
+                cutoff,
                 &envelope_values,
                 overdrive_enabled,
                 overdrive_kind,
@@ -1096,8 +1094,8 @@ pub async fn oled_task(i2c_bus: &'static I2c1Bus) {
                         display_setting = Some(DisplaySetting::Controls);
                     }
                 }
-                BRIGHTNESS_CHANGED_EVENT_IDENTIFIER => {
-                    brightness = event.value.min(u8::MAX as u16) as u8;
+                CUTOFF_CHANGED_EVENT_IDENTIFIER => {
+                    cutoff = event.value.min(127) as u8;
                     if !is_patch_screen(display_setting.as_ref()) {
                         display_setting = Some(DisplaySetting::Controls);
                     }

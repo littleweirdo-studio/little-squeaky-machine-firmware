@@ -1,0 +1,14 @@
+site_name: Little Squeaky Machine
+theme: readthedocs
+highlightjs: true
+nav:
+  - Home: index.md
+  - Menu: MANUAL.md
+  - About: FLASH_LAYOUT.md
+plugins:
+    - search
+    - mermaid2
+    - click-extra
+    - to-pdf
+extra_css:
+  - css/custom.css

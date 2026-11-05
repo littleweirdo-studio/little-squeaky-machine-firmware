@@ -11,7 +11,7 @@ use crate::{
     MIDI_MESSAGE_CHANNEL,
     codec::{CODEC_SIGNAL, CodecEvent, CodecEventType},
     encoder, keyboard_input,
-    led::{INITIAL_BRIGHTNESS, LED_BRIGHTNESS_CHANNEL, LED_MESSAGE_CHANNEL, LedMessage},
+    led::{LED_MESSAGE_CHANNEL, LedMessage},
     synth::SoundBank,
     touch_input::{TOUCH_BUTTON_EVENT_DOWN, TOUCH_BUTTON_EVENT_UP},
 };
@@ -82,7 +82,6 @@ const REMAP_SEQ: [u8; 25] = [
 ];
 
 const VEL: u8 = 70;
-const LED_BRIGHTNESS_STEP: u8 = 5;
 const MIN_KEYPAD_OCTAVE_SHIFT: i8 = -4;
 const MAX_KEYPAD_OCTAVE_SHIFT: i8 = 3;
 pub const INITIAL_VOLUME: u8 = 50;
@@ -121,7 +120,7 @@ fn load_patch_count() -> Option<u16> {
 pub const WAVEFORM_CHANGED_EVENT_IDENTIFIER: u8 = 250;
 //
 pub const VOLUME_CHANGED_EVENT_IDENTIFIER: u8 = 249;
-pub const BRIGHTNESS_CHANGED_EVENT_IDENTIFIER: u8 = 244;
+pub const CUTOFF_CHANGED_EVENT_IDENTIFIER: u8 = 244;
 //
 pub const ENVELOPE_CHANGED_EVENT_IDENTIFIER: u8 = 247;
 pub const ENVELOPE_MODE_EVENT_ID: u8 = 4;
@@ -232,7 +231,7 @@ pub async fn mapping_task() {
 
     let mut volume = INITIAL_VOLUME;
     let mut voice: u8 = 0;
-    let mut led_brightness = INITIAL_BRIGHTNESS;
+    let mut cutoff: u8 = 64;
     let mut envelope_values = INITIAL_ENVELOPE_VALUES;
     let mut envelope_edit_mode = false;
     let mut overdrive_edit_mode = false;
@@ -686,19 +685,29 @@ pub async fn mapping_task() {
 
                     //enc 3
                     if event.id == 3 {
-                        led_brightness = if event.value == encoder::ENCODER_CLOCKWISE {
-                            led_brightness
-                                .saturating_add(LED_BRIGHTNESS_STEP)
+                        cutoff = if event.value == encoder::ENCODER_CLOCKWISE {
+                            cutoff.saturating_add(1).min(127)
                         } else {
-                            led_brightness.saturating_sub(LED_BRIGHTNESS_STEP)
+                            cutoff.saturating_sub(1)
                         };
 
-                        LED_BRIGHTNESS_CHANNEL.send(led_brightness).await;
+                        sender
+                            .publish(midi_msg::MidiMsg::ChannelVoice {
+                                channel: if synth_active {
+                                    Channel::Ch1
+                                } else {
+                                    Channel::Ch2
+                                },
+                                msg: midi_msg::ChannelVoiceMsg::ControlChange {
+                                    control: midi_msg::ControlChange::SoundControl1(cutoff),
+                                },
+                            })
+                            .await;
                         NAVIGATION_SIGNAL
                             .send(Event {
-                                event_identifier: BRIGHTNESS_CHANGED_EVENT_IDENTIFIER,
+                                event_identifier: CUTOFF_CHANGED_EVENT_IDENTIFIER,
                                 id: 0,
-                                value: led_brightness as u16,
+                                value: cutoff as u16,
                             })
                             .await;
                     }
