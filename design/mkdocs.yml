@@ -1,14 +1,25 @@
 site_name: Little Squeaky Machine
-theme: readthedocs
-highlightjs: true
+theme: 
+  name: material
+  font:
+    code: Roboto mono
+  features:
+    - navigation.instant
+    - content.code.annotate
 nav:
-  - Home: index.md
-  - Menu: MANUAL.md
-  - About: FLASH_LAYOUT.md
-plugins:
-    - search
-    - mermaid2
-    - click-extra
-    - to-pdf
+  - Start: index.md
+  - Hardware: hardware.md
 extra_css:
   - css/custom.css
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - attr_list

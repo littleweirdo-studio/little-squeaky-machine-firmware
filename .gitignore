@@ -5,3 +5,4 @@
 /docs
 .DS_Store
 little_squeaky_machine_data_image.bin
+.venv
